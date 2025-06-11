@@ -310,28 +310,24 @@ export const SimpleBuildingCreator: React.FC = () => {
     console.log('🏢 Creating building with points:', points);
 
     try {
-      // Calculate centroid first for positioning
-      const centroid = calculateCentroid(points);
-      console.log('🎯 Building centroid:', centroid);
-      
-      // Create shape from points - adjusted to be centered around origin
+      // Create shape from points in the correct coordinate system
       const shape = new THREE.Shape();
       
-      // Start at first point (relative to centroid for better positioning)
-      shape.moveTo(points[0].x - centroid.x, points[0].z - centroid.z);
+      // Start at first point - use X and Z coordinates directly (no flipping needed)
+      shape.moveTo(points[0].x, points[0].z);
       console.log('📐 Shape starts at:', { x: points[0].x, z: points[0].z });
       
-      // Add lines to other points (relative to centroid)
+      // Add lines to other points in the same coordinate system
       for (let i = 1; i < points.length; i++) {
-        shape.lineTo(points[i].x - centroid.x, points[i].z - centroid.z);
+        shape.lineTo(points[i].x, points[i].z);
         console.log('📐 Line to:', { x: points[i].x, z: points[i].z });
       }
       
       // Close the shape explicitly
-      shape.lineTo(points[0].x - centroid.x, points[0].z - centroid.z);
+      shape.lineTo(points[0].x, points[0].z);
       console.log('📐 Shape closed back to start');
 
-      // Extrude settings - EXTRUDE UPWARD along Y axis
+      // Extrude settings - building height
       const extrudeSettings = {
         depth: 8, // Building height
         bevelEnabled: false,
@@ -341,30 +337,40 @@ export const SimpleBuildingCreator: React.FC = () => {
       console.log('🏗️ Extruding with settings:', extrudeSettings);
       const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
       
-      // Use the EXACT same material as test objects
+      // CRITICAL FIX: Rotate the geometry to extrude upward instead of backward
+      geometry.rotateX(Math.PI / 2);
+      
+      // Create material with wireframe for better visibility
       const material = new THREE.MeshLambertMaterial({ 
-        color: 0xff0000,
-        side: THREE.DoubleSide // Render both sides
+        color: 0x6366f1, // Purple/blue color
+        side: THREE.DoubleSide
+      });
+      
+      // Create wireframe material for edges
+      const wireframeMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.3
       });
       
       const building = new THREE.Mesh(geometry, material);
+      const wireframe = new THREE.Mesh(geometry, wireframeMaterial);
       
-      // Rotate to proper orientation
-      building.rotation.x = -Math.PI / 2;
+      // Position the building at ground level (Y = 0)
+      building.position.set(0, 0, 0);
+      wireframe.position.set(0, 0, 0);
       
-      // Position at the actual centroid of the points
-      building.position.set(centroid.x, 0, centroid.z);
       building.castShadow = true;
       building.receiveShadow = true;
       
       console.log('🏢 Adding building to scene at position:', building.position);
       sceneRef.current.add(building);
+      sceneRef.current.add(wireframe);
       
-      // Force scene update
-      sceneRef.current.updateMatrixWorld(true);
+      // Calculate centroid for the marker
+      const centroid = calculateCentroid(points);
       
-      console.log('✅ Building created and added to scene');
-
       // Add a marker at the building center for verification
       const markerGeometry = new THREE.SphereGeometry(1.5, 16, 16);
       const markerMaterial = new THREE.MeshLambertMaterial({ 
@@ -376,6 +382,11 @@ export const SimpleBuildingCreator: React.FC = () => {
       centerMarker.position.set(centroid.x, 4, centroid.z); // Positioned at middle height of building
       sceneRef.current.add(centerMarker);
       console.log('🟢 Center marker added at:', { x: centroid.x, y: 4, z: centroid.z });
+
+      // Force scene update
+      sceneRef.current.updateMatrixWorld(true);
+      
+      console.log('✅ Building created and added to scene');
 
     } catch (error) {
       console.error('❌ Error creating building:', error);
