@@ -25,19 +25,23 @@ export const createShapeFromPoints = (points: Point3D[], centroid: Point3D): THR
 
   const shape = new THREE.Shape();
   
-  // Map first point to shape coordinates (X->X, Z->-Y to fix flipping)
-  const firstX = points[0].x - centroid.x;
-  const firstY = -(points[0].z - centroid.z);
+  // Convert 3D points to 2D shape coordinates relative to centroid
+  // Use X and Z coordinates directly (Y is height, not used for ground shape)
+  const firstPoint = points[0];
+  const firstX = firstPoint.x - centroid.x;
+  const firstY = firstPoint.z - centroid.z;
+  
   shape.moveTo(firstX, firstY);
   
   // Add lines to other points
   for (let i = 1; i < points.length; i++) {
-    const shapeX = points[i].x - centroid.x;
-    const shapeY = -(points[i].z - centroid.z);
+    const point = points[i];
+    const shapeX = point.x - centroid.x;
+    const shapeY = point.z - centroid.z;
     shape.lineTo(shapeX, shapeY);
   }
   
-  // Close the shape
+  // Close the shape by connecting back to first point
   shape.lineTo(firstX, firstY);
   
   return shape;
@@ -54,7 +58,11 @@ export const getGroundIntersection = (
   
   if (intersects.length > 0) {
     const point = intersects[0].point;
-    return { x: point.x, y: point.y, z: point.z };
+    return { 
+      x: Math.round(point.x * 10) / 10, // Round to 1 decimal place for cleaner coordinates
+      y: 0, // Always 0 for ground level
+      z: Math.round(point.z * 10) / 10 
+    };
   }
   
   return null;

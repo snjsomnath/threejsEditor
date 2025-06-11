@@ -9,21 +9,28 @@ export class DrawingService {
   }
 
   createPointMarker(position: Point3D): THREE.Mesh {
-    const geometry = new THREE.SphereGeometry(0.5, 16, 16);
-    const material = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+    const geometry = new THREE.SphereGeometry(0.3, 16, 16);
+    const material = new THREE.MeshLambertMaterial({ 
+      color: 0xff4444,
+      emissive: 0xff0000,
+      emissiveIntensity: 0.2
+    });
     const marker = new THREE.Mesh(geometry, material);
     
-    marker.position.set(position.x, 0.5, position.z);
+    marker.position.set(position.x, 0.3, position.z);
     this.scene.add(marker);
     
     return marker;
   }
 
   createLine(from: Point3D, to: Point3D): THREE.Line {
-    const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+    const material = new THREE.LineBasicMaterial({ 
+      color: 0x44ff44,
+      linewidth: 2
+    });
     const points = [
-      new THREE.Vector3(from.x, 0.5, from.z),
-      new THREE.Vector3(to.x, 0.5, to.z)
+      new THREE.Vector3(from.x, 0.2, from.z),
+      new THREE.Vector3(to.x, 0.2, to.z)
     ];
     
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
@@ -37,7 +44,11 @@ export class DrawingService {
     markers.forEach(marker => {
       this.scene.remove(marker);
       marker.geometry.dispose();
-      (marker.material as THREE.Material).dispose();
+      if (Array.isArray(marker.material)) {
+        marker.material.forEach(mat => mat.dispose());
+      } else {
+        marker.material.dispose();
+      }
     });
   }
 
@@ -45,7 +56,11 @@ export class DrawingService {
     lines.forEach(line => {
       this.scene.remove(line);
       line.geometry.dispose();
-      (line.material as THREE.Material).dispose();
+      if (Array.isArray(line.material)) {
+        line.material.forEach(mat => mat.dispose());
+      } else {
+        line.material.dispose();
+      }
     });
   }
 }
