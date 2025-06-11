@@ -3,6 +3,7 @@ import { Point3D, DrawingState } from '../types/building';
 import { DrawingService } from '../services/DrawingService';
 import { BuildingService } from '../services/BuildingService';
 import { getGroundIntersection, calculateDistance } from '../utils/geometry';
+import { useBuildingManager } from './useBuildingManager';
 import * as THREE from 'three';
 
 const SNAP_DISTANCE = 2.0; // Distance threshold for snapping to start point
@@ -24,6 +25,7 @@ export const useDrawing = (
   const drawingServiceRef = useRef<DrawingService | null>(null);
   const buildingServiceRef = useRef<BuildingService | null>(null);
   const mouseRef = useRef(new THREE.Vector2());
+  const { addBuilding } = useBuildingManager(scene);
 
   // Initialize services when scene is available
   if (scene && !drawingServiceRef.current) {
@@ -61,6 +63,36 @@ export const useDrawing = (
       snapToStart: false
     });
   }, [drawingState.markers, drawingState.lines, drawingState.previewMarker]);
+
+  const undoLastPoint = useCallback(() => {
+    if (!drawingServiceRef.current || drawingState.points.length === 0) return;
+
+    const newPoints = [...drawingState.points];
+    const newMarkers = [...drawingState.markers];
+    const newLines = [...drawingState.lines];
+
+    // Remove last point
+    newPoints.pop();
+    
+    // Remove last marker
+    const lastMarker = newMarkers.pop();
+    if (lastMarker) {
+      drawingServiceRef.current.clearMarkers([lastMarker]);
+    }
+
+    // Remove last line
+    const lastLine = newLines.pop();
+    if (lastLine) {
+      drawingServiceRef.current.clearLines([lastLine]);
+    }
+
+    setDrawingState(prev => ({
+      ...prev,
+      points: newPoints,
+      markers: newMarkers,
+      lines: newLines
+    }));
+  }, [drawingState.points, drawingState.markers, drawingState.lines]);
 
   const updatePreview = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
     if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current) {
@@ -152,14 +184,18 @@ export const useDrawing = (
     }
 
     try {
-      // Create the building
+      // Create the building with random color variation
+      const colors = [0x6366f1, 0x8b5cf6, 0x06b6d4, 0x10b981, 0xf59e0b, 0xef4444];
       const buildingConfig = {
-        height: 8,
-        color: 0x6366f1,
+        height: 6 + Math.random() * 8, // Random height between 6-14
+        color: colors[Math.floor(Math.random() * colors.length)],
         enableShadows: true
       };
 
-      buildingServiceRef.current.createBuilding(drawingState.points, buildingConfig);
+      const buildingMesh = buildingServiceRef.current.createBuilding(drawingState.points, buildingConfig);
+      
+      // Add to building manager
+      addBuilding(buildingMesh, drawingState.points);
 
       // Clear drawing state
       drawingServiceRef.current.clearMarkers(drawingState.markers);
@@ -179,7 +215,7 @@ export const useDrawing = (
     } catch (error) {
       console.error('Error creating building:', error);
     }
-  }, [drawingState]);
+  }, [drawingState, addBuilding]);
 
   return {
     drawingState,
@@ -187,6 +223,7 @@ export const useDrawing = (
     stopDrawing,
     addPoint,
     finishBuilding,
-    updatePreview
+    updatePreview,
+    undoLastPoint
   };
 };
