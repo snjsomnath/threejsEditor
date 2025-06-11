@@ -190,8 +190,9 @@ export const SimpleBuildingCreator: React.FC = () => {
       console.log('📐 Shape closed back to start');
 
       // Extrude settings - EXTRUDE UPWARD
+      const buildingHeight = 8;
       const extrudeSettings = {
-        depth: 8, // Building height - BIGGER
+        depth: buildingHeight,
         bevelEnabled: false,
         steps: 1
       };
@@ -199,22 +200,31 @@ export const SimpleBuildingCreator: React.FC = () => {
       console.log('🏗️ Extruding with settings:', extrudeSettings);
       const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
       
-      // Use the EXACT same material as test objects
+      // CRITICAL FIX: Rotate the geometry so it extrudes upward instead of backward
+      geometry.rotateX(Math.PI / 2); // Rotate 90 degrees around X-axis
+      
+      // Use bright material
       const material = new THREE.MeshLambertMaterial({ 
-        color: 0xff0000, // Bright red
-        side: THREE.DoubleSide // Render both sides
+        color: 0x4F46E5, // Purple/blue color
+        side: THREE.DoubleSide
       });
       
       const building = new THREE.Mesh(geometry, material);
       
-      // Position the building properly - RAISE IT UP
-      building.position.set(0, 0, 0); // Start at ground level
-      building.rotation.x = 0; // No rotation
+      // Position the building at ground level
+      building.position.set(0, buildingHeight / 2, 0); // Raise by half height so bottom sits on ground
       building.castShadow = true;
       building.receiveShadow = true;
       
       console.log('🏢 Adding building to scene at position:', building.position);
       sceneRef.current.add(building);
+      
+      // Add wireframe edges for better visibility
+      const edges = new THREE.EdgesGeometry(geometry);
+      const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+      const wireframe = new THREE.LineSegments(edges, lineMaterial);
+      wireframe.position.copy(building.position);
+      sceneRef.current.add(wireframe);
       
       // Force scene update
       sceneRef.current.updateMatrixWorld(true);
@@ -231,9 +241,9 @@ export const SimpleBuildingCreator: React.FC = () => {
         emissiveIntensity: 0.3
       });
       const centerMarker = new THREE.Mesh(markerGeometry, markerMaterial);
-      centerMarker.position.set(centroid.x, 10, centroid.z); // High above building
+      centerMarker.position.set(centroid.x, buildingHeight + 2, centroid.z); // Above building
       sceneRef.current.add(centerMarker);
-      console.log('🟢 Center marker added at:', { x: centroid.x, y: 10, z: centroid.z });
+      console.log('🟢 Center marker added at:', { x: centroid.x, y: buildingHeight + 2, z: centroid.z });
 
     } catch (error) {
       console.error('❌ Error creating building:', error);
