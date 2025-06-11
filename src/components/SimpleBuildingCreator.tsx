@@ -6,6 +6,7 @@ import { useClickHandler } from '../hooks/useClickHandler';
 import { useBuildingManager } from '../hooks/useBuildingManager';
 import { BuildingDetailsPanel } from './BuildingDetailsPanel';
 import { BuildingConfigPanel } from './BuildingConfigPanel';
+import { BuildingEditPanel } from './BuildingEditPanel';
 import { BuildingConfig } from '../types/building';
 
 export const SimpleBuildingCreator: React.FC = () => {
@@ -14,6 +15,7 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [showBuildingConfig, setShowBuildingConfig] = useState(false);
+  const [showBuildingEdit, setShowBuildingEdit] = useState(false);
   const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
     floors: 3,
     floorHeight: 3.5,
@@ -35,7 +37,7 @@ export const SimpleBuildingCreator: React.FC = () => {
   );
 
   // Initialize building management
-  const { buildings, selectedBuilding, selectBuilding, clearAllBuildings, exportBuildings, buildingStats, deleteBuilding } = useBuildingManager(scene);
+  const { buildings, selectedBuilding, selectBuilding, updateBuilding, clearAllBuildings, exportBuildings, buildingStats, deleteBuilding } = useBuildingManager(scene);
 
   // Handle click events and mouse movement
   useClickHandler(containerRef, (event, container) => {
@@ -51,6 +53,17 @@ export const SimpleBuildingCreator: React.FC = () => {
   const handleToggleGrid = () => {
     setShowGrid(!showGrid);
     toggleGrid();
+  };
+
+  const handleEditBuilding = () => {
+    setShowBuildingEdit(true);
+  };
+
+  const handleSaveBuilding = (updates: any) => {
+    if (selectedBuilding) {
+      updateBuilding(selectedBuilding.id, updates);
+      setShowBuildingEdit(false);
+    }
   };
 
   return (
@@ -192,14 +205,24 @@ export const SimpleBuildingCreator: React.FC = () => {
       )}
 
       {/* Building Details Panel */}
-      {selectedBuilding && (
+      {selectedBuilding && !showBuildingEdit && (
         <BuildingDetailsPanel
           building={selectedBuilding}
           onClose={() => selectBuilding(null)}
+          onEdit={handleEditBuilding}
           onDelete={() => {
             deleteBuilding(selectedBuilding.id);
             selectBuilding(null);
           }}
+        />
+      )}
+
+      {/* Building Edit Panel */}
+      {selectedBuilding && showBuildingEdit && (
+        <BuildingEditPanel
+          building={selectedBuilding}
+          onClose={() => setShowBuildingEdit(false)}
+          onSave={handleSaveBuilding}
         />
       )}
 

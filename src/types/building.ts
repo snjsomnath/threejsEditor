@@ -31,4 +31,8 @@ export interface BuildingData {
   floorHeight: number;
   buildingType: string;
   createdAt: Date;
+  name?: string;
+  description?: string;
+  color?: number;
+  enableShadows?: boolean;
 }

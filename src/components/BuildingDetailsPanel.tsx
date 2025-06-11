@@ -1,17 +1,19 @@
 import React from 'react';
-import { X, Trash2, Home, Building, Factory } from 'lucide-react';
+import { X, Trash2, Home, Building, Factory, Edit } from 'lucide-react';
 import { BuildingData } from '../types/building';
 
 interface BuildingDetailsPanelProps {
   building: BuildingData;
   onClose: () => void;
   onDelete: () => void;
+  onEdit: () => void;
 }
 
 export const BuildingDetailsPanel: React.FC<BuildingDetailsPanelProps> = ({
   building,
   onClose,
-  onDelete
+  onDelete,
+  onEdit
 }) => {
   const getBuildingIcon = (type: string) => {
     switch (type) {
@@ -38,7 +40,12 @@ export const BuildingDetailsPanel: React.FC<BuildingDetailsPanelProps> = ({
           <div className={getBuildingTypeColor(building.buildingType)}>
             {getBuildingIcon(building.buildingType)}
           </div>
-          <h3 className="text-white font-bold">Building Details</h3>
+          <div>
+            <h3 className="text-white font-bold">{building.name || 'Building Details'}</h3>
+            {building.description && (
+              <p className="text-xs text-gray-400 mt-1">{building.description}</p>
+            )}
+          </div>
         </div>
         <button
           onClick={onClose}
@@ -117,7 +124,16 @@ export const BuildingDetailsPanel: React.FC<BuildingDetailsPanelProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="pt-2 border-t border-gray-700">
+        <div className="pt-2 border-t border-gray-700 space-y-2">
+          <button
+            onClick={onEdit}
+            className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 
+                      text-white rounded-lg transition-all duration-200 font-medium"
+          >
+            <Edit className="w-4 h-4" />
+            <span>Edit Building</span>
+          </button>
+          
           <button
             onClick={onDelete}
             className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 

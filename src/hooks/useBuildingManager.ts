@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import * as THREE from 'three';
-import { Point3D, BuildingData } from '../types/building';
+import { Point3D, BuildingData, BuildingConfig } from '../types/building';
 
 interface BuildingStats {
   count: number;
@@ -27,7 +27,11 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
       floors,
       floorHeight,
       buildingType,
-      createdAt: new Date()
+      createdAt: new Date(),
+      name: `${buildingType.charAt(0).toUpperCase() + buildingType.slice(1)} Building`,
+      description: '',
+      color: (mesh.material as THREE.MeshLambertMaterial).color.getHex(),
+      enableShadows: mesh.castShadow
     };
 
     // Add click handler to mesh for selection
@@ -35,6 +39,74 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
 
     setBuildings(prev => [...prev, building]);
   }, [scene]);
+
+  const updateBuilding = useCallback((id: string, updates: Partial<BuildingData> & { config?: BuildingConfig }) => {
+    if (!scene) return;
+
+    setBuildings(prev => prev.map(building => {
+      if (building.id !== id) return building;
+
+      const updatedBuilding = { ...building, ...updates };
+      
+      // If config is provided, update the 3D mesh
+      if (updates.config) {
+        const config = updates.config;
+        
+        // Update geometry if height changed
+        const newHeight = config.floors * config.floorHeight;
+        const currentHeight = building.floors * building.floorHeight;
+        
+        if (newHeight !== currentHeight) {
+          // Remove old mesh
+          scene.remove(building.mesh);
+          building.mesh.geometry.dispose();
+          
+          // Create new geometry with updated height
+          const { createShapeFromPoints, calculateCentroid } = require('../utils/geometry');
+          const centroid = calculateCentroid(building.points);
+          const shape = createShapeFromPoints(building.points, centroid);
+          
+          const extrudeSettings = {
+            depth: newHeight,
+            bevelEnabled: false,
+            steps: 1
+          };
+
+          const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+          geometry.rotateX(-Math.PI / 2);
+          
+          // Update mesh
+          building.mesh.geometry = geometry;
+          building.mesh.position.set(centroid.x, 0, centroid.z);
+          
+          // Re-add to scene
+          scene.add(building.mesh);
+        }
+        
+        // Update material color
+        const material = building.mesh.material as THREE.MeshLambertMaterial;
+        material.color.setHex(config.color);
+        
+        // Update shadow settings
+        building.mesh.castShadow = config.enableShadows;
+        building.mesh.receiveShadow = config.enableShadows;
+        
+        // Update building data
+        updatedBuilding.floors = config.floors;
+        updatedBuilding.floorHeight = config.floorHeight;
+        updatedBuilding.color = config.color;
+        updatedBuilding.enableShadows = config.enableShadows;
+        updatedBuilding.buildingType = config.buildingType;
+      }
+
+      return updatedBuilding;
+    }));
+
+    // Update selected building if it's the one being updated
+    if (selectedBuilding?.id === id) {
+      setSelectedBuilding(prev => prev ? { ...prev, ...updates } : null);
+    }
+  }, [scene, selectedBuilding]);
 
   const selectBuilding = useCallback((building: BuildingData | null) => {
     // Reset previous selection
@@ -85,15 +157,19 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
 
   const exportBuildings = useCallback(() => {
     const exportData = {
-      version: '2.0',
+      version: '2.1',
       createdAt: new Date().toISOString(),
       buildings: buildings.map(building => ({
         id: building.id,
+        name: building.name,
+        description: building.description,
         points: building.points,
         area: building.area,
         floors: building.floors,
         floorHeight: building.floorHeight,
         buildingType: building.buildingType,
+        color: building.color,
+        enableShadows: building.enableShadows,
         totalHeight: building.floors * building.floorHeight,
         createdAt: building.createdAt.toISOString()
       }))
@@ -149,6 +225,7 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
     buildings,
     selectedBuilding,
     addBuilding,
+    updateBuilding,
     selectBuilding,
     deleteBuilding,
     clearAllBuildings,
