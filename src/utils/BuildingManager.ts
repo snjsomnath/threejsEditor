@@ -89,12 +89,9 @@ export class BuildingManager {
       console.log('🏗️ BuildingManager: Extruding shape with settings:', extrudeSettings);
       const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
       
-      // Create material - MAKE IT VERY VISIBLE
+      // Create material - USE EXACT SAME MATERIAL AS TEST OBJECTS
       const material = new THREE.MeshLambertMaterial({ 
-        color: 0x4F46E5, // Bright purple/blue
-        transparent: false, // Make it solid
-        opacity: 1.0,
-        side: THREE.DoubleSide // Render both sides
+        color: 0xff0000 // Same red as test cube
       });
 
       // Remove existing mesh if it exists
@@ -143,12 +140,10 @@ export class BuildingManager {
     // Calculate centroid of the building
     const centroid = this.calculateCentroid(building.points);
     
-    // Add a bright marker at the center
+    // Add a bright marker at the center - USE SAME MATERIAL AS TEST OBJECTS
     const markerGeometry = new THREE.SphereGeometry(0.5, 16, 16);
     const markerMaterial = new THREE.MeshLambertMaterial({ 
-      color: 0xFF0000, // Bright red
-      emissive: 0x440000, // Red glow
-      emissiveIntensity: 0.2
+      color: 0x00ff00 // Same green as test sphere
     });
     const marker = new THREE.Mesh(markerGeometry, markerMaterial);
     marker.position.set(centroid.x, building.height + 1, centroid.z);
@@ -156,7 +151,7 @@ export class BuildingManager {
     marker.userData.type = 'marker';
     
     this.scene.add(marker);
-    console.log('🔴 BuildingManager: Added red marker at building center:', centroid);
+    console.log('🔴 BuildingManager: Added green marker at building center:', centroid);
   }
 
   private createBuildingEdges(building: Building): void {
@@ -204,9 +199,9 @@ export class BuildingManager {
       if (prevBuilding) {
         prevBuilding.selected = false;
         this.hideControlPoints(prevBuilding);
-        // Reset material color
+        // Reset material color to red (same as test objects)
         if (prevBuilding.mesh && prevBuilding.mesh.material) {
-          (prevBuilding.mesh.material as THREE.MeshLambertMaterial).color.setHex(0x4F46E5);
+          (prevBuilding.mesh.material as THREE.MeshLambertMaterial).color.setHex(0xff0000);
         }
       }
     }
@@ -218,9 +213,9 @@ export class BuildingManager {
       this.selectedBuildingId = id;
       this.showControlPoints(building);
       
-      // Highlight selected building
+      // Highlight selected building with blue color
       if (building.mesh && building.mesh.material) {
-        (building.mesh.material as THREE.MeshLambertMaterial).color.setHex(0xF59E0B); // Orange highlight
+        (building.mesh.material as THREE.MeshLambertMaterial).color.setHex(0x0000ff); // Blue highlight
       }
       
       console.log('✅ BuildingManager: Building selected:', id);
@@ -232,13 +227,11 @@ export class BuildingManager {
     this.hideControlPoints(building);
     building.controlPoints = [];
 
-    // Create control points for each corner
+    // Create control points for each corner - USE SAME MATERIAL AS TEST OBJECTS
     building.points.forEach((point, index) => {
       const geometry = new THREE.SphereGeometry(0.3, 16, 16);
       const material = new THREE.MeshLambertMaterial({ 
-        color: 0xF97316, // Orange
-        emissive: 0x441100,
-        emissiveIntensity: 0.2
+        color: 0x00ff00 // Same green as test sphere
       });
       const controlPoint = new THREE.Mesh(geometry, material);
       
@@ -252,13 +245,11 @@ export class BuildingManager {
       console.log('🟠 BuildingManager: Added control point at:', point);
     });
 
-    // Create height handle
+    // Create height handle - USE SAME MATERIAL AS TEST OBJECTS
     const centroid = this.calculateCentroid(building.points);
     const handleGeometry = new THREE.ConeGeometry(0.3, 1.0, 8);
     const handleMaterial = new THREE.MeshLambertMaterial({ 
-      color: 0x14B8A6, // Teal
-      emissive: 0x002222,
-      emissiveIntensity: 0.2
+      color: 0x00ff00 // Same green as test sphere
     });
     building.heightHandle = new THREE.Mesh(handleGeometry, handleMaterial);
     
