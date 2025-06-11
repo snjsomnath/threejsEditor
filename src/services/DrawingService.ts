@@ -19,6 +19,21 @@ export class DrawingService {
     return marker;
   }
 
+  createPreviewMarker(position: Point3D): THREE.Mesh {
+    const geometry = new THREE.SphereGeometry(0.3, 12, 12);
+    const material = new THREE.MeshLambertMaterial({ 
+      color: 0x00ff00,
+      transparent: true,
+      opacity: 0.6
+    });
+    const marker = new THREE.Mesh(geometry, material);
+    
+    marker.position.set(position.x, 0.3, position.z);
+    this.scene.add(marker);
+    
+    return marker;
+  }
+
   createLine(from: Point3D, to: Point3D): THREE.Line {
     const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
     const points = [
@@ -47,5 +62,11 @@ export class DrawingService {
       line.geometry.dispose();
       (line.material as THREE.Material).dispose();
     });
+  }
+
+  clearPreviewMarker(marker: THREE.Mesh): void {
+    this.scene.remove(marker);
+    marker.geometry.dispose();
+    (marker.material as THREE.Material).dispose();
   }
 }

@@ -14,7 +14,8 @@ export const useDrawing = (
     isDrawing: false,
     points: [],
     markers: [],
-    lines: []
+    lines: [],
+    previewMarker: null
   });
 
   const drawingServiceRef = useRef<DrawingService | null>(null);
@@ -32,24 +33,57 @@ export const useDrawing = (
       isDrawing: true,
       points: [],
       markers: [],
-      lines: []
+      lines: [],
+      previewMarker: null
     });
   }, []);
 
   const stopDrawing = useCallback(() => {
     if (!drawingServiceRef.current) return;
 
-    // Clear existing markers and lines
+    // Clear existing markers, lines, and preview
     drawingServiceRef.current.clearMarkers(drawingState.markers);
     drawingServiceRef.current.clearLines(drawingState.lines);
+    if (drawingState.previewMarker) {
+      drawingServiceRef.current.clearPreviewMarker(drawingState.previewMarker);
+    }
 
     setDrawingState({
       isDrawing: false,
       points: [],
       markers: [],
-      lines: []
+      lines: [],
+      previewMarker: null
     });
-  }, [drawingState.markers, drawingState.lines]);
+  }, [drawingState.markers, drawingState.lines, drawingState.previewMarker]);
+
+  const updatePreview = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
+    if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current) {
+      return;
+    }
+
+    // Calculate mouse coordinates
+    const rect = containerElement.getBoundingClientRect();
+    mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    // Get intersection with ground
+    const intersection = getGroundIntersection(mouseRef.current, camera, groundPlane);
+    if (!intersection) return;
+
+    // Remove existing preview marker
+    if (drawingState.previewMarker) {
+      drawingServiceRef.current.clearPreviewMarker(drawingState.previewMarker);
+    }
+
+    // Create new preview marker
+    const previewMarker = drawingServiceRef.current.createPreviewMarker(intersection);
+
+    setDrawingState(prev => ({
+      ...prev,
+      previewMarker
+    }));
+  }, [drawingState.isDrawing, drawingState.previewMarker, camera, groundPlane]);
 
   const addPoint = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
     if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current) {
@@ -102,12 +136,16 @@ export const useDrawing = (
       // Clear drawing state
       drawingServiceRef.current.clearMarkers(drawingState.markers);
       drawingServiceRef.current.clearLines(drawingState.lines);
+      if (drawingState.previewMarker) {
+        drawingServiceRef.current.clearPreviewMarker(drawingState.previewMarker);
+      }
 
       setDrawingState({
         isDrawing: false,
         points: [],
         markers: [],
-        lines: []
+        lines: [],
+        previewMarker: null
       });
     } catch (error) {
       console.error('Error creating building:', error);
@@ -119,6 +157,7 @@ export const useDrawing = (
     startDrawing,
     stopDrawing,
     addPoint,
-    finishBuilding
+    finishBuilding,
+    updatePreview
   };
 };

@@ -15,4 +15,5 @@ export interface DrawingState {
   points: Point3D[];
   markers: THREE.Mesh[];
   lines: THREE.Line[];
+  previewMarker: THREE.Mesh | null;
 }

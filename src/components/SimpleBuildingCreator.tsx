@@ -11,14 +11,14 @@ export const SimpleBuildingCreator: React.FC = () => {
   const { scene, camera, groundPlane, isInitialized } = useThreeJS(containerRef);
   
   // Initialize drawing functionality
-  const { drawingState, startDrawing, stopDrawing, addPoint, finishBuilding } = useDrawing(
+  const { drawingState, startDrawing, stopDrawing, addPoint, finishBuilding, updatePreview } = useDrawing(
     scene,
     camera,
     groundPlane
   );
 
-  // Handle click events
-  useClickHandler(containerRef, addPoint, finishBuilding);
+  // Handle click events and mouse movement
+  useClickHandler(containerRef, addPoint, finishBuilding, updatePreview);
 
   return (
     <div className="relative w-full h-screen">
@@ -59,6 +59,7 @@ export const SimpleBuildingCreator: React.FC = () => {
           <div className="text-blue-100">
             <h3 className="font-semibold mb-2">Drawing Mode</h3>
             <div className="text-sm space-y-1">
+              <p>• Move mouse to preview placement</p>
               <p>• Click to place points</p>
               <p>• Double-click to finish building</p>
               <p>• Need at least 3 points</p>
@@ -80,6 +81,12 @@ export const SimpleBuildingCreator: React.FC = () => {
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 rounded-full bg-blue-500" />
               <span>{drawingState.points.length} points</span>
+            </div>
+          )}
+          {drawingState.isDrawing && (
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+              <span>Preview active</span>
             </div>
           )}
         </div>

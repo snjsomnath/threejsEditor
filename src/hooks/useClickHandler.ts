@@ -3,7 +3,8 @@ import { useEffect, useRef } from 'react';
 export const useClickHandler = (
   containerRef: React.RefObject<HTMLDivElement>,
   onSingleClick: (event: MouseEvent, container: HTMLElement) => void,
-  onDoubleClick: () => void
+  onDoubleClick: () => void,
+  onMouseMove?: (event: MouseEvent, container: HTMLElement) => void
 ) => {
   const clickTimeoutRef = useRef<number | null>(null);
   const isDoubleClickRef = useRef(false);
@@ -16,6 +17,12 @@ export const useClickHandler = (
 
     const handleMouseDown = (event: MouseEvent) => {
       mouseDownPosRef.current = { x: event.clientX, y: event.clientY };
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (onMouseMove) {
+        onMouseMove(event, container);
+      }
     };
 
     const handleMouseUp = (event: MouseEvent) => {
@@ -65,13 +72,15 @@ export const useClickHandler = (
 
     container.addEventListener('mousedown', handleMouseDown);
     container.addEventListener('mouseup', handleMouseUp);
+    container.addEventListener('mousemove', handleMouseMove);
 
     return () => {
       container.removeEventListener('mousedown', handleMouseDown);
       container.removeEventListener('mouseup', handleMouseUp);
+      container.removeEventListener('mousemove', handleMouseMove);
       if (clickTimeoutRef.current) {
         window.clearTimeout(clickTimeoutRef.current);
       }
     };
-  }, [containerRef, onSingleClick, onDoubleClick]);
+  }, [containerRef, onSingleClick, onDoubleClick, onMouseMove]);
 };
