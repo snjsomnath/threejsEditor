@@ -25,6 +25,14 @@ export const calculateDistance = (point1: Point3D, point2: Point3D): number => {
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 };
 
+export const snapToGrid = (point: Point3D, gridSize: number): Point3D => {
+  return {
+    x: Math.round(point.x / gridSize) * gridSize,
+    y: point.y,
+    z: Math.round(point.z / gridSize) * gridSize
+  };
+};
+
 export const createShapeFromPoints = (points: Point3D[], centroid: Point3D): THREE.Shape => {
   if (points.length < 3) {
     throw new Error('Need at least 3 points to create a shape');

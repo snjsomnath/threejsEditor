@@ -1,28 +1,57 @@
-import React, { useRef } from 'react';
-import { Pencil, Square, Trash2, Undo, Save, Download } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Pencil, Square, Trash2, Undo, Save, Download, Grid3X3, Settings, Eye, EyeOff } from 'lucide-react';
 import { useThreeJS } from '../hooks/useThreeJS';
 import { useDrawing } from '../hooks/useDrawing';
 import { useClickHandler } from '../hooks/useClickHandler';
 import { useBuildingManager } from '../hooks/useBuildingManager';
+import { BuildingDetailsPanel } from './BuildingDetailsPanel';
+import { BuildingConfigPanel } from './BuildingConfigPanel';
+import { BuildingConfig } from '../types/building';
 
 export const SimpleBuildingCreator: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [showGrid, setShowGrid] = useState(true);
+  const [snapToGrid, setSnapToGrid] = useState(false);
+  const [showBuildingConfig, setShowBuildingConfig] = useState(false);
+  const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
+    floors: 3,
+    floorHeight: 3.5,
+    color: 0x6366f1,
+    enableShadows: true,
+    buildingType: 'residential'
+  });
   
   // Initialize Three.js scene
-  const { scene, camera, groundPlane, isInitialized } = useThreeJS(containerRef);
+  const { scene, camera, groundPlane, isInitialized, toggleGrid, enableAmbientOcclusion } = useThreeJS(containerRef, showGrid);
   
   // Initialize drawing functionality
   const { drawingState, startDrawing, stopDrawing, addPoint, finishBuilding, updatePreview, undoLastPoint } = useDrawing(
     scene,
     camera,
-    groundPlane
+    groundPlane,
+    snapToGrid,
+    buildingConfig
   );
 
   // Initialize building management
-  const { buildings, clearAllBuildings, exportBuildings, buildingStats } = useBuildingManager(scene);
+  const { buildings, selectedBuilding, selectBuilding, clearAllBuildings, exportBuildings, buildingStats, deleteBuilding } = useBuildingManager(scene);
 
   // Handle click events and mouse movement
-  useClickHandler(containerRef, addPoint, finishBuilding, updatePreview);
+  useClickHandler(containerRef, (event, container) => {
+    if (!hasInteracted) setHasInteracted(true);
+    addPoint(event, container);
+  }, finishBuilding, updatePreview);
+
+  const handleStartDrawing = () => {
+    if (!hasInteracted) setHasInteracted(true);
+    startDrawing();
+  };
+
+  const handleToggleGrid = () => {
+    setShowGrid(!showGrid);
+    toggleGrid();
+  };
 
   return (
     <div className="relative w-full h-screen">
@@ -35,16 +64,27 @@ export const SimpleBuildingCreator: React.FC = () => {
           
           <div className="flex flex-col space-y-3">
             {!drawingState.isDrawing ? (
-              <button
-                onClick={startDrawing}
-                disabled={!isInitialized}
-                className="flex items-center space-x-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 
-                          disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg 
-                          transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
-              >
-                <Pencil className="w-4 h-4" />
-                <span>Draw Building</span>
-              </button>
+              <div className="flex flex-col space-y-2">
+                <button
+                  onClick={handleStartDrawing}
+                  disabled={!isInitialized}
+                  className="flex items-center space-x-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 
+                            disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg 
+                            transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                >
+                  <Pencil className="w-4 h-4" />
+                  <span>Draw Building</span>
+                </button>
+                
+                <button
+                  onClick={() => setShowBuildingConfig(!showBuildingConfig)}
+                  className="flex items-center space-x-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 
+                            text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>Building Config</span>
+                </button>
+              </div>
             ) : (
               <div className="flex flex-col space-y-2">
                 <button
@@ -70,6 +110,33 @@ export const SimpleBuildingCreator: React.FC = () => {
             )}
           </div>
 
+          {/* View Controls */}
+          <div className="pt-3 border-t border-gray-600 flex flex-col space-y-2">
+            <button
+              onClick={handleToggleGrid}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
+                showGrid 
+                  ? 'bg-green-600 hover:bg-green-700 text-white' 
+                  : 'bg-gray-600 hover:bg-gray-700 text-gray-300'
+              }`}
+            >
+              {showGrid ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              <span>Grid</span>
+            </button>
+            
+            <button
+              onClick={() => setSnapToGrid(!snapToGrid)}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
+                snapToGrid 
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                  : 'bg-gray-600 hover:bg-gray-700 text-gray-300'
+              }`}
+            >
+              <Grid3X3 className="w-4 h-4" />
+              <span>Snap to Grid</span>
+            </button>
+          </div>
+
           {/* Building Stats */}
           {buildingStats.count > 0 && (
             <div className="pt-3 border-t border-gray-600">
@@ -81,6 +148,10 @@ export const SimpleBuildingCreator: React.FC = () => {
                 <div className="flex justify-between">
                   <span>Total Area:</span>
                   <span className="text-green-400 font-medium">{buildingStats.totalArea.toFixed(1)} m²</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Total Floors:</span>
+                  <span className="text-purple-400 font-medium">{buildingStats.totalFloors}</span>
                 </div>
               </div>
             </div>
@@ -111,6 +182,27 @@ export const SimpleBuildingCreator: React.FC = () => {
         </div>
       </div>
 
+      {/* Building Configuration Panel */}
+      {showBuildingConfig && (
+        <BuildingConfigPanel
+          config={buildingConfig}
+          onConfigChange={setBuildingConfig}
+          onClose={() => setShowBuildingConfig(false)}
+        />
+      )}
+
+      {/* Building Details Panel */}
+      {selectedBuilding && (
+        <BuildingDetailsPanel
+          building={selectedBuilding}
+          onClose={() => selectBuilding(null)}
+          onDelete={() => {
+            deleteBuilding(selectedBuilding.id);
+            selectBuilding(null);
+          }}
+        />
+      )}
+
       {/* Drawing Instructions */}
       {drawingState.isDrawing && (
         <div className="fixed top-6 right-6 bg-blue-900/95 backdrop-blur-sm rounded-xl p-5 shadow-2xl border border-blue-700 max-w-xs">
@@ -119,7 +211,7 @@ export const SimpleBuildingCreator: React.FC = () => {
             <div className="text-sm space-y-2">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                <span>Move mouse to preview placement</span>
+                <span>Move mouse to preview</span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 rounded-full bg-blue-400"></div>
@@ -127,17 +219,25 @@ export const SimpleBuildingCreator: React.FC = () => {
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
-                <span>Click near start to close shape</span>
+                <span>Click near start to close</span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 rounded-full bg-orange-400"></div>
-                <span>Double-click anywhere to finish</span>
+                <span>Double-click to finish</span>
               </div>
               
               <div className="pt-2 mt-3 border-t border-blue-700">
                 <div className="flex justify-between text-blue-200">
-                  <span>Points placed:</span>
+                  <span>Points:</span>
                   <span className="font-bold">{drawingState.points.length}</span>
+                </div>
+                <div className="flex justify-between text-blue-200">
+                  <span>Floors:</span>
+                  <span className="font-bold">{buildingConfig.floors}</span>
+                </div>
+                <div className="flex justify-between text-blue-200">
+                  <span>Height:</span>
+                  <span className="font-bold">{(buildingConfig.floors * buildingConfig.floorHeight).toFixed(1)}m</span>
                 </div>
                 <div className="text-xs text-blue-300 mt-1">
                   {drawingState.points.length < 3 ? 
@@ -174,27 +274,42 @@ export const SimpleBuildingCreator: React.FC = () => {
             </div>
           )}
 
+          {snapToGrid && (
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded-full bg-blue-400" />
+              <span>Grid snap</span>
+            </div>
+          )}
+
           {buildings.length > 0 && (
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 rounded-full bg-purple-500" />
               <span>{buildings.length} buildings</span>
             </div>
           )}
+
+          {selectedBuilding && (
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded-full bg-yellow-500" />
+              <span>Selected</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Welcome Message for New Users */}
-      {!drawingState.isDrawing && buildings.length === 0 && isInitialized && (
+      {/* Welcome Message for New Users - Only show if never interacted */}
+      {!hasInteracted && !drawingState.isDrawing && buildings.length === 0 && isInitialized && (
         <div className="fixed inset-0 flex items-center justify-center pointer-events-none">
           <div className="bg-gray-900/90 backdrop-blur-sm rounded-2xl p-8 shadow-2xl border border-gray-700 max-w-md text-center">
             <h3 className="text-white text-xl font-bold mb-4">Welcome to Building Creator</h3>
             <p className="text-gray-300 mb-6">
-              Create custom 3D buildings by drawing their footprints. Click "Draw Building" to get started!
+              Create detailed 3D buildings with custom floors, heights, and materials. Click "Draw Building" to get started!
             </p>
-            <div className="text-sm text-gray-400">
+            <div className="text-sm text-gray-400 space-y-1">
+              <p>• Configure building details before drawing</p>
               <p>• Draw shapes with 3+ points</p>
-              <p>• Buildings are automatically extruded</p>
-              <p>• Export your creations when done</p>
+              <p>• Click buildings to select and view details</p>
+              <p>• Export your architectural designs</p>
             </div>
           </div>
         </div>
