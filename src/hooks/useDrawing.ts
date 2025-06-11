@@ -37,7 +37,21 @@ export const useDrawing = (
     buildingServiceRef.current = new BuildingService(scene);
   }
 
+  const clearPreviewElements = useCallback(() => {
+    if (!drawingServiceRef.current) return;
+
+    if (drawingState.previewMarker) {
+      drawingServiceRef.current.clearPreviewMarker(drawingState.previewMarker);
+    }
+    if (drawingState.previewLine) {
+      drawingServiceRef.current.clearPreviewLine(drawingState.previewLine);
+    }
+  }, [drawingState.previewMarker, drawingState.previewLine]);
+
   const startDrawing = useCallback(() => {
+    // Clear any existing preview elements first
+    clearPreviewElements();
+    
     setDrawingState({
       isDrawing: true,
       points: [],
@@ -47,7 +61,7 @@ export const useDrawing = (
       previewLine: null,
       snapToStart: false
     });
-  }, []);
+  }, [clearPreviewElements]);
 
   const stopDrawing = useCallback(() => {
     if (!drawingServiceRef.current) return;
@@ -55,12 +69,7 @@ export const useDrawing = (
     // Clear all drawing elements
     drawingServiceRef.current.clearMarkers(drawingState.markers);
     drawingServiceRef.current.clearLines(drawingState.lines);
-    if (drawingState.previewMarker) {
-      drawingServiceRef.current.clearPreviewMarker(drawingState.previewMarker);
-    }
-    if (drawingState.previewLine) {
-      drawingServiceRef.current.clearPreviewLine(drawingState.previewLine);
-    }
+    clearPreviewElements();
 
     setDrawingState({
       isDrawing: false,
@@ -71,7 +80,7 @@ export const useDrawing = (
       previewLine: null,
       snapToStart: false
     });
-  }, [drawingState]);
+  }, [drawingState, clearPreviewElements]);
 
   const undoLastPoint = useCallback(() => {
     if (!drawingServiceRef.current || drawingState.points.length === 0) return;
@@ -95,13 +104,19 @@ export const useDrawing = (
       drawingServiceRef.current.clearLines([lastLine]);
     }
 
+    // Clear preview elements to avoid stale previews
+    clearPreviewElements();
+
     setDrawingState(prev => ({
       ...prev,
       points: newPoints,
       markers: newMarkers,
-      lines: newLines
+      lines: newLines,
+      previewMarker: null,
+      previewLine: null,
+      snapToStart: false
     }));
-  }, [drawingState]);
+  }, [drawingState, clearPreviewElements]);
 
   const updatePreview = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
     if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current) {
@@ -136,7 +151,7 @@ export const useDrawing = (
       }
     }
 
-    // Clear existing preview elements
+    // Clear existing preview elements IMMEDIATELY
     if (drawingState.previewMarker) {
       drawingServiceRef.current.clearPreviewMarker(drawingState.previewMarker);
     }
@@ -156,13 +171,14 @@ export const useDrawing = (
       previewLine = drawingServiceRef.current.createPreviewLine(lastPoint, finalPosition);
     }
 
+    // Update state with new preview elements
     setDrawingState(prev => ({
       ...prev,
       previewMarker,
       previewLine,
       snapToStart: shouldSnapToStart
     }));
-  }, [drawingState.isDrawing, drawingState.points, camera, groundPlane, snapToGridEnabled]);
+  }, [drawingState.isDrawing, drawingState.points, drawingState.previewMarker, drawingState.previewLine, camera, groundPlane, snapToGridEnabled]);
 
   const addPoint = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
     if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current) {
@@ -189,6 +205,14 @@ export const useDrawing = (
       intersection = snapToGrid(intersection, GRID_SIZE);
     }
 
+    // Clear preview elements before adding the actual point
+    if (drawingState.previewMarker) {
+      drawingServiceRef.current.clearPreviewMarker(drawingState.previewMarker);
+    }
+    if (drawingState.previewLine) {
+      drawingServiceRef.current.clearPreviewLine(drawingState.previewLine);
+    }
+
     // Create point marker (smaller and more subtle)
     const marker = drawingServiceRef.current.createPointMarker(intersection);
 
@@ -199,14 +223,17 @@ export const useDrawing = (
       line = drawingServiceRef.current.createLine(previousPoint, intersection);
     }
 
-    // Update state
+    // Update state - clear preview elements
     setDrawingState(prev => ({
       ...prev,
       points: [...prev.points, intersection],
       markers: [...prev.markers, marker],
-      lines: line ? [...prev.lines, line] : prev.lines
+      lines: line ? [...prev.lines, line] : prev.lines,
+      previewMarker: null,
+      previewLine: null,
+      snapToStart: false
     }));
-  }, [drawingState.isDrawing, drawingState.points, drawingState.snapToStart, camera, groundPlane, snapToGridEnabled]);
+  }, [drawingState.isDrawing, drawingState.points, drawingState.snapToStart, drawingState.previewMarker, drawingState.previewLine, camera, groundPlane, snapToGridEnabled]);
 
   const finishBuilding = useCallback(() => {
     if (!buildingServiceRef.current || !drawingServiceRef.current || drawingState.points.length < 3) {
@@ -214,6 +241,9 @@ export const useDrawing = (
     }
 
     try {
+      // Clear preview elements immediately
+      clearPreviewElements();
+
       // Create the building with current configuration
       const buildingMesh = buildingServiceRef.current.createBuilding(drawingState.points, {
         height: buildingConfig.floors * buildingConfig.floorHeight,
@@ -230,15 +260,9 @@ export const useDrawing = (
         buildingConfig.buildingType
       );
 
-      // Clear drawing state
+      // Clear all drawing elements
       drawingServiceRef.current.clearMarkers(drawingState.markers);
       drawingServiceRef.current.clearLines(drawingState.lines);
-      if (drawingState.previewMarker) {
-        drawingServiceRef.current.clearPreviewMarker(drawingState.previewMarker);
-      }
-      if (drawingState.previewLine) {
-        drawingServiceRef.current.clearPreviewLine(drawingState.previewLine);
-      }
 
       setDrawingState({
         isDrawing: false,
@@ -252,7 +276,7 @@ export const useDrawing = (
     } catch (error) {
       console.error('Error creating building:', error);
     }
-  }, [drawingState, buildingConfig, addBuilding]);
+  }, [drawingState, buildingConfig, addBuilding, clearPreviewElements]);
 
   return {
     drawingState,
