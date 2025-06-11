@@ -15,6 +15,7 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPoints, setCurrentPoints] = useState<THREE.Vector3[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [pointMarkers, setPointMarkers] = useState<THREE.Mesh[]>([]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -80,6 +81,14 @@ export const SimpleBuildingCreator: React.FC = () => {
     directionalLight.position.set(10, 20, 10);
     scene.add(directionalLight);
 
+    // Test cube to verify scene is working
+    const testGeometry = new THREE.BoxGeometry(2, 2, 2);
+    const testMaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+    const testCube = new THREE.Mesh(testGeometry, testMaterial);
+    testCube.position.set(10, 1, 10);
+    scene.add(testCube);
+    console.log('🧪 Test cube added at (10, 1, 10)');
+
     // Raycaster and mouse
     raycasterRef.current = new THREE.Raycaster();
     mouseRef.current = new THREE.Vector2();
@@ -118,52 +127,129 @@ export const SimpleBuildingCreator: React.FC = () => {
       const point = intersects[0].point;
       console.log('📍 Adding point:', point);
       
-      // Add point marker
-      const geometry = new THREE.SphereGeometry(0.5, 16, 16);
-      const material = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+      // Add point marker - MAKE IT HUGE AND BRIGHT
+      const geometry = new THREE.SphereGeometry(1.0, 16, 16);
+      const material = new THREE.MeshLambertMaterial({ 
+        color: 0xff0000,
+        emissive: 0x440000,
+        emissiveIntensity: 0.2
+      });
       const marker = new THREE.Mesh(geometry, material);
-      marker.position.copy(point);
-      marker.position.y = 1;
+      marker.position.set(point.x, 2, point.z); // Raised high above ground
       sceneRef.current!.add(marker);
 
+      setPointMarkers(prev => [...prev, marker]);
       setCurrentPoints(prev => [...prev, point]);
+      
+      console.log('🔴 Point marker added at:', { x: point.x, y: 2, z: point.z });
     }
   };
 
   const handleDoubleClick = () => {
-    if (!isDrawing || currentPoints.length < 3) return;
+    if (!isDrawing || currentPoints.length < 3) {
+      console.log('❌ Cannot create building - need at least 3 points, have:', currentPoints.length);
+      return;
+    }
     
-    console.log('🏁 Creating building with points:', currentPoints);
+    console.log('🏁 Creating building with', currentPoints.length, 'points:', currentPoints);
     createBuilding(currentPoints);
+    
+    // Clear markers
+    pointMarkers.forEach(marker => {
+      sceneRef.current!.remove(marker);
+    });
+    setPointMarkers([]);
     setCurrentPoints([]);
     setIsDrawing(false);
   };
 
   const createBuilding = (points: THREE.Vector3[]) => {
-    if (!sceneRef.current || points.length < 3) return;
-
-    console.log('🏢 Creating building');
-
-    // Create shape from points
-    const shape = new THREE.Shape();
-    shape.moveTo(points[0].x, points[0].z);
-    for (let i = 1; i < points.length; i++) {
-      shape.lineTo(points[i].x, points[i].z);
+    if (!sceneRef.current || points.length < 3) {
+      console.log('❌ Cannot create building - insufficient data');
+      return;
     }
-    shape.lineTo(points[0].x, points[0].z); // Close shape
 
-    // Extrude to create 3D building
-    const extrudeSettings = {
-      depth: 5, // Building height
-      bevelEnabled: false
+    console.log('🏢 Creating building with points:', points);
+
+    try {
+      // Create shape from points - use X,Z coordinates (ground plane)
+      const shape = new THREE.Shape();
+      
+      // Start at first point
+      shape.moveTo(points[0].x, points[0].z);
+      console.log('📐 Shape starts at:', { x: points[0].x, z: points[0].z });
+      
+      // Add lines to other points
+      for (let i = 1; i < points.length; i++) {
+        shape.lineTo(points[i].x, points[i].z);
+        console.log('📐 Line to:', { x: points[i].x, z: points[i].z });
+      }
+      
+      // Close the shape explicitly
+      shape.lineTo(points[0].x, points[0].z);
+      console.log('📐 Shape closed back to start');
+
+      // Extrude settings - EXTRUDE UPWARD
+      const extrudeSettings = {
+        depth: 8, // Building height - BIGGER
+        bevelEnabled: false,
+        steps: 1
+      };
+
+      console.log('🏗️ Extruding with settings:', extrudeSettings);
+      const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      
+      // Use the EXACT same material as test objects
+      const material = new THREE.MeshLambertMaterial({ 
+        color: 0xff0000, // Bright red
+        side: THREE.DoubleSide // Render both sides
+      });
+      
+      const building = new THREE.Mesh(geometry, material);
+      
+      // Position the building properly - RAISE IT UP
+      building.position.set(0, 0, 0); // Start at ground level
+      building.rotation.x = 0; // No rotation
+      building.castShadow = true;
+      building.receiveShadow = true;
+      
+      console.log('🏢 Adding building to scene at position:', building.position);
+      sceneRef.current.add(building);
+      
+      // Force scene update
+      sceneRef.current.updateMatrixWorld(true);
+      
+      console.log('✅ Building created and added to scene');
+      console.log('📊 Scene now has', sceneRef.current.children.length, 'children');
+
+      // Add a marker at the building center for verification
+      const centroid = calculateCentroid(points);
+      const markerGeometry = new THREE.SphereGeometry(1.5, 16, 16);
+      const markerMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0x00ff00, // Green marker
+        emissive: 0x004400,
+        emissiveIntensity: 0.3
+      });
+      const centerMarker = new THREE.Mesh(markerGeometry, markerMaterial);
+      centerMarker.position.set(centroid.x, 10, centroid.z); // High above building
+      sceneRef.current.add(centerMarker);
+      console.log('🟢 Center marker added at:', { x: centroid.x, y: 10, z: centroid.z });
+
+    } catch (error) {
+      console.error('❌ Error creating building:', error);
+    }
+  };
+
+  const calculateCentroid = (points: THREE.Vector3[]) => {
+    const sum = points.reduce((acc, point) => ({
+      x: acc.x + point.x,
+      z: acc.z + point.z
+    }), { x: 0, z: 0 });
+
+    return {
+      x: sum.x / points.length,
+      z: sum.z / points.length
     };
-
-    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-    const material = new THREE.MeshLambertMaterial({ color: 0xff0000 }); // Same red as test objects
-    const building = new THREE.Mesh(geometry, material);
-    
-    sceneRef.current.add(building);
-    console.log('✅ Building created and added to scene');
   };
 
   const handleResize = () => {
@@ -202,12 +288,20 @@ export const SimpleBuildingCreator: React.FC = () => {
     console.log('🎨 Starting drawing mode');
     setIsDrawing(true);
     setCurrentPoints([]);
+    setPointMarkers([]);
   };
 
   const stopDrawing = () => {
     console.log('🛑 Stopping drawing mode');
+    
+    // Clear any existing markers
+    pointMarkers.forEach(marker => {
+      sceneRef.current!.remove(marker);
+    });
+    
     setIsDrawing(false);
     setCurrentPoints([]);
+    setPointMarkers([]);
   };
 
   return (
@@ -249,9 +343,10 @@ export const SimpleBuildingCreator: React.FC = () => {
           <div className="text-blue-100">
             <h3 className="font-semibold mb-2">Drawing Mode</h3>
             <div className="text-sm space-y-1">
-              <p>• Click to place points</p>
+              <p>• Click to place red points</p>
               <p>• Double-click to finish building</p>
               <p>• Need at least 3 points</p>
+              <p>• Points: {currentPoints.length}</p>
             </div>
           </div>
         </div>
