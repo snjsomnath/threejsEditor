@@ -310,21 +310,25 @@ export const SimpleBuildingCreator: React.FC = () => {
     console.log('🏢 Creating building with points:', points);
 
     try {
-      // Create shape from points in the correct coordinate system
+      // Calculate centroid for positioning
+      const centroid = calculateCentroid(points);
+      console.log('🎯 Building centroid:', centroid);
+      
+      // Create shape from points - relative to centroid for proper scaling
       const shape = new THREE.Shape();
       
-      // Start at first point - use X and Z coordinates directly (no flipping needed)
-      shape.moveTo(points[0].x, points[0].z);
-      console.log('📐 Shape starts at:', { x: points[0].x, z: points[0].z });
+      // Start at first point (relative to centroid)
+      shape.moveTo(points[0].x - centroid.x, points[0].z - centroid.z);
+      console.log('📐 Shape starts at:', { x: points[0].x - centroid.x, z: points[0].z - centroid.z });
       
-      // Add lines to other points in the same coordinate system
+      // Add lines to other points (relative to centroid)
       for (let i = 1; i < points.length; i++) {
-        shape.lineTo(points[i].x, points[i].z);
-        console.log('📐 Line to:', { x: points[i].x, z: points[i].z });
+        shape.lineTo(points[i].x - centroid.x, points[i].z - centroid.z);
+        console.log('📐 Line to:', { x: points[i].x - centroid.x, z: points[i].z - centroid.z });
       }
       
       // Close the shape explicitly
-      shape.lineTo(points[0].x, points[0].z);
+      shape.lineTo(points[0].x - centroid.x, points[0].z - centroid.z);
       console.log('📐 Shape closed back to start');
 
       // Extrude settings - building height
@@ -337,39 +341,24 @@ export const SimpleBuildingCreator: React.FC = () => {
       console.log('🏗️ Extruding with settings:', extrudeSettings);
       const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
       
-      // CRITICAL FIX: Rotate the geometry to extrude upward instead of backward
-      geometry.rotateX(Math.PI / 2);
+      // Rotate the geometry so it extrudes upward (Y-axis) instead of forward (Z-axis)
+      geometry.rotateX(-Math.PI / 2);
       
-      // Create material with wireframe for better visibility
+      // Create material
       const material = new THREE.MeshLambertMaterial({ 
         color: 0x6366f1, // Purple/blue color
         side: THREE.DoubleSide
       });
       
-      // Create wireframe material for edges
-      const wireframeMaterial = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.3
-      });
-      
       const building = new THREE.Mesh(geometry, material);
-      const wireframe = new THREE.Mesh(geometry, wireframeMaterial);
       
-      // Position the building at ground level (Y = 0)
-      building.position.set(0, 0, 0);
-      wireframe.position.set(0, 0, 0);
-      
+      // Position the building at the centroid
+      building.position.set(centroid.x, 0, centroid.z);
       building.castShadow = true;
       building.receiveShadow = true;
       
       console.log('🏢 Adding building to scene at position:', building.position);
       sceneRef.current.add(building);
-      sceneRef.current.add(wireframe);
-      
-      // Calculate centroid for the marker
-      const centroid = calculateCentroid(points);
       
       // Add a marker at the building center for verification
       const markerGeometry = new THREE.SphereGeometry(1.5, 16, 16);
