@@ -14,21 +14,20 @@ export class BuildingService {
       throw new Error('Need at least 3 points to create a building');
     }
 
-    // Calculate centroid for positioning
     const centroid = calculateCentroid(points);
-    
-    // Create 2D shape from points
     const shape = createShapeFromPoints(points, centroid);
     
     // Extrude the shape to create 3D geometry
     const extrudeSettings = {
       depth: config.height,
       bevelEnabled: false,
-      steps: 1,
-      curveSegments: 1
+      steps: 1
     };
 
     const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    
+    // Rotate geometry so it extrudes upward (Y-axis)
+    geometry.rotateX(-Math.PI / 2);
     
     // Create material
     const material = new THREE.MeshLambertMaterial({
@@ -38,11 +37,8 @@ export class BuildingService {
     
     const building = new THREE.Mesh(geometry, material);
     
-    // Position the building at the centroid
+    // Position at centroid
     building.position.set(centroid.x, 0, centroid.z);
-    
-    // Rotate so the extrusion goes up (Y-axis)
-    building.rotation.x = -Math.PI / 2;
     
     if (config.enableShadows) {
       building.castShadow = true;
@@ -54,15 +50,15 @@ export class BuildingService {
   }
 
   createDebugMarker(position: Point3D, color: number = 0x00ff00): THREE.Mesh {
-    const geometry = new THREE.SphereGeometry(0.3, 8, 8);
+    const geometry = new THREE.SphereGeometry(1.5, 16, 16);
     const material = new THREE.MeshLambertMaterial({
       color,
       emissive: color,
-      emissiveIntensity: 0.2
+      emissiveIntensity: 0.3
     });
     
     const marker = new THREE.Mesh(geometry, material);
-    marker.position.set(position.x, position.y + 0.3, position.z);
+    marker.position.set(position.x, position.y, position.z);
     this.scene.add(marker);
     
     return marker;
