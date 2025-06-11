@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 export class CameraManager {
   private scene: THREE.Scene;
-  private camera: THREE.PerspectiveCamera;
+  public camera: THREE.PerspectiveCamera;
   private controls: any;
   private savedPosition: THREE.Vector3;
   private savedTarget: THREE.Vector3;
@@ -16,27 +16,14 @@ export class CameraManager {
     this.scene = scene;
     this.controls = controls;
 
-    // Setup single perspective camera
-    this.camera = new THREE.PerspectiveCamera(
-      75,
-      container.clientWidth / container.clientHeight,
-      0.1,
-      1000
-    );
-    this.camera.position.set(15, 15, 15);
-    this.camera.lookAt(0, 0, 0);
+    // Use the camera from controls (which is the main camera)
+    this.camera = controls.object;
 
     // Initialize saved positions
     this.savedPosition = new THREE.Vector3(15, 15, 15);
     this.savedTarget = new THREE.Vector3(0, 0, 0);
 
-    // Set camera for controls
-    if (this.controls) {
-      this.controls.object = this.camera;
-      this.controls.target.set(0, 0, 0);
-    }
-
-    console.log('📷 CameraManager: Single camera initialized');
+    console.log('📷 CameraManager: Initialized with existing camera');
     console.log('📷 Camera position:', this.camera.position);
   }
 

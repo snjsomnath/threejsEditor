@@ -6,6 +6,7 @@ import { BuildingManager } from './BuildingManager';
 export class ThreeManager {
   private scene: THREE.Scene;
   private renderer: THREE.WebGLRenderer;
+  private camera: THREE.PerspectiveCamera;
   private cameraManager: CameraManager | null = null;
   private drawingManager: DrawingManager | null = null;
   private buildingManager: BuildingManager | null = null;
@@ -25,6 +26,17 @@ export class ThreeManager {
     // Initialize scene
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x1a1a1a);
+
+    // Initialize camera FIRST
+    this.camera = new THREE.PerspectiveCamera(
+      75,
+      container.clientWidth / container.clientHeight,
+      0.1,
+      1000
+    );
+    this.camera.position.set(15, 15, 15);
+    this.camera.lookAt(0, 0, 0);
+    console.log('📷 ThreeManager: Camera initialized at position:', this.camera.position);
 
     // Initialize renderer with better settings
     this.renderer = new THREE.WebGLRenderer({ 
@@ -81,12 +93,14 @@ export class ThreeManager {
     try {
       console.log('🔄 ThreeManager: Starting initialization');
       
-      // Initialize controls first
+      // Initialize controls with the main camera
       await this.initializeControls();
       console.log('✅ ThreeManager: Controls initialized');
 
-      // Initialize camera manager with controls ready
+      // Initialize camera manager with the main camera and controls
       this.cameraManager = new CameraManager(this.scene, this.container, this.controls);
+      // Override the camera manager's camera with our main camera
+      this.cameraManager.camera = this.camera;
       console.log('✅ ThreeManager: CameraManager initialized');
 
       // Initialize other managers
@@ -165,18 +179,17 @@ export class ThreeManager {
     // Import OrbitControls dynamically
     const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
     
-    // Create a temporary camera for controls initialization
-    const tempCamera = new THREE.PerspectiveCamera(75, this.container.clientWidth / this.container.clientHeight, 0.1, 1000);
-    tempCamera.position.set(15, 15, 15);
-    
-    this.controls = new OrbitControls(tempCamera, this.renderer.domElement);
+    // Use the main camera for controls
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
     this.controls.screenSpacePanning = false;
     this.controls.minDistance = 3;
     this.controls.maxDistance = 100;
     this.controls.maxPolarAngle = Math.PI / 2;
-    console.log('✅ ThreeManager: Controls initialized');
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+    console.log('✅ ThreeManager: Controls initialized with main camera');
   }
 
   private setupEventListeners(): void {
@@ -187,14 +200,14 @@ export class ThreeManager {
 
     // Mouse events for drawing and editing
     this.container.addEventListener('mousemove', (event) => {
-      if (!this.isInitialized || !this.drawingManager || !this.buildingManager || !this.cameraManager) return;
+      if (!this.isInitialized || !this.drawingManager || !this.buildingManager) return;
       
       if (this.drawingManager.isDrawing()) {
-        this.drawingManager.handleMouseMove(event, this.cameraManager.getCurrentCamera(), this.container);
+        this.drawingManager.handleMouseMove(event, this.camera, this.container);
       } else {
         this.buildingManager.handleMouseMove(
           event, 
-          this.cameraManager.getCurrentCamera(), 
+          this.camera, 
           this.container,
           this.groundPlane
         );
@@ -203,7 +216,7 @@ export class ThreeManager {
 
     this.container.addEventListener('click', (event) => {
       console.log('🖱️ ThreeManager: Click event received');
-      if (!this.isInitialized || !this.drawingManager || !this.cameraManager) {
+      if (!this.isInitialized || !this.drawingManager) {
         console.log('❌ ThreeManager: Click ignored - not initialized or missing managers');
         return;
       }
@@ -212,7 +225,7 @@ export class ThreeManager {
         console.log('✏️ ThreeManager: Processing click for drawing');
         event.stopPropagation();
         event.preventDefault();
-        this.drawingManager.handleClick(event, this.cameraManager.getCurrentCamera(), this.container);
+        this.drawingManager.handleClick(event, this.camera, this.container);
       } else {
         console.log('👁️ ThreeManager: Click ignored - not in drawing mode');
       }
@@ -234,10 +247,10 @@ export class ThreeManager {
     });
 
     this.container.addEventListener('mousedown', (event) => {
-      if (!this.isInitialized || !this.drawingManager || !this.buildingManager || !this.cameraManager) return;
+      if (!this.isInitialized || !this.drawingManager || !this.buildingManager) return;
       
       if (!this.drawingManager.isDrawing()) {
-        this.buildingManager.handleMouseDown(event, this.cameraManager.getCurrentCamera(), this.container);
+        this.buildingManager.handleMouseDown(event, this.camera, this.container);
       }
     });
 
@@ -249,12 +262,13 @@ export class ThreeManager {
 
     // Resize handler
     window.addEventListener('resize', () => {
-      if (!this.isInitialized || !this.cameraManager) return;
+      if (!this.isInitialized) return;
       
       const width = this.container.clientWidth;
       const height = this.container.clientHeight;
       
-      this.cameraManager.updateAspectRatio(width, height);
+      this.camera.aspect = width / height;
+      this.camera.updateProjectionMatrix();
       this.renderer.setSize(width, height);
     });
     
@@ -269,9 +283,8 @@ export class ThreeManager {
       this.controls.update();
     }
     
-    if (this.cameraManager) {
-      this.renderer.render(this.scene, this.cameraManager.getCurrentCamera());
-    }
+    // Use the main camera for rendering
+    this.renderer.render(this.scene, this.camera);
   };
 
   // Public methods - now they will work once initialization is complete
