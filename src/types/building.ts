@@ -16,4 +16,5 @@ export interface DrawingState {
   markers: THREE.Mesh[];
   lines: THREE.Line[];
   previewMarker: THREE.Mesh | null;
+  snapToStart: boolean;
 }

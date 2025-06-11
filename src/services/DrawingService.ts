@@ -34,6 +34,31 @@ export class DrawingService {
     return marker;
   }
 
+  createSnapPreviewMarker(position: Point3D): THREE.Mesh {
+    const geometry = new THREE.SphereGeometry(0.4, 16, 16);
+    const material = new THREE.MeshLambertMaterial({ 
+      color: 0xffff00,
+      transparent: true,
+      opacity: 0.8,
+      emissive: 0xffff00,
+      emissiveIntensity: 0.2
+    });
+    const marker = new THREE.Mesh(geometry, material);
+    
+    marker.position.set(position.x, 0.4, position.z);
+    this.scene.add(marker);
+    
+    // Add pulsing animation for snap indicator
+    const animate = () => {
+      const time = Date.now() * 0.005;
+      marker.scale.setScalar(1 + Math.sin(time) * 0.2);
+      requestAnimationFrame(animate);
+    };
+    animate();
+    
+    return marker;
+  }
+
   createLine(from: Point3D, to: Point3D): THREE.Line {
     const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
     const points = [

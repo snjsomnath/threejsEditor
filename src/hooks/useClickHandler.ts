@@ -28,20 +28,20 @@ export const useClickHandler = (
     const handleMouseUp = (event: MouseEvent) => {
       if (!mouseDownPosRef.current) return;
 
-      // Check if it's a real click (not a drag) - reduced threshold for better responsiveness
+      // Ultra-tight drag threshold for instant response
       const dx = Math.abs(event.clientX - mouseDownPosRef.current.x);
       const dy = Math.abs(event.clientY - mouseDownPosRef.current.y);
-      if (dx > 3 || dy > 3) {
+      if (dx > 2 || dy > 2) {
         mouseDownPosRef.current = null;
         return;
       }
 
-      // Handle click timing - reduced delay for faster response
+      // Ultra-fast click detection
       const now = Date.now();
       const timeDiff = now - lastClickTimeRef.current;
 
-      if (timeDiff < 250) { // Reduced from 300ms to 250ms
-        // Double click detected
+      if (timeDiff < 200) { // Reduced to 200ms for faster double-click
+        // Double click - immediate response
         isDoubleClickRef.current = true;
         
         if (clickTimeoutRef.current) {
@@ -51,26 +51,27 @@ export const useClickHandler = (
         
         onDoubleClick();
       } else {
-        // Single click - reduced delay for faster response
+        // Single click - IMMEDIATE response with minimal delay
         isDoubleClickRef.current = false;
         
         if (clickTimeoutRef.current) {
           window.clearTimeout(clickTimeoutRef.current);
         }
         
+        // Reduced to just 50ms for near-instant response!
         clickTimeoutRef.current = window.setTimeout(() => {
           if (!isDoubleClickRef.current && container) {
             onSingleClick(event, container);
           }
           clickTimeoutRef.current = null;
-        }, 150); // Reduced from 300ms to 150ms
+        }, 50);
       }
 
       lastClickTimeRef.current = now;
       mouseDownPosRef.current = null;
     };
 
-    // Use passive listeners for better performance
+    // High-frequency event listeners for maximum responsiveness
     container.addEventListener('mousedown', handleMouseDown, { passive: true });
     container.addEventListener('mouseup', handleMouseUp, { passive: true });
     container.addEventListener('mousemove', handleMouseMove, { passive: true });

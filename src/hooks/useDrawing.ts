@@ -2,8 +2,10 @@ import { useState, useRef, useCallback } from 'react';
 import { Point3D, DrawingState } from '../types/building';
 import { DrawingService } from '../services/DrawingService';
 import { BuildingService } from '../services/BuildingService';
-import { getGroundIntersection } from '../utils/geometry';
+import { getGroundIntersection, calculateDistance } from '../utils/geometry';
 import * as THREE from 'three';
+
+const SNAP_DISTANCE = 2.0; // Distance threshold for snapping to start point
 
 export const useDrawing = (
   scene: THREE.Scene | null,
@@ -15,7 +17,8 @@ export const useDrawing = (
     points: [],
     markers: [],
     lines: [],
-    previewMarker: null
+    previewMarker: null,
+    snapToStart: false
   });
 
   const drawingServiceRef = useRef<DrawingService | null>(null);
@@ -34,7 +37,8 @@ export const useDrawing = (
       points: [],
       markers: [],
       lines: [],
-      previewMarker: null
+      previewMarker: null,
+      snapToStart: false
     });
   }, []);
 
@@ -53,7 +57,8 @@ export const useDrawing = (
       points: [],
       markers: [],
       lines: [],
-      previewMarker: null
+      previewMarker: null,
+      snapToStart: false
     });
   }, [drawingState.markers, drawingState.lines, drawingState.previewMarker]);
 
@@ -71,22 +76,45 @@ export const useDrawing = (
     const intersection = getGroundIntersection(mouseRef.current, camera, groundPlane);
     if (!intersection) return;
 
+    // Check for snapping to start point (need at least 3 points)
+    let finalPosition = intersection;
+    let shouldSnapToStart = false;
+
+    if (drawingState.points.length >= 3) {
+      const startPoint = drawingState.points[0];
+      const distanceToStart = calculateDistance(intersection, startPoint);
+      
+      if (distanceToStart <= SNAP_DISTANCE) {
+        finalPosition = startPoint;
+        shouldSnapToStart = true;
+      }
+    }
+
     // Remove existing preview marker
     if (drawingState.previewMarker) {
       drawingServiceRef.current.clearPreviewMarker(drawingState.previewMarker);
     }
 
-    // Create new preview marker
-    const previewMarker = drawingServiceRef.current.createPreviewMarker(intersection);
+    // Create new preview marker with appropriate style
+    const previewMarker = shouldSnapToStart 
+      ? drawingServiceRef.current.createSnapPreviewMarker(finalPosition)
+      : drawingServiceRef.current.createPreviewMarker(finalPosition);
 
     setDrawingState(prev => ({
       ...prev,
-      previewMarker
+      previewMarker,
+      snapToStart: shouldSnapToStart
     }));
-  }, [drawingState.isDrawing, drawingState.previewMarker, camera, groundPlane]);
+  }, [drawingState.isDrawing, drawingState.previewMarker, drawingState.points, camera, groundPlane]);
 
   const addPoint = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
     if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current) {
+      return;
+    }
+
+    // If we're snapping to start and have enough points, finish the building
+    if (drawingState.snapToStart && drawingState.points.length >= 3) {
+      finishBuilding();
       return;
     }
 
@@ -116,7 +144,7 @@ export const useDrawing = (
       markers: [...prev.markers, marker],
       lines: line ? [...prev.lines, line] : prev.lines
     }));
-  }, [drawingState.isDrawing, drawingState.points, camera, groundPlane]);
+  }, [drawingState.isDrawing, drawingState.points, drawingState.snapToStart, camera, groundPlane]);
 
   const finishBuilding = useCallback(() => {
     if (!buildingServiceRef.current || !drawingServiceRef.current || drawingState.points.length < 3) {
@@ -145,7 +173,8 @@ export const useDrawing = (
         points: [],
         markers: [],
         lines: [],
-        previewMarker: null
+        previewMarker: null,
+        snapToStart: false
       });
     } catch (error) {
       console.error('Error creating building:', error);

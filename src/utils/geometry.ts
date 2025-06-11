@@ -18,6 +18,13 @@ export const calculateCentroid = (points: Point3D[]): Point3D => {
   };
 };
 
+export const calculateDistance = (point1: Point3D, point2: Point3D): number => {
+  const dx = point1.x - point2.x;
+  const dy = point1.y - point2.y;
+  const dz = point1.z - point2.z;
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+};
+
 export const createShapeFromPoints = (points: Point3D[], centroid: Point3D): THREE.Shape => {
   if (points.length < 3) {
     throw new Error('Need at least 3 points to create a shape');
