@@ -314,21 +314,25 @@ export const SimpleBuildingCreator: React.FC = () => {
       const centroid = calculateCentroid(points);
       console.log('🎯 Building centroid:', centroid);
       
-      // Create shape from points - relative to centroid for proper scaling
+      // Create shape from points - use proper coordinate mapping
       const shape = new THREE.Shape();
       
-      // Start at first point (relative to centroid)
-      shape.moveTo(points[0].x - centroid.x, points[0].z - centroid.z);
-      console.log('📐 Shape starts at:', { x: points[0].x - centroid.x, z: points[0].z - centroid.z });
+      // Map the first point to shape coordinates (X maps to X, Z maps to Y in 2D shape)
+      const firstX = points[0].x - centroid.x;
+      const firstY = -(points[0].z - centroid.z); // Negate Z to fix flipping
+      shape.moveTo(firstX, firstY);
+      console.log('📐 Shape starts at:', { x: firstX, y: firstY });
       
-      // Add lines to other points (relative to centroid)
+      // Add lines to other points with proper coordinate mapping
       for (let i = 1; i < points.length; i++) {
-        shape.lineTo(points[i].x - centroid.x, points[i].z - centroid.z);
-        console.log('📐 Line to:', { x: points[i].x - centroid.x, z: points[i].z - centroid.z });
+        const shapeX = points[i].x - centroid.x;
+        const shapeY = -(points[i].z - centroid.z); // Negate Z to fix flipping
+        shape.lineTo(shapeX, shapeY);
+        console.log('📐 Line to:', { x: shapeX, y: shapeY });
       }
       
       // Close the shape explicitly
-      shape.lineTo(points[0].x - centroid.x, points[0].z - centroid.z);
+      shape.lineTo(firstX, firstY);
       console.log('📐 Shape closed back to start');
 
       // Extrude settings - building height
