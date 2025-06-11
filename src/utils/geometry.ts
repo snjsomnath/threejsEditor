@@ -54,16 +54,25 @@ export const getGroundIntersection = (
 ): Point3D | null => {
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
+  
+  // Debug: Log the mouse coordinates and ray direction
+  console.log('Mouse coordinates:', mouse.x, mouse.y);
+  console.log('Ray origin:', raycaster.ray.origin);
+  console.log('Ray direction:', raycaster.ray.direction);
+  
   const intersects = raycaster.intersectObject(groundPlane);
   
   if (intersects.length > 0) {
     const point = intersects[0].point;
+    console.log('Intersection point:', point.x, point.y, point.z);
+    
     return { 
-      x: Math.round(point.x * 10) / 10, // Round to 1 decimal place for cleaner coordinates
+      x: point.x,
       y: 0, // Always 0 for ground level
-      z: Math.round(point.z * 10) / 10 
+      z: point.z
     };
   }
   
+  console.log('No intersection found');
   return null;
 };

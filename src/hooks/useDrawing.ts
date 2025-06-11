@@ -19,7 +19,6 @@ export const useDrawing = (
 
   const drawingServiceRef = useRef<DrawingService | null>(null);
   const buildingServiceRef = useRef<BuildingService | null>(null);
-  const mouseRef = useRef(new THREE.Vector2());
 
   // Initialize services when scene is available
   if (scene && !drawingServiceRef.current) {
@@ -56,14 +55,32 @@ export const useDrawing = (
       return;
     }
 
-    // Calculate mouse coordinates
+    // Calculate mouse coordinates more carefully
     const rect = containerElement.getBoundingClientRect();
-    mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    const mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    const mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    
+    const mouse = new THREE.Vector2(mouseX, mouseY);
+    
+    console.log('Click event:', {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      rectLeft: rect.left,
+      rectTop: rect.top,
+      rectWidth: rect.width,
+      rectHeight: rect.height,
+      mouseX,
+      mouseY
+    });
 
     // Get intersection with ground
-    const intersection = getGroundIntersection(mouseRef.current, camera, groundPlane);
-    if (!intersection) return;
+    const intersection = getGroundIntersection(mouse, camera, groundPlane);
+    if (!intersection) {
+      console.log('No intersection found for click');
+      return;
+    }
+
+    console.log('Adding point:', intersection);
 
     // Create point marker
     const marker = drawingServiceRef.current.createPointMarker(intersection);
@@ -86,10 +103,17 @@ export const useDrawing = (
 
   const finishBuilding = useCallback(() => {
     if (!buildingServiceRef.current || !drawingServiceRef.current || drawingState.points.length < 3) {
+      console.log('Cannot finish building:', {
+        hasService: !!buildingServiceRef.current,
+        hasDrawingService: !!drawingServiceRef.current,
+        pointCount: drawingState.points.length
+      });
       return;
     }
 
     try {
+      console.log('Creating building with points:', drawingState.points);
+      
       // Create the building
       const buildingConfig = {
         height: 8,
