@@ -1,0 +1,278 @@
+import React, { useRef, useEffect, useState } from 'react';
+import * as THREE from 'three';
+import { Pencil, Square } from 'lucide-react';
+
+export const SimpleBuildingCreator: React.FC = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const controlsRef = useRef<any>(null);
+  const groundPlaneRef = useRef<THREE.Mesh | null>(null);
+  const raycasterRef = useRef<THREE.Raycaster | null>(null);
+  const mouseRef = useRef<THREE.Vector2 | null>(null);
+  
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [currentPoints, setCurrentPoints] = useState<THREE.Vector3[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    initializeThreeJS();
+
+    return () => {
+      cleanup();
+    };
+  }, []);
+
+  const initializeThreeJS = async () => {
+    if (!containerRef.current) return;
+
+    console.log('🚀 Initializing Three.js');
+
+    // Scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a1a);
+    sceneRef.current = scene;
+
+    // Camera
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      containerRef.current.clientWidth / containerRef.current.clientHeight,
+      0.1,
+      1000
+    );
+    camera.position.set(15, 15, 15);
+    camera.lookAt(0, 0, 0);
+    cameraRef.current = camera;
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    containerRef.current.appendChild(renderer.domElement);
+    rendererRef.current = renderer;
+
+    // Controls
+    const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controlsRef.current = controls;
+
+    // Ground plane
+    const groundGeometry = new THREE.PlaneGeometry(100, 100);
+    const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x444444 });
+    const groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
+    groundPlane.rotation.x = -Math.PI / 2;
+    scene.add(groundPlane);
+    groundPlaneRef.current = groundPlane;
+
+    // Grid
+    const gridHelper = new THREE.GridHelper(100, 100, 0x666666, 0x444444);
+    scene.add(gridHelper);
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.8);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    directionalLight.position.set(10, 20, 10);
+    scene.add(directionalLight);
+
+    // Raycaster and mouse
+    raycasterRef.current = new THREE.Raycaster();
+    mouseRef.current = new THREE.Vector2();
+
+    // Event listeners
+    setupEventListeners();
+
+    // Start render loop
+    animate();
+
+    setIsInitialized(true);
+    console.log('✅ Three.js initialized');
+  };
+
+  const setupEventListeners = () => {
+    if (!containerRef.current) return;
+
+    containerRef.current.addEventListener('click', handleClick);
+    containerRef.current.addEventListener('dblclick', handleDoubleClick);
+    window.addEventListener('resize', handleResize);
+  };
+
+  const handleClick = (event: MouseEvent) => {
+    if (!isDrawing || !containerRef.current || !cameraRef.current || !groundPlaneRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const mouse = mouseRef.current!;
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    const raycaster = raycasterRef.current!;
+    raycaster.setFromCamera(mouse, cameraRef.current);
+    const intersects = raycaster.intersectObject(groundPlaneRef.current);
+
+    if (intersects.length > 0) {
+      const point = intersects[0].point;
+      console.log('📍 Adding point:', point);
+      
+      // Add point marker
+      const geometry = new THREE.SphereGeometry(0.5, 16, 16);
+      const material = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+      const marker = new THREE.Mesh(geometry, material);
+      marker.position.copy(point);
+      marker.position.y = 1;
+      sceneRef.current!.add(marker);
+
+      setCurrentPoints(prev => [...prev, point]);
+    }
+  };
+
+  const handleDoubleClick = () => {
+    if (!isDrawing || currentPoints.length < 3) return;
+    
+    console.log('🏁 Creating building with points:', currentPoints);
+    createBuilding(currentPoints);
+    setCurrentPoints([]);
+    setIsDrawing(false);
+  };
+
+  const createBuilding = (points: THREE.Vector3[]) => {
+    if (!sceneRef.current || points.length < 3) return;
+
+    console.log('🏢 Creating building');
+
+    // Create shape from points
+    const shape = new THREE.Shape();
+    shape.moveTo(points[0].x, points[0].z);
+    for (let i = 1; i < points.length; i++) {
+      shape.lineTo(points[i].x, points[i].z);
+    }
+    shape.lineTo(points[0].x, points[0].z); // Close shape
+
+    // Extrude to create 3D building
+    const extrudeSettings = {
+      depth: 5, // Building height
+      bevelEnabled: false
+    };
+
+    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    const material = new THREE.MeshLambertMaterial({ color: 0xff0000 }); // Same red as test objects
+    const building = new THREE.Mesh(geometry, material);
+    
+    sceneRef.current.add(building);
+    console.log('✅ Building created and added to scene');
+  };
+
+  const handleResize = () => {
+    if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
+
+    const width = containerRef.current.clientWidth;
+    const height = containerRef.current.clientHeight;
+
+    cameraRef.current.aspect = width / height;
+    cameraRef.current.updateProjectionMatrix();
+    rendererRef.current.setSize(width, height);
+  };
+
+  const animate = () => {
+    requestAnimationFrame(animate);
+    
+    if (controlsRef.current) {
+      controlsRef.current.update();
+    }
+    
+    if (rendererRef.current && sceneRef.current && cameraRef.current) {
+      rendererRef.current.render(sceneRef.current, cameraRef.current);
+    }
+  };
+
+  const cleanup = () => {
+    if (containerRef.current && rendererRef.current) {
+      containerRef.current.removeChild(rendererRef.current.domElement);
+    }
+    if (rendererRef.current) {
+      rendererRef.current.dispose();
+    }
+  };
+
+  const startDrawing = () => {
+    console.log('🎨 Starting drawing mode');
+    setIsDrawing(true);
+    setCurrentPoints([]);
+  };
+
+  const stopDrawing = () => {
+    console.log('🛑 Stopping drawing mode');
+    setIsDrawing(false);
+    setCurrentPoints([]);
+  };
+
+  return (
+    <div className="relative w-full h-screen">
+      <div ref={containerRef} className="w-full h-full" />
+      
+      {/* Simple Controls */}
+      <div className="fixed top-6 left-6 bg-gray-900/90 backdrop-blur-sm rounded-xl p-4 shadow-2xl border border-gray-700">
+        <div className="flex flex-col space-y-3">
+          <h2 className="text-white font-semibold">Building Creator</h2>
+          
+          {!isDrawing ? (
+            <button
+              onClick={startDrawing}
+              disabled={!isInitialized}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 
+                        disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg 
+                        transition-all duration-200"
+            >
+              <Pencil className="w-4 h-4" />
+              <span>Draw Building</span>
+            </button>
+          ) : (
+            <button
+              onClick={stopDrawing}
+              className="flex items-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 
+                        text-white rounded-lg transition-all duration-200"
+            >
+              <Square className="w-4 h-4" />
+              <span>Stop Drawing</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Drawing Instructions */}
+      {isDrawing && (
+        <div className="fixed bottom-6 right-6 bg-blue-900/90 backdrop-blur-sm rounded-xl p-4 shadow-2xl border border-blue-700">
+          <div className="text-blue-100">
+            <h3 className="font-semibold mb-2">Drawing Mode</h3>
+            <div className="text-sm space-y-1">
+              <p>• Click to place points</p>
+              <p>• Double-click to finish building</p>
+              <p>• Need at least 3 points</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status */}
+      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 
+                      bg-gray-900/90 backdrop-blur-sm rounded-full px-6 py-2 shadow-xl border border-gray-700">
+        <div className="flex items-center space-x-4 text-sm text-gray-300">
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${isDrawing ? 'bg-orange-500' : 'bg-teal-500'}`} />
+            <span>{isDrawing ? 'Drawing Mode' : 'View Mode'}</span>
+          </div>
+          {currentPoints.length > 0 && (
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
+              <span>{currentPoints.length} points</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
