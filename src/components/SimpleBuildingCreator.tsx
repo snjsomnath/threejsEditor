@@ -37,16 +37,29 @@ export const SimpleBuildingCreator: React.FC = () => {
   );
 
   // Initialize building management
-  const { buildings, selectedBuilding, selectBuilding, updateBuilding, clearAllBuildings, exportBuildings, buildingStats, deleteBuilding } = useBuildingManager(scene);
+  const { buildings, selectedBuilding, hoveredBuilding, selectBuilding, updateBuilding, clearAllBuildings, exportBuildings, buildingStats, deleteBuilding, handleBuildingInteraction } = useBuildingManager(scene);
 
   // Handle click events and mouse movement
-  useClickHandler(containerRef, (event, container) => {
-    if (!hasInteracted) setHasInteracted(true);
-    addPoint(event, container);
-  }, finishBuilding, updatePreview);
+  useClickHandler(
+    containerRef, 
+    (event, container) => {
+      if (!hasInteracted) setHasInteracted(true);
+      addPoint(event, container);
+    }, 
+    finishBuilding, 
+    updatePreview,
+    (event, container) => {
+      if (camera) {
+        handleBuildingInteraction(event, camera, container, drawingState.isDrawing);
+      }
+    },
+    drawingState.isDrawing
+  );
 
   const handleStartDrawing = () => {
     if (!hasInteracted) setHasInteracted(true);
+    // Clear selection when starting to draw
+    selectBuilding(null);
     startDrawing();
   };
 
@@ -314,7 +327,14 @@ export const SimpleBuildingCreator: React.FC = () => {
           {selectedBuilding && (
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 rounded-full bg-yellow-500" />
-              <span>Selected</span>
+              <span>Selected: {selectedBuilding.name}</span>
+            </div>
+          )}
+
+          {hoveredBuilding && !selectedBuilding && (
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded-full bg-gray-400" />
+              <span>Hover: {hoveredBuilding.name}</span>
             </div>
           )}
         </div>

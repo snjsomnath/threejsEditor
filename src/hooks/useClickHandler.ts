@@ -4,7 +4,9 @@ export const useClickHandler = (
   containerRef: React.RefObject<HTMLDivElement>,
   onSingleClick: (event: MouseEvent, container: HTMLElement) => void,
   onDoubleClick: () => void,
-  onMouseMove?: (event: MouseEvent, container: HTMLElement) => void
+  onMouseMove?: (event: MouseEvent, container: HTMLElement) => void,
+  onBuildingInteraction?: (event: MouseEvent, container: HTMLElement) => void,
+  isDrawing?: boolean
 ) => {
   const clickTimeoutRef = useRef<number | null>(null);
   const isDoubleClickRef = useRef(false);
@@ -22,6 +24,11 @@ export const useClickHandler = (
     const handleMouseMove = (event: MouseEvent) => {
       if (onMouseMove) {
         onMouseMove(event, container);
+      }
+      
+      // Handle building hover when not drawing
+      if (onBuildingInteraction && !isDrawing) {
+        onBuildingInteraction(event, container);
       }
     };
 
@@ -49,7 +56,9 @@ export const useClickHandler = (
           clickTimeoutRef.current = null;
         }
         
-        onDoubleClick();
+        if (isDrawing) {
+          onDoubleClick();
+        }
       } else {
         // Single click - IMMEDIATE response with minimal delay
         isDoubleClickRef.current = false;
@@ -61,7 +70,12 @@ export const useClickHandler = (
         // Reduced to just 50ms for near-instant response!
         clickTimeoutRef.current = window.setTimeout(() => {
           if (!isDoubleClickRef.current && container) {
-            onSingleClick(event, container);
+            if (isDrawing) {
+              onSingleClick(event, container);
+            } else if (onBuildingInteraction) {
+              // Handle building selection when not drawing
+              onBuildingInteraction(event, container);
+            }
           }
           clickTimeoutRef.current = null;
         }, 50);
@@ -84,5 +98,5 @@ export const useClickHandler = (
         window.clearTimeout(clickTimeoutRef.current);
       }
     };
-  }, [containerRef, onSingleClick, onDoubleClick, onMouseMove]);
+  }, [containerRef, onSingleClick, onDoubleClick, onMouseMove, onBuildingInteraction, isDrawing]);
 };

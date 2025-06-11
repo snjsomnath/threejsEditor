@@ -11,6 +11,7 @@ interface BuildingStats {
 export const useBuildingManager = (scene: THREE.Scene | null) => {
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingData | null>(null);
+  const [hoveredBuilding, setHoveredBuilding] = useState<BuildingData | null>(null);
   const buildingIdCounter = useRef(0);
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
@@ -124,6 +125,22 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
     setSelectedBuilding(building);
   }, [selectedBuilding]);
 
+  const hoverBuilding = useCallback((building: BuildingData | null) => {
+    // Reset previous hover (only if not selected)
+    if (hoveredBuilding && hoveredBuilding !== selectedBuilding) {
+      const material = hoveredBuilding.mesh.material as THREE.MeshLambertMaterial;
+      material.emissive.setHex(0x000000);
+    }
+
+    // Highlight new hover (only if not selected)
+    if (building && building !== selectedBuilding) {
+      const material = building.mesh.material as THREE.MeshLambertMaterial;
+      material.emissive.setHex(0x222222);
+    }
+
+    setHoveredBuilding(building);
+  }, [hoveredBuilding, selectedBuilding]);
+
   const deleteBuilding = useCallback((id: string) => {
     if (!scene) return;
 
@@ -140,7 +157,10 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
     if (selectedBuilding?.id === id) {
       setSelectedBuilding(null);
     }
-  }, [scene, selectedBuilding]);
+    if (hoveredBuilding?.id === id) {
+      setHoveredBuilding(null);
+    }
+  }, [scene, selectedBuilding, hoveredBuilding]);
 
   const clearAllBuildings = useCallback(() => {
     if (!scene) return;
@@ -153,6 +173,7 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
 
     setBuildings([]);
     setSelectedBuilding(null);
+    setHoveredBuilding(null);
   }, [scene, buildings]);
 
   const exportBuildings = useCallback(() => {
@@ -189,9 +210,9 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
     URL.revokeObjectURL(url);
   }, [buildings]);
 
-  // Handle building selection via click
-  const handleBuildingClick = useCallback((event: MouseEvent, camera: THREE.Camera, containerElement: HTMLElement) => {
-    if (!scene || !camera) return;
+  // Handle building selection and hover via mouse events
+  const handleBuildingInteraction = useCallback((event: MouseEvent, camera: THREE.Camera, containerElement: HTMLElement, isDrawing: boolean) => {
+    if (!scene || !camera || isDrawing) return;
 
     const rect = containerElement.getBoundingClientRect();
     mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -208,12 +229,20 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
       const building = buildings.find(b => b.id === buildingId);
       
       if (building) {
-        selectBuilding(building === selectedBuilding ? null : building);
+        if (event.type === 'click') {
+          selectBuilding(building === selectedBuilding ? null : building);
+        } else if (event.type === 'mousemove') {
+          hoverBuilding(building);
+        }
       }
     } else {
-      selectBuilding(null);
+      if (event.type === 'click') {
+        selectBuilding(null);
+      } else if (event.type === 'mousemove') {
+        hoverBuilding(null);
+      }
     }
-  }, [buildings, selectedBuilding, selectBuilding, scene]);
+  }, [buildings, selectedBuilding, selectBuilding, hoverBuilding, scene]);
 
   const buildingStats: BuildingStats = {
     count: buildings.length,
@@ -224,14 +253,16 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
   return {
     buildings,
     selectedBuilding,
+    hoveredBuilding,
     addBuilding,
     updateBuilding,
     selectBuilding,
+    hoverBuilding,
     deleteBuilding,
     clearAllBuildings,
     exportBuildings,
     buildingStats,
-    handleBuildingClick
+    handleBuildingInteraction
   };
 };
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, RotateCcw, Home, Building, Factory, Edit3, Layers, Ruler } from 'lucide-react';
+import { X, Save, RotateCcw, Home, Building, Factory, Layers, Palette } from 'lucide-react';
 import { BuildingData, BuildingConfig } from '../types/building';
 
 interface BuildingEditPanelProps {
@@ -31,26 +31,18 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
   onSave
 }) => {
   const [editedBuilding, setEditedBuilding] = useState({
-    name: building.name || `${building.buildingType} Building`,
-    buildingType: building.buildingType,
     floors: building.floors,
     floorHeight: building.floorHeight,
-    color: building.color || 0x3b82f6,
-    enableShadows: building.enableShadows !== false,
-    description: building.description || ''
+    color: building.color || 0x3b82f6
   });
 
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     const originalData = {
-      name: building.name || `${building.buildingType} Building`,
-      buildingType: building.buildingType,
       floors: building.floors,
       floorHeight: building.floorHeight,
-      color: building.color || 0x3b82f6,
-      enableShadows: building.enableShadows !== false,
-      description: building.description || ''
+      color: building.color || 0x3b82f6
     };
 
     const hasChanged = JSON.stringify(editedBuilding) !== JSON.stringify(originalData);
@@ -63,19 +55,15 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
 
   const handleSave = () => {
     const updates = {
-      name: editedBuilding.name,
-      buildingType: editedBuilding.buildingType,
       floors: editedBuilding.floors,
       floorHeight: editedBuilding.floorHeight,
       color: editedBuilding.color,
-      enableShadows: editedBuilding.enableShadows,
-      description: editedBuilding.description,
       config: {
         floors: editedBuilding.floors,
         floorHeight: editedBuilding.floorHeight,
         color: editedBuilding.color,
-        enableShadows: editedBuilding.enableShadows,
-        buildingType: editedBuilding.buildingType as 'residential' | 'commercial' | 'industrial'
+        enableShadows: building.enableShadows !== false,
+        buildingType: building.buildingType as 'residential' | 'commercial' | 'industrial'
       }
     };
     
@@ -84,13 +72,9 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
 
   const handleReset = () => {
     setEditedBuilding({
-      name: building.name || `${building.buildingType} Building`,
-      buildingType: building.buildingType,
       floors: building.floors,
       floorHeight: building.floorHeight,
-      color: building.color || 0x3b82f6,
-      enableShadows: building.enableShadows !== false,
-      description: building.description || ''
+      color: building.color || 0x3b82f6
     });
   };
 
@@ -114,16 +98,16 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-gray-900/95 backdrop-blur-sm rounded-xl shadow-2xl border border-gray-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-gray-900/95 backdrop-blur-sm rounded-xl shadow-2xl border border-gray-700 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <div className="flex items-center space-x-3">
-            <div className={getBuildingTypeColor(editedBuilding.buildingType)}>
-              {getBuildingIcon(editedBuilding.buildingType)}
+            <div className={getBuildingTypeColor(building.buildingType)}>
+              {getBuildingIcon(building.buildingType)}
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">Edit Building</h2>
-              <p className="text-sm text-gray-400">ID: {building.id}</p>
+              <p className="text-sm text-gray-400">{building.name}</p>
             </div>
           </div>
           <button
@@ -135,64 +119,6 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Basic Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
-              <Edit3 className="w-5 h-5" />
-              <span>Basic Information</span>
-            </h3>
-            
-            {/* Building Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Building Name</label>
-              <input
-                type="text"
-                value={editedBuilding.name}
-                onChange={(e) => updateField('name', e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white 
-                          focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-                placeholder="Enter building name..."
-              />
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
-              <textarea
-                value={editedBuilding.description}
-                onChange={(e) => updateField('description', e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white 
-                          focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors resize-none"
-                placeholder="Enter building description..."
-              />
-            </div>
-
-            {/* Building Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Building Type</label>
-              <div className="grid grid-cols-1 gap-2">
-                {buildingTypes.map((type) => {
-                  const IconComponent = type.icon;
-                  return (
-                    <button
-                      key={type.id}
-                      onClick={() => updateField('buildingType', type.id)}
-                      className={`flex items-center space-x-3 p-3 rounded-lg border transition-all ${
-                        editedBuilding.buildingType === type.id
-                          ? 'border-blue-500 bg-blue-500/20 text-blue-300'
-                          : 'border-gray-600 bg-gray-800/50 text-gray-300 hover:border-gray-500'
-                      }`}
-                    >
-                      <IconComponent className="w-5 h-5" />
-                      <span className="font-medium">{type.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
           {/* Dimensions */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
@@ -263,7 +189,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
           {/* Appearance */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
-              <Ruler className="w-5 h-5" />
+              <Palette className="w-5 h-5" />
               <span>Appearance</span>
             </h3>
 
@@ -285,23 +211,6 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
                   />
                 ))}
               </div>
-            </div>
-
-            {/* Advanced Options */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-300">Enable Shadows</span>
-              <button
-                onClick={() => updateField('enableShadows', !editedBuilding.enableShadows)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  editedBuilding.enableShadows ? 'bg-blue-600' : 'bg-gray-600'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    editedBuilding.enableShadows ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
             </div>
           </div>
 
