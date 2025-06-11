@@ -18,6 +18,13 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     return cleanup;
   }, []);
 
+  // Update grid visibility when showGrid prop changes
+  useEffect(() => {
+    if (gridHelperRef.current) {
+      gridHelperRef.current.visible = showGrid;
+    }
+  }, [showGrid]);
+
   const initializeScene = async () => {
     if (!containerRef.current) return;
 
@@ -98,9 +105,9 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     scene.add(groundPlane);
     groundPlaneRef.current = groundPlane;
 
-    // Enhanced Grid
+    // Enhanced Grid - Make sure it's visible by default
     const gridHelper = new THREE.GridHelper(100, 100, 0x666666, 0x333333);
-    gridHelper.visible = showGrid;
+    gridHelper.visible = showGrid; // Use the prop value
     scene.add(gridHelper);
     gridHelperRef.current = gridHelper;
 
