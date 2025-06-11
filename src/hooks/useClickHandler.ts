@@ -28,20 +28,20 @@ export const useClickHandler = (
     const handleMouseUp = (event: MouseEvent) => {
       if (!mouseDownPosRef.current) return;
 
-      // Check if it's a real click (not a drag)
+      // Check if it's a real click (not a drag) - reduced threshold for better responsiveness
       const dx = Math.abs(event.clientX - mouseDownPosRef.current.x);
       const dy = Math.abs(event.clientY - mouseDownPosRef.current.y);
-      if (dx > 5 || dy > 5) {
+      if (dx > 3 || dy > 3) {
         mouseDownPosRef.current = null;
         return;
       }
 
-      // Handle click timing
+      // Handle click timing - reduced delay for faster response
       const now = Date.now();
       const timeDiff = now - lastClickTimeRef.current;
 
-      if (timeDiff < 300) {
-        // Double click
+      if (timeDiff < 250) { // Reduced from 300ms to 250ms
+        // Double click detected
         isDoubleClickRef.current = true;
         
         if (clickTimeoutRef.current) {
@@ -51,7 +51,7 @@ export const useClickHandler = (
         
         onDoubleClick();
       } else {
-        // Single click - delay processing
+        // Single click - reduced delay for faster response
         isDoubleClickRef.current = false;
         
         if (clickTimeoutRef.current) {
@@ -63,16 +63,17 @@ export const useClickHandler = (
             onSingleClick(event, container);
           }
           clickTimeoutRef.current = null;
-        }, 300);
+        }, 150); // Reduced from 300ms to 150ms
       }
 
       lastClickTimeRef.current = now;
       mouseDownPosRef.current = null;
     };
 
-    container.addEventListener('mousedown', handleMouseDown);
-    container.addEventListener('mouseup', handleMouseUp);
-    container.addEventListener('mousemove', handleMouseMove);
+    // Use passive listeners for better performance
+    container.addEventListener('mousedown', handleMouseDown, { passive: true });
+    container.addEventListener('mouseup', handleMouseUp, { passive: true });
+    container.addEventListener('mousemove', handleMouseMove, { passive: true });
 
     return () => {
       container.removeEventListener('mousedown', handleMouseDown);
