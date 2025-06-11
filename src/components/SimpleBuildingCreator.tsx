@@ -12,10 +12,28 @@ export const SimpleBuildingCreator: React.FC = () => {
   const raycasterRef = useRef<THREE.Raycaster | null>(null);
   const mouseRef = useRef<THREE.Vector2 | null>(null);
   
+  // Add a ref to track drawing state to avoid closure issues
+  const isDrawingRef = useRef(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPoints, setCurrentPoints] = useState<THREE.Vector3[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const [pointMarkers, setPointMarkers] = useState<THREE.Mesh[]>([]);
+  const [lines, setLines] = useState<THREE.Line[]>([]); // State to store lines
+
+  // Add a ref to track points to avoid asynchronous state issues
+  const currentPointsRef = useRef<THREE.Vector3[]>([]);
+
+  // Update the ref whenever the state changes
+  useEffect(() => {
+    isDrawingRef.current = isDrawing;
+    console.log('🔄 Drawing mode state updated:', isDrawing);
+  }, [isDrawing]);
+
+  // Update the points ref whenever the state changes
+  useEffect(() => {
+    currentPointsRef.current = currentPoints;
+    console.log('📊 Points array updated, now has', currentPoints.length, 'points');
+  }, [currentPoints]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -103,62 +121,182 @@ export const SimpleBuildingCreator: React.FC = () => {
     console.log('✅ Three.js initialized');
   };
 
+  // Keep handleClick and handleDoubleClick as defined functions for reference 
+  // before they're used in removeEventListener
+  const handleClick = (event: MouseEvent) => {
+    processSingleClick(event);
+  };
+
+  const handleDoubleClick = (event: MouseEvent) => {
+    processDoubleClick(event);
+  };
+
   const setupEventListeners = () => {
     if (!containerRef.current) return;
 
-    containerRef.current.addEventListener('click', handleClick);
-    containerRef.current.addEventListener('dblclick', handleDoubleClick);
+    // Now these functions are defined before being referenced
+    containerRef.current.removeEventListener('click', handleClick);
+    containerRef.current.removeEventListener('dblclick', handleDoubleClick);
+
+    // Use mousedown and mouseup instead to have better control
+    containerRef.current.addEventListener('mousedown', handleMouseDown);
+    containerRef.current.addEventListener('mouseup', handleMouseUp);
     window.addEventListener('resize', handleResize);
   };
 
-  const handleClick = (event: MouseEvent) => {
-    if (!isDrawing || !containerRef.current || !cameraRef.current || !groundPlaneRef.current) return;
+  // Track clicks for differentiating between single and double clicks
+  const clickTimeoutRef = useRef<number | null>(null);
+  const isDoubleClickRef = useRef(false);
+  const lastClickTimeRef = useRef(0);
+  const mouseDownPosRef = useRef<{x: number, y: number} | null>(null);
+
+  const handleMouseDown = (event: MouseEvent) => {
+    // Store mouse position on mousedown
+    mouseDownPosRef.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const handleMouseUp = (event: MouseEvent) => {
+    if (!mouseDownPosRef.current) return;
+    
+    // Check if it's a real click (not a drag)
+    const dx = Math.abs(event.clientX - mouseDownPosRef.current.x);
+    const dy = Math.abs(event.clientY - mouseDownPosRef.current.y);
+    if (dx > 5 || dy > 5) {
+      // It's a drag, not a click
+      mouseDownPosRef.current = null;
+      return;
+    }
+    
+    // It's a click, check if it's a double click
+    const now = Date.now();
+    const timeDiff = now - lastClickTimeRef.current;
+    
+    if (timeDiff < 300) { // 300ms threshold for double-click
+      console.log('🔍 Double click detected!');
+      isDoubleClickRef.current = true;
+      
+      // Clear any pending single click
+      if (clickTimeoutRef.current) {
+        window.clearTimeout(clickTimeoutRef.current);
+        clickTimeoutRef.current = null;
+      }
+      
+      // Process the double-click
+      processDoubleClick(event);
+    } else {
+      // Single click - delay processing to check for double click
+      isDoubleClickRef.current = false;
+      
+      if (clickTimeoutRef.current) {
+        window.clearTimeout(clickTimeoutRef.current);
+      }
+      
+      clickTimeoutRef.current = window.setTimeout(() => {
+        if (!isDoubleClickRef.current) {
+          console.log('🔍 Single click processed after delay');
+          processSingleClick(event);
+        }
+        clickTimeoutRef.current = null;
+      }, 300);
+    }
+    
+    lastClickTimeRef.current = now;
+    mouseDownPosRef.current = null;
+  };
+
+  const processSingleClick = (event: MouseEvent) => {
+    console.log('🔍 Processing single click');
+    // Use the ref instead of the state to avoid closure issues
+    if (!isDrawingRef.current || !containerRef.current || !cameraRef.current || !groundPlaneRef.current) {
+      console.log('⚠️ Cannot process click: drawing mode inactive or refs not ready', 
+        { isDrawingState: isDrawing, isDrawingRef: isDrawingRef.current });
+      return;
+    }
 
     const rect = containerRef.current.getBoundingClientRect();
     const mouse = mouseRef.current!;
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    console.log('🖱️ Mouse coordinates:', { x: mouse.x, y: mouse.y });
 
     const raycaster = raycasterRef.current!;
     raycaster.setFromCamera(mouse, cameraRef.current);
     const intersects = raycaster.intersectObject(groundPlaneRef.current);
+    console.log('🔍 Raycaster intersects:', intersects.length);
 
     if (intersects.length > 0) {
       const point = intersects[0].point;
       console.log('📍 Adding point:', point);
-      
-      // Add point marker - MAKE IT HUGE AND BRIGHT
-      const geometry = new THREE.SphereGeometry(1.0, 16, 16);
-      const material = new THREE.MeshLambertMaterial({ 
-        color: 0xff0000,
-        emissive: 0x440000,
-        emissiveIntensity: 0.2
-      });
+
+      // Add point marker
+      const geometry = new THREE.SphereGeometry(0.5, 16, 16); // Smaller size
+      const material = new THREE.MeshLambertMaterial({ color: 0xff0000 });
       const marker = new THREE.Mesh(geometry, material);
-      marker.position.set(point.x, 2, point.z); // Raised high above ground
+      marker.position.set(point.x, 0.5, point.z); // Align with ground plane
       sceneRef.current!.add(marker);
 
-      setPointMarkers(prev => [...prev, marker]);
-      setCurrentPoints(prev => [...prev, point]);
-      
-      console.log('🔴 Point marker added at:', { x: point.x, y: 2, z: point.z });
+      // Draw line to the previous point
+      if (currentPoints.length > 0) {
+        const previousPoint = currentPoints[currentPoints.length - 1];
+        console.log('🟢 Previous point:', previousPoint);
+
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+        const pointsArray = [
+          new THREE.Vector3(previousPoint.x, 0.5, previousPoint.z),
+          new THREE.Vector3(point.x, 0.5, point.z),
+        ];
+        console.log('📏 Line points:', pointsArray);
+
+        const lineGeometry = new THREE.BufferGeometry().setFromPoints(pointsArray);
+        const line = new THREE.Line(lineGeometry, lineMaterial);
+        sceneRef.current!.add(line);
+        setLines((prev) => [...prev, line]);
+
+        console.log('✅ Line created between:', previousPoint, 'and', point);
+      } else {
+        console.log('⚠️ No previous point to connect a line.');
+      }
+
+      // Also update the ref directly for immediate access
+      currentPointsRef.current = [...currentPointsRef.current, point];
+      setCurrentPoints((prev) => {
+        const updatedPoints = [...prev, point];
+        console.log('📊 Updated currentPoints:', updatedPoints);
+        return updatedPoints;
+      });
+
+      setPointMarkers((prev) => [...prev, marker]);
+
+      console.log('🔴 Point marker added at:', { x: point.x, y: 0.5, z: point.z });
+    } else {
+      console.log('❌ No intersection with ground plane detected.');
     }
   };
 
-  const handleDoubleClick = () => {
-    if (!isDrawing || currentPoints.length < 3) {
-      console.log('❌ Cannot create building - need at least 3 points, have:', currentPoints.length);
+  const processDoubleClick = (event: MouseEvent) => {
+    // Get points from the ref for immediate access
+    const points = currentPointsRef.current;
+    console.log('🔍 Processing double click with current points:', points);
+    
+    // Use the ref instead of the state
+    if (!isDrawingRef.current || points.length < 3) {
+      console.log('❌ Cannot create building - need at least 3 points, have:', points.length, 
+        { isDrawingState: isDrawing, isDrawingRef: isDrawingRef.current });
       return;
     }
     
-    console.log('🏁 Creating building with', currentPoints.length, 'points:', currentPoints);
-    createBuilding(currentPoints);
+    console.log('🏁 Creating building with', points.length, 'points:', points);
+    createBuilding(points);
     
-    // Clear markers
-    pointMarkers.forEach(marker => {
+    // Clear markers and lines
+    pointMarkers.forEach((marker) => {
       sceneRef.current!.remove(marker);
     });
+    lines.forEach((line) => {
+      sceneRef.current!.remove(line);
+    });
     setPointMarkers([]);
+    setLines([]);
     setCurrentPoints([]);
     setIsDrawing(false);
   };
@@ -172,27 +310,30 @@ export const SimpleBuildingCreator: React.FC = () => {
     console.log('🏢 Creating building with points:', points);
 
     try {
-      // Create shape from points - use X,Z coordinates (ground plane)
+      // Calculate centroid first for positioning
+      const centroid = calculateCentroid(points);
+      console.log('🎯 Building centroid:', centroid);
+      
+      // Create shape from points - adjusted to be centered around origin
       const shape = new THREE.Shape();
       
-      // Start at first point
-      shape.moveTo(points[0].x, points[0].z);
+      // Start at first point (relative to centroid for better positioning)
+      shape.moveTo(points[0].x - centroid.x, points[0].z - centroid.z);
       console.log('📐 Shape starts at:', { x: points[0].x, z: points[0].z });
       
-      // Add lines to other points
+      // Add lines to other points (relative to centroid)
       for (let i = 1; i < points.length; i++) {
-        shape.lineTo(points[i].x, points[i].z);
+        shape.lineTo(points[i].x - centroid.x, points[i].z - centroid.z);
         console.log('📐 Line to:', { x: points[i].x, z: points[i].z });
       }
       
       // Close the shape explicitly
-      shape.lineTo(points[0].x, points[0].z);
+      shape.lineTo(points[0].x - centroid.x, points[0].z - centroid.z);
       console.log('📐 Shape closed back to start');
 
-      // Extrude settings - EXTRUDE UPWARD
-      const buildingHeight = 8;
+      // Extrude settings - EXTRUDE UPWARD along Y axis
       const extrudeSettings = {
-        depth: buildingHeight,
+        depth: 8, // Building height
         bevelEnabled: false,
         steps: 1
       };
@@ -200,40 +341,31 @@ export const SimpleBuildingCreator: React.FC = () => {
       console.log('🏗️ Extruding with settings:', extrudeSettings);
       const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
       
-      // CRITICAL FIX: Rotate the geometry so it extrudes upward instead of backward
-      geometry.rotateX(Math.PI / 2); // Rotate 90 degrees around X-axis
-      
-      // Use bright material
+      // Use the EXACT same material as test objects
       const material = new THREE.MeshLambertMaterial({ 
-        color: 0x4F46E5, // Purple/blue color
-        side: THREE.DoubleSide
+        color: 0xff0000,
+        side: THREE.DoubleSide // Render both sides
       });
       
       const building = new THREE.Mesh(geometry, material);
       
-      // Position the building at ground level
-      building.position.set(0, buildingHeight / 2, 0); // Raise by half height so bottom sits on ground
+      // Rotate to proper orientation
+      building.rotation.x = -Math.PI / 2;
+      
+      // Position at the actual centroid of the points
+      building.position.set(centroid.x, 0, centroid.z);
       building.castShadow = true;
       building.receiveShadow = true;
       
       console.log('🏢 Adding building to scene at position:', building.position);
       sceneRef.current.add(building);
       
-      // Add wireframe edges for better visibility
-      const edges = new THREE.EdgesGeometry(geometry);
-      const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
-      const wireframe = new THREE.LineSegments(edges, lineMaterial);
-      wireframe.position.copy(building.position);
-      sceneRef.current.add(wireframe);
-      
       // Force scene update
       sceneRef.current.updateMatrixWorld(true);
       
       console.log('✅ Building created and added to scene');
-      console.log('📊 Scene now has', sceneRef.current.children.length, 'children');
 
       // Add a marker at the building center for verification
-      const centroid = calculateCentroid(points);
       const markerGeometry = new THREE.SphereGeometry(1.5, 16, 16);
       const markerMaterial = new THREE.MeshLambertMaterial({ 
         color: 0x00ff00, // Green marker
@@ -241,9 +373,9 @@ export const SimpleBuildingCreator: React.FC = () => {
         emissiveIntensity: 0.3
       });
       const centerMarker = new THREE.Mesh(markerGeometry, markerMaterial);
-      centerMarker.position.set(centroid.x, buildingHeight + 2, centroid.z); // Above building
+      centerMarker.position.set(centroid.x, 4, centroid.z); // Positioned at middle height of building
       sceneRef.current.add(centerMarker);
-      console.log('🟢 Center marker added at:', { x: centroid.x, y: buildingHeight + 2, z: centroid.z });
+      console.log('🟢 Center marker added at:', { x: centroid.x, y: 4, z: centroid.z });
 
     } catch (error) {
       console.error('❌ Error creating building:', error);
@@ -286,32 +418,52 @@ export const SimpleBuildingCreator: React.FC = () => {
   };
 
   const cleanup = () => {
-    if (containerRef.current && rendererRef.current) {
-      containerRef.current.removeChild(rendererRef.current.domElement);
+    if (containerRef.current) {
+      if (rendererRef.current) {
+        containerRef.current.removeChild(rendererRef.current.domElement);
+      }
+      containerRef.current.removeEventListener('mousedown', handleMouseDown);
+      containerRef.current.removeEventListener('mouseup', handleMouseUp);
     }
+    window.removeEventListener('resize', handleResize);
     if (rendererRef.current) {
       rendererRef.current.dispose();
+    }
+    if (clickTimeoutRef.current) {
+      window.clearTimeout(clickTimeoutRef.current);
     }
   };
 
   const startDrawing = () => {
     console.log('🎨 Starting drawing mode');
     setIsDrawing(true);
+    // Immediately update the refs
+    isDrawingRef.current = true;
+    currentPointsRef.current = [];
     setCurrentPoints([]);
     setPointMarkers([]);
+    setLines([]);
   };
 
   const stopDrawing = () => {
     console.log('🛑 Stopping drawing mode');
     
-    // Clear any existing markers
+    // Clear any existing markers and lines
     pointMarkers.forEach(marker => {
       sceneRef.current!.remove(marker);
     });
     
+    lines.forEach(line => {
+      sceneRef.current!.remove(line);
+    });
+    
     setIsDrawing(false);
+    // Immediately update the refs
+    isDrawingRef.current = false;
+    currentPointsRef.current = [];
     setCurrentPoints([]);
     setPointMarkers([]);
+    setLines([]);
   };
 
   return (
