@@ -25,23 +25,19 @@ export const createShapeFromPoints = (points: Point3D[], centroid: Point3D): THR
 
   const shape = new THREE.Shape();
   
-  // Convert 3D points to 2D shape coordinates relative to centroid
-  // Use X and Z coordinates directly (Y is height, not used for ground shape)
-  const firstPoint = points[0];
-  const firstX = firstPoint.x - centroid.x;
-  const firstY = firstPoint.z - centroid.z;
-  
+  // Map first point to shape coordinates (X->X, Z->-Y to fix flipping)
+  const firstX = points[0].x - centroid.x;
+  const firstY = -(points[0].z - centroid.z);
   shape.moveTo(firstX, firstY);
   
   // Add lines to other points
   for (let i = 1; i < points.length; i++) {
-    const point = points[i];
-    const shapeX = point.x - centroid.x;
-    const shapeY = point.z - centroid.z;
+    const shapeX = points[i].x - centroid.x;
+    const shapeY = -(points[i].z - centroid.z);
     shape.lineTo(shapeX, shapeY);
   }
   
-  // Close the shape by connecting back to first point
+  // Close the shape
   shape.lineTo(firstX, firstY);
   
   return shape;
@@ -54,25 +50,12 @@ export const getGroundIntersection = (
 ): Point3D | null => {
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
-  
-  // Debug: Log the mouse coordinates and ray direction
-  console.log('Mouse coordinates:', mouse.x, mouse.y);
-  console.log('Ray origin:', raycaster.ray.origin);
-  console.log('Ray direction:', raycaster.ray.direction);
-  
   const intersects = raycaster.intersectObject(groundPlane);
   
   if (intersects.length > 0) {
     const point = intersects[0].point;
-    console.log('Intersection point:', point.x, point.y, point.z);
-    
-    return { 
-      x: point.x,
-      y: 0, // Always 0 for ground level
-      z: point.z
-    };
+    return { x: point.x, y: point.y, z: point.z };
   }
   
-  console.log('No intersection found');
   return null;
 };
