@@ -64,6 +64,8 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
   const shadowHelperRef = useRef<THREE.CameraHelper | null>(null); // New ref for shadow helper
   const aoPassRef = useRef<any>(null); // Store the SAO pass for later control
   const [isInitialized, setIsInitialized] = useState(false);
+  const [initializationError, setInitializationError] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
   
   // FPS Counter state and refs
   const [showFPS, setShowFPS] = useState(false);
@@ -100,15 +102,142 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
   };
 
   /**
+   * Animation loop - updates controls and renders the scene
+   * This function calls itself recursively using requestAnimationFrame
+   * to create a smooth animation loop synced with the display refresh rate
+   */
+  const startAnimationLoop = useCallback(() => {
+    console.log('🎬 Animation loop starting...');
+    let animationId: number;
+    let frameCount = 0;
+    let lastLogTime = performance.now();
+    
+    const animate = () => {
+      animationId = requestAnimationFrame(animate);
+      frameCount++;
+      
+      // Log every 60 frames (roughly once per second at 60fps)
+      const now = performance.now();
+      if (frameCount % 60 === 0) {
+        const fps = 60000 / (now - lastLogTime);
+        console.log(`🎭 Animation loop running, FPS: ${fps.toFixed(1)}, Frame: ${frameCount}`);
+        lastLogTime = now;
+      }
+      
+      // Begin stats monitoring if enabled
+      if (statsRef.current) {
+        statsRef.current.begin();
+      }
+      
+      // Update FPS counter - make sure this runs every frame
+      if (showFPS) {
+        updateFPSCounter();
+      }
+      
+      // Update orbit controls to enable smooth damping effect
+      if (controlsRef.current) {
+        controlsRef.current.update();
+      }
+      
+      // Render the scene with post-processing effects
+      try {
+        if (composerRef.current && !performanceMode) {
+          composerRef.current.render();
+        } else if (rendererRef.current && sceneRef.current && cameraRef.current) {
+          // Fallback to basic rendering if composer is not available or in performance mode
+          rendererRef.current.render(sceneRef.current, cameraRef.current);
+        } else {
+          console.warn('⚠️ Missing renderer components:', {
+            renderer: !!rendererRef.current,
+            scene: !!sceneRef.current,
+            camera: !!cameraRef.current
+          });
+        }
+      } catch (renderError) {
+        console.error('❌ Render error:', renderError);
+      }
+      
+      // End stats monitoring if enabled
+      if (statsRef.current) {
+        statsRef.current.end();
+      }
+    };
+    
+    animate();
+    
+    // Store animation ID for cleanup
+    return () => {
+      console.log('🛑 Cleaning up animation loop...');
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
+  }, [showFPS, performanceMode]);
+
+  /**
    * Initialize the Three.js scene on component mount
    * The cleanup function is returned to handle disposal when the component unmounts
    */
   useEffect(() => {
     if (!containerRef.current) return;
+    
+    let isMounted = true;
+    let initializationStarted = false; // Prevent double initialization
+    
+    const initializeWithRetry = async (retryCount = 0) => {
+      if (!isMounted || initializationStarted) return;
+      initializationStarted = true;
+      
+      try {
+        await initializeScene();
+        if (isMounted) {
+          console.log('✅ Scene initialization complete, setting state...');
+          setIsInitialized(true);
+          setInitializationError(null);
+        }
+      } catch (error) {
+        console.error(`Scene initialization failed (attempt ${retryCount + 1}):`, error);
+        initializationStarted = false; // Allow retry
+        
+        if (isMounted) {
+          setInitializationError(`Failed to initialize 3D scene: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          
+          // Retry up to 3 times with increasing delays
+          if (retryCount < 2) {
+            const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+            setTimeout(() => {
+              if (isMounted) {
+                console.log(`Retrying scene initialization in ${delay}ms...`);
+                initializeWithRetry(retryCount + 1);
+              }
+            }, delay);
+          } else {
+            setIsInitialized(false);
+          }
+        }
+      }
+    };
+    
+    initializeWithRetry();
+    
+    return () => {
+      isMounted = false;
+      cleanup();
+    };
+  }, []); // Remove containerRef.current dependency to prevent double init
 
-    initializeScene();
-    return cleanup;
-  }, []);
+  // Separate effect to start animation loop after scene is initialized
+  useEffect(() => {
+    if (isInitialized && sceneRef.current && rendererRef.current && cameraRef.current) {
+      console.log('🎬 Starting animation loop after initialization...');
+      const stopAnimation = startAnimationLoop();
+      
+      return () => {
+        console.log('🛑 Stopping animation loop...');
+        if (stopAnimation) stopAnimation();
+      };
+    }
+  }, [isInitialized, startAnimationLoop]);
 
   /**
    * React to changes in the showGrid prop by updating grid visibility
@@ -125,249 +254,343 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
    * This is the core function that initializes all 3D components
    */
   const initializeScene = async () => {
-    if (!containerRef.current) return;
-
-    // SCENE
-    // -----
-    // The Scene is the container for all 3D objects, lights, and cameras
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(COLORS.BACKGROUND);
-    sceneRef.current = scene;
-
-    // CAMERA
-    // ------
-    // The PerspectiveCamera mimics human eye perception with perspective
-    const camera = new THREE.PerspectiveCamera(
-      35, // Field of view (FOV) in degrees - higher values create more distortion
-      containerRef.current.clientWidth / containerRef.current.clientHeight, // Aspect ratio
-      0.1, // Near clipping plane - objects closer than this won't be rendered
-      1000 // Far clipping plane - objects farther than this won't be rendered
-    );
-    // Position the camera in 3D space (x, y, z)
-    camera.position.set(45, 45, 45);
-    camera.lookAt(0, 0, 0); // Point camera at the origin
-    cameraRef.current = camera;
-
-    // RENDERER
-    // --------
-    // The WebGLRenderer draws the 3D scene using WebGL
-    const renderer = new THREE.WebGLRenderer({ 
-      antialias: true, // Smooths jagged edges
-      powerPreference: "high-performance" // Hints to browser to prioritize performance
-    });
-    // Match renderer size to container
-    renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
-    // Limit pixel ratio for better performance while maintaining quality
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    // Enable shadow mapping for realistic shadows
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Soft shadows with better quality
-    // Color management settings for more accurate colors
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    // Tone mapping converts HDR values to the displayable range
-    renderer.toneMapping = THREE.ACESFilmicToneMapping; // Cinematic tone mapping
-    renderer.toneMappingExposure = 1.2; // Slightly brighter scene
-    containerRef.current.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
-
-    // POST-PROCESSING
-    // --------------
-    // Post-processing applies effects after the scene is rendered
-    // Dynamically import to reduce initial bundle size
-    const { EffectComposer } = await import('three/examples/jsm/postprocessing/EffectComposer.js');
-    const { RenderPass } = await import('three/examples/jsm/postprocessing/RenderPass.js');
-    const { SAOPass } = await import('three/examples/jsm/postprocessing/SAOPass.js'); // Use SAO instead of SSAO
-    const { OutputPass } = await import('three/examples/jsm/postprocessing/OutputPass.js');
-
-    // EffectComposer manages the rendering pipeline with multiple passes
-    const composer = new EffectComposer(renderer);
-    // RenderPass renders the scene with the camera
-    const renderPass = new RenderPass(scene, camera);
-    composer.addPass(renderPass);
-
-    // Scalable Ambient Obscurance (SAO) - more efficient than SSAO
-    const saoPass = new SAOPass(scene, camera, false, true);
-    saoPass.params.saoBias = 0.5;
-    saoPass.params.saoIntensity = 0.02; // Lower intensity for better performance
-    saoPass.params.saoScale = 10;
-    saoPass.params.saoKernelRadius = 20;
-    saoPass.params.saoMinResolution = 0;
-    saoPass.params.saoBlur = true;
-    saoPass.params.saoBlurRadius = 4;
-    saoPass.params.saoBlurStdDev = 2;
-    saoPass.params.saoBlurDepthCutoff = 0.01;
-    composer.addPass(saoPass);
-    
-    // Store reference to the SAO pass
-    aoPassRef.current = saoPass;
-
-    // OutputPass handles color space conversion for the final output
-    const outputPass = new OutputPass();
-    composer.addPass(outputPass);
-
-    composerRef.current = composer;
-    
-    // CONTROLS
-    // --------
-    // OrbitControls allow the user to navigate the scene with mouse/touch
-    const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true; // Adds inertia to camera movement
-    controls.dampingFactor = 0.1; // Amount of inertia
-    controls.maxPolarAngle = Math.PI / 2.1; // Limit vertical rotation to prevent going below ground
-    controls.minDistance = 5; // Minimum zoom distance
-    controls.maxDistance = 100; // Maximum zoom distance
-    controlsRef.current = controls;
-
-    // GROUND PLANE
-    // ------------
-    // A flat surface that serves as a reference point and shadow receiver
-    const groundGeometry = new THREE.PlaneGeometry(200, 200); // Make it much larger
-    const groundMaterial = new THREE.MeshStandardMaterial({
-      color: COLORS.GROUND,
-      transparent: true,
-      opacity: 0.9,
-      roughness: 0.9,
-      metalness: 0.2,
-      side: THREE.DoubleSide // Ensure both sides are rendered for raycasting
-    });
-    const groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
-    groundPlane.rotation.x = -Math.PI / 2; // Rotate to be horizontal (x-z plane)
-    groundPlane.position.y = 0; // Ensure it's exactly at y=0
-    groundPlane.receiveShadow = true;
-    // Make sure the ground plane is raycastable
-    groundPlane.userData = { isGround: true };
-    scene.add(groundPlane);
-    groundPlaneRef.current = groundPlane;
-
-    // GRID HELPER
-    // -----------
-    // Creates a grid for visual reference of scale and position
-    const gridHelper = new THREE.GridHelper(50, 50, COLORS.GRID, COLORS.GRID);
-    gridHelper.visible = showGrid; // Initial visibility based on prop
-    scene.add(gridHelper);
-    gridHelperRef.current = gridHelper;
-
-    // LIGHTING
-    // --------
-    // Realistic sun lighting with stronger shadows
-    const sun = new THREE.DirectionalLight(COLORS.SUN_LIGHT, 2);
-    sun.position.set(110, 45, 45); // Better angle for shadows
-    sun.castShadow = true;
-    
-    // High-quality shadow settings
-    sun.shadow.mapSize.width = 1024;
-    sun.shadow.mapSize.height = 1024;
-    sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 200;
-    
-    // Adjust camera frustum to tightly fit the scene for better shadow resolution
-    sun.shadow.camera.left = -30;
-    sun.shadow.camera.right = 30;
-    sun.shadow.camera.top = 30;
-    sun.shadow.camera.bottom = -30;
-    
-    // Fine-tuned bias settings to reduce shadow acne and peter-panning
-    // sun.shadow.bias = -0.0001; // More precise bias
-    // sun.shadow.normalBias = 0.02; // Good for high-poly models
-    
-    // Softer shadow edges
-    sun.shadow.radius = 1;
-    
-    // Add a shadow camera helper for debugging (initially hidden)
-    const shadowHelper = new THREE.CameraHelper(sun.shadow.camera);
-    shadowHelper.visible = false; // Hidden by default
-    scene.add(shadowHelper);
-    shadowHelperRef.current = shadowHelper;
-    
-    scene.add(sun);
-    
-    // Add a fill light to soften shadows
-    // const fillLight = new THREE.DirectionalLight(COLORS.SUN_LIGHT, 0.3);
-    // fillLight.position.set(-30, 20, -30);
-    // fillLight.castShadow = false; // No shadows from fill light
-    // scene.add(fillLight);
-
-    // Add procedural Sky
-    const { Sky } = await import('three/examples/jsm/objects/Sky.js');
-    const sky = new Sky();
-    sky.scale.setScalar(10000);
-    scene.add(sky);
-    
-    // Set Sky shader uniforms for realistic atmospheric scattering
-    // const skyUniforms = sky.material.uniforms;
-    // skyUniforms['turbidity'].value = 10; // Atmospheric turbidity
-    // skyUniforms['rayleigh'].value = 2; // Rayleigh scattering
-    // skyUniforms['mieCoefficient'].value = 0.005; // Mie scattering coefficient
-    // skyUniforms['mieDirectionalG'].value = 0.8; // Mie directional scattering
-    
-    // Position sun for lighting and sky shader
-    const sunPosition = new THREE.Vector3();
-    sunPosition.copy(sun.position).normalize();
-    sky.material.uniforms['sunPosition'].value.copy(sunPosition);
-    
-    // Enhanced rim light for edge definition
-    // const rimLight = new THREE.DirectionalLight(COLORS.RIM_LIGHT, 0.3);
-    // rimLight.position.set(-100, 50, -100);
-    // scene.add(rimLight);
-
-    // PERFORMANCE OPTIMIZATION
-    // -----------------------
-    // Make SAO optional or reduce quality for better performance
-    if (aoPassRef.current) {
-      aoPassRef.current.params.saoKernelRadius = 4; // Reduced for better performance
-      aoPassRef.current.params.saoMinResolution = 0.01;
-      aoPassRef.current.params.saoScale = 0.1; // Correct parameter (not saoMaxResolution)
+    if (!containerRef.current) {
+      throw new Error('Container ref is not available');
     }
-    
-    // Create a test box with clear shadow casting
-    const testBox = createTestBox({ x: -15, y: 0, z: -15 }, 5);
-    testBox.castShadow = true;
-    testBox.receiveShadow = true;
-    
-    // Create some additional test objects to better demonstrate shadows
-    // Gray colour : 0x808080
-    // white colour : 0xffffff
-    const objects = [
-      { position: {x: 5, y: 0, z: 10}, size: 3, color: 0x808080 },
-      { position: {x: -10, y: 0, z: 5}, size: 4, color: 0xffffff },
-      { position: {x: 10, y: 0, z: -8}, size: 2, color: 0x808080 }
-    ];
-    
-    objects.forEach(obj => {
-      // Create different geometric shapes
-      let geometry, material, mesh;
+
+    if (isInitializing) {
+      console.log('Scene initialization already in progress, skipping...');
+      return;
+    }
+
+    setIsInitializing(true);
+    setInitializationError(null);
+
+    try {
+      // Check if container has valid dimensions
+      const rect = containerRef.current.getBoundingClientRect();
+      console.log('📐 Container dimensions:', { width: rect.width, height: rect.height });
       
-      const randomShape = Math.floor(Math.random() * 3);
-      if (randomShape === 0) {
-        geometry = new THREE.SphereGeometry(obj.size, 32, 32);
-      } else if (randomShape === 1) {
-        geometry = new THREE.BoxGeometry(obj.size, obj.size * 2, obj.size);
-      } else {
-        geometry = new THREE.ConeGeometry(obj.size, obj.size * 2, 16);
+      if (rect.width === 0 || rect.height === 0) {
+        throw new Error('Container has zero dimensions');
       }
-      
-      material = new THREE.MeshStandardMaterial({ 
-        color: obj.color,
-        roughness: 0.7,
-        metalness: 0.2
+
+      // Check if we already have a canvas in the container (prevent double mounting)
+      const existingCanvas = containerRef.current.querySelector('canvas');
+      if (existingCanvas) {
+        console.log('🔄 Canvas already exists in container, cleaning up...');
+        containerRef.current.removeChild(existingCanvas);
+      }
+
+      console.log('🎭 Creating Three.js scene...');
+
+      // SCENE
+      // -----
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(COLORS.BACKGROUND);
+      sceneRef.current = scene;
+      console.log('✅ Scene created');
+
+      // CAMERA
+      // ----__
+      const camera = new THREE.PerspectiveCamera(
+        35,
+        rect.width / rect.height,
+        0.1,
+        1000
+      );
+      camera.position.set(45, 45, 45);
+      camera.lookAt(0, 0, 0);
+      cameraRef.current = camera;
+      console.log('📷 Camera created at position:', camera.position);
+
+      // RENDERER
+      // --------
+      console.log('🖥️ Creating WebGL renderer...');
+      const renderer = new THREE.WebGLRenderer({ 
+        antialias: !performanceMode,
+        powerPreference: "high-performance",
+        preserveDrawingBuffer: true,
+        alpha: false,
+        stencil: false
       });
       
-      mesh = new THREE.Mesh(geometry, material);
-      mesh.position.set(obj.position.x, obj.position.y + obj.size, obj.position.z);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      scene.add(mesh);
-    });
+      // Validate WebGL context
+      const gl = renderer.getContext();
+      if (!gl || gl.isContextLost()) {
+        throw new Error('WebGL context is not available or lost');
+      }
+      console.log('✅ WebGL context validated');
 
-    // EVENTS & ANIMATION LOOP
-    // -----------------------
-    // Handle window resizing to maintain correct aspect ratio
-    window.addEventListener('resize', handleResize);
+      renderer.setSize(rect.width, rect.height);
+      renderer.setPixelRatio(performanceMode ? 1 : Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = !performanceMode;
+      renderer.shadowMap.type = performanceMode ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.2;
+      
+      console.log('🎨 Renderer configured:', {
+        size: { width: rect.width, height: rect.height },
+        pixelRatio: renderer.getPixelRatio(),
+        shadows: renderer.shadowMap.enabled,
+        shadowType: renderer.shadowMap.type
+      });
+      
+      // Handle context loss
+      renderer.domElement.addEventListener('webglcontextlost', (event) => {
+        event.preventDefault();
+        console.warn('⚠️ WebGL context lost, attempting to restore...');
+        setInitializationError('WebGL context lost - attempting to restore');
+      });
+      
+      renderer.domElement.addEventListener('webglcontextrestored', () => {
+        console.log('✅ WebGL context restored');
+        setInitializationError(null);
+      });
 
-    // Start the animation loop
-    animate();
-    setIsInitialized(true);
+      // Add canvas to container
+      console.log('📺 Adding canvas to container...');
+      console.log('📺 Container element:', containerRef.current);
+      console.log('📺 Canvas element:', renderer.domElement);
+      
+      // Ensure the container is ready and canvas is properly styled
+      renderer.domElement.style.display = 'block';
+      renderer.domElement.style.width = '100%';
+      renderer.domElement.style.height = '100%';
+      
+      containerRef.current.appendChild(renderer.domElement);
+      rendererRef.current = renderer;
+      
+      // Verify the canvas was actually added
+      const canvasAdded = containerRef.current.contains(renderer.domElement);
+      console.log('✅ Canvas added to DOM:', canvasAdded);
+      
+      if (!canvasAdded) {
+        throw new Error('Failed to add canvas to container');
+      }
+
+      // POST-PROCESSING (Skip in performance mode)
+      // --------------
+      if (!performanceMode) {
+        console.log('🎞️ Loading post-processing modules...');
+        const [
+          { EffectComposer },
+          { RenderPass },
+          { SAOPass },
+          { OutputPass }
+        ] = await Promise.all([
+          import('three/examples/jsm/postprocessing/EffectComposer.js'),
+          import('three/examples/jsm/postprocessing/RenderPass.js'),
+          import('three/examples/jsm/postprocessing/SAOPass.js'),
+          import('three/examples/jsm/postprocessing/OutputPass.js')
+        ]);
+        console.log('✅ Post-processing modules loaded');
+
+        const composer = new EffectComposer(renderer);
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+
+        const saoPass = new SAOPass(scene, camera, false, true);
+        saoPass.params.saoBias = 0.5;
+        saoPass.params.saoIntensity = 0.01;
+        saoPass.params.saoScale = 5;
+        saoPass.params.saoKernelRadius = 10;
+        saoPass.params.saoMinResolution = 0.01;
+        saoPass.params.saoBlur = true;
+        saoPass.params.saoBlurRadius = 2;
+        saoPass.params.saoBlurStdDev = 1;
+        saoPass.params.saoBlurDepthCutoff = 0.01;
+        composer.addPass(saoPass);
+        
+        aoPassRef.current = saoPass;
+
+        const outputPass = new OutputPass();
+        composer.addPass(outputPass);
+
+        composerRef.current = composer;
+        console.log('✅ Post-processing composer created');
+      } else {
+        console.log('⚡ Skipping post-processing (performance mode)');
+      }
+      
+      // CONTROLS
+      // --------
+      console.log('🎮 Loading orbit controls...');
+      const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2.1;
+      controls.minDistance = 5;
+      controls.maxDistance = 100;
+      controls.enablePan = true;
+      controls.panSpeed = 0.8;
+      controls.rotateSpeed = 0.4;
+      controls.zoomSpeed = 0.6;
+      controlsRef.current = controls;
+      console.log('✅ Orbit controls created');
+
+      // GROUND PLANE
+      // ------------
+      console.log('🌍 Creating ground plane...');
+      const groundGeometry = new THREE.PlaneGeometry(200, 200);
+      const groundMaterial = new THREE.MeshStandardMaterial({
+        color: COLORS.GROUND,
+        transparent: true,
+        opacity: 0.9,
+        roughness: 0.9,
+        metalness: 0.2,
+        side: THREE.DoubleSide
+      });
+      const groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
+      groundPlane.rotation.x = -Math.PI / 2;
+      groundPlane.position.y = 0;
+      groundPlane.receiveShadow = true;
+      groundPlane.userData = { isGround: true };
+      scene.add(groundPlane);
+      groundPlaneRef.current = groundPlane;
+      console.log('✅ Ground plane created and added to scene');
+
+      // GRID HELPER
+      // -----------
+      console.log('🕸️ Creating grid helper...');
+      const gridHelper = new THREE.GridHelper(50, 50, COLORS.GRID, COLORS.GRID);
+      gridHelper.visible = showGrid;
+      scene.add(gridHelper);
+      gridHelperRef.current = gridHelper;
+      console.log('✅ Grid helper created');
+
+      // LIGHTING
+      // --------
+      console.log('💡 Setting up lighting...');
+      const sun = new THREE.DirectionalLight(COLORS.SUN_LIGHT, 2);
+      sun.position.set(110, 45, 45);
+      sun.castShadow = true;
+      
+      sun.shadow.mapSize.width = 1024;
+      sun.shadow.mapSize.height = 1024;
+      sun.shadow.camera.near = 1;
+      sun.shadow.camera.far = 200;
+      sun.shadow.camera.left = -30;
+      sun.shadow.camera.right = 30;
+      sun.shadow.camera.top = 30;
+      sun.shadow.camera.bottom = -30;
+      sun.shadow.radius = 1;
+      
+      const shadowHelper = new THREE.CameraHelper(sun.shadow.camera);
+      shadowHelper.visible = false;
+      scene.add(shadowHelper);
+      shadowHelperRef.current = shadowHelper;
+      
+      scene.add(sun);
+      console.log('✅ Directional light and shadows configured');
+
+      // SKY
+      // ---
+      console.log('☁️ Loading sky...');
+      const { Sky } = await import('three/examples/jsm/objects/Sky.js');
+      const sky = new Sky();
+      sky.scale.setScalar(10000);
+      scene.add(sky);
+      
+      const sunPosition = new THREE.Vector3();
+      sunPosition.copy(sun.position).normalize();
+      sky.material.uniforms['sunPosition'].value.copy(sunPosition);
+      console.log('✅ Sky created');
+      
+      // PERFORMANCE OPTIMIZATION
+      // -----------------------
+      if (aoPassRef.current) {
+        aoPassRef.current.params.saoKernelRadius = 4;
+        aoPassRef.current.params.saoMinResolution = 0.01;
+        aoPassRef.current.params.saoScale = 0.1;
+      }
+      
+      // Create test objects
+      console.log('🎲 Creating test objects...');
+      const testBox = createTestBox({ x: -15, y: 0, z: -15 }, 5);
+      testBox.castShadow = true;
+      testBox.receiveShadow = true;
+      
+      const objects = [
+        { position: {x: 5, y: 0, z: 10}, size: 3, color: 0x808080 },
+        { position: {x: -10, y: 0, z: 5}, size: 4, color: 0xffffff },
+        { position: {x: 10, y: 0, z: -8}, size: 2, color: 0x808080 }
+      ];
+      
+      objects.forEach((obj, index) => {
+        let geometry, material, mesh;
+        
+        const randomShape = Math.floor(Math.random() * 3);
+        if (randomShape === 0) {
+          geometry = new THREE.SphereGeometry(obj.size, 32, 32);
+        } else if (randomShape === 1) {
+          geometry = new THREE.BoxGeometry(obj.size, obj.size * 2, obj.size);
+        } else {
+          geometry = new THREE.ConeGeometry(obj.size, obj.size * 2, 16);
+        }
+        
+        material = new THREE.MeshStandardMaterial({ 
+          color: obj.color,
+          roughness: 0.7,
+          metalness: 0.2
+        });
+        
+        mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(obj.position.x, obj.position.y + obj.size, obj.position.z);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+        console.log(`✅ Test object ${index + 1} created`);
+      });
+
+      // EVENTS
+      // ------
+      console.log('📱 Setting up resize handler...');
+      window.addEventListener('resize', handleResize);
+
+      // Final verification - Enhanced
+      const finalVerification = {
+        sceneChildren: scene.children.length,
+        rendererCanvas: !!renderer.domElement,
+        canvasInDOM: document.body.contains(renderer.domElement),
+        containerHasCanvas: containerRef.current.contains(renderer.domElement),
+        canvasParent: renderer.domElement.parentElement,
+        canvasDisplayStyle: renderer.domElement.style.display,
+        canvasWidth: renderer.domElement.style.width,
+        canvasHeight: renderer.domElement.style.height,
+        containerChildren: containerRef.current.children.length,
+        cameraPosition: camera.position,
+        groundPlaneInScene: scene.children.some(child => child === groundPlane)
+      };
+      
+      console.log('🔍 Final scene verification:', finalVerification);
+      
+      // Ensure canvas is visible and properly sized
+      if (!finalVerification.containerHasCanvas) {
+        throw new Error('Canvas not properly attached to container');
+      }
+      
+      // Force an initial render to test everything is working
+      console.log('🎬 Testing initial render...');
+      if (composerRef.current && !performanceMode) {
+        composerRef.current.render();
+        console.log('✅ Initial composer render successful');
+      } else {
+        renderer.render(scene, camera);
+        console.log('✅ Initial basic render successful');
+      }
+      
+      console.log('🎉 Three.js scene initialized successfully');
+      
+    } catch (error) {
+      console.error('❌ Error during scene initialization:', error);
+      setInitializationError(error instanceof Error ? error.message : 'Unknown initialization error');
+      throw error;
+    } finally {
+      setIsInitializing(false);
+    }
   };
 
   /**
@@ -387,43 +610,6 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     // Resize renderer and composer
     rendererRef.current.setSize(width, height);
     composerRef.current.setSize(width, height);
-  };
-
-  /**
-   * Animation loop - updates controls and renders the scene
-   * This function calls itself recursively using requestAnimationFrame
-   * to create a smooth animation loop synced with the display refresh rate
-   */
-  const animate = () => {
-    requestAnimationFrame(animate);
-    
-    // Begin stats monitoring if enabled
-    if (statsRef.current) {
-      statsRef.current.begin();
-    }
-    
-    // Update FPS counter - make sure this runs every frame
-    if (showFPS) {
-      updateFPSCounter();
-    }
-    
-    // Update orbit controls to enable smooth damping effect
-    if (controlsRef.current) {
-      controlsRef.current.update();
-    }
-    
-    // Render the scene with post-processing effects
-    if (composerRef.current) {
-      composerRef.current.render();
-    } else if (rendererRef.current && sceneRef.current && cameraRef.current) {
-      // Fallback to basic rendering if composer is not available
-      rendererRef.current.render(sceneRef.current, cameraRef.current);
-    }
-    
-    // End stats monitoring if enabled
-    if (statsRef.current) {
-      statsRef.current.end();
-    }
   };
 
   // Simple FPS counter implementation
@@ -553,7 +739,14 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     
     // Remove the canvas element from the DOM
     if (containerRef.current && rendererRef.current) {
-      containerRef.current.removeChild(rendererRef.current.domElement);
+      try {
+        if (containerRef.current.contains(rendererRef.current.domElement)) {
+          containerRef.current.removeChild(rendererRef.current.domElement);
+          console.log('🧹 Canvas removed from container');
+        }
+      } catch (error) {
+        console.warn('Error removing canvas:', error);
+      }
     }
     
     // Remove event listeners
@@ -642,36 +835,77 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     setPerformanceMode(prev => {
       const newMode = !prev;
       
-      // Disable post-processing in performance mode
-      if (newMode && composerRef.current && rendererRef.current) {
-        // Switch to basic rendering
-        composerRef.current = null;
-      } else if (!newMode && rendererRef.current && sceneRef.current && cameraRef.current) {
-        // Re-initialize post-processing if needed
-        // This would require storing the composer setup in a separate function
+      if (newMode) {
+        // Performance mode optimizations
+        updateSceneQuality({
+          shadows: 'low',
+          ao: 'off',
+          showHelpers: false
+        });
+        
+        // Reduce pixel ratio for better performance
+        if (rendererRef.current) {
+          rendererRef.current.setPixelRatio(1);
+        }
+      } else {
+        // Restore quality settings
+        updateSceneQuality({
+          shadows: 'medium',
+          ao: 'medium',
+          showHelpers: false
+        });
+        
+        // Restore pixel ratio
+        if (rendererRef.current) {
+          rendererRef.current.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        }
       }
-      
-      // Adjust shadow quality
-      updateSceneQuality({
-        shadows: newMode ? 'low' : 'medium',
-        ao: newMode ? 'off' : 'medium'
-      });
       
       return newMode;
     });
   }, []);
 
-  // Return only essential objects and a simplified API
+  // Add the missing retryInitialization function
+  const retryInitialization = useCallback(() => {
+    if (isInitializing) {
+      console.log('Initialization already in progress, skipping retry...');
+      return;
+    }
+    
+    console.log('Retrying scene initialization...');
+    setInitializationError(null);
+    setIsInitialized(false);
+    
+    // Clean up any existing resources before retry
+    cleanup();
+    
+    // Retry initialization
+    if (containerRef.current) {
+      initializeScene().then(() => {
+        setIsInitialized(true);
+        setInitializationError(null);
+      }).catch((error) => {
+        console.error('Retry failed:', error);
+        setInitializationError(`Retry failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        setIsInitialized(false);
+      });
+    }
+  }, [isInitializing, containerRef]);
+
+  // Return enhanced API with error handling and performance
   return {
     scene: sceneRef.current,
     camera: cameraRef.current,
     renderer: rendererRef.current,
     groundPlane: groundPlaneRef.current,
     isInitialized,
+    isInitializing,
+    initializationError,
     showFPS,
     performanceMode,
     toggleFPSCounter,
     togglePerformanceMode,
+    retryInitialization,
     toggleGrid: () => {
       if (gridHelperRef.current) {
         gridHelperRef.current.visible = !gridHelperRef.current.visible;

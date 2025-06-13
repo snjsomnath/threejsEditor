@@ -25,7 +25,8 @@ export const useDrawing = (
   camera: THREE.Camera | null,
   groundPlane: THREE.Mesh | null,
   snapToGridEnabled: boolean = false,
-  buildingConfig: BuildingConfig
+  buildingConfig: BuildingConfig,
+  performanceMode: boolean = false // Add performance mode parameter
 ) => {
   const [drawingState, setDrawingState] = useState<DrawingState>({
     isDrawing: false,
@@ -57,15 +58,51 @@ export const useDrawing = (
   useEffect(() => {
     if (scene && !drawingServiceRef.current) {
       console.log('Initializing drawing services...');
-      drawingServiceRef.current = new DrawingService(scene);
-      buildingServiceRef.current = new BuildingService(scene);
-      console.log('Drawing services initialized');
+      try {
+        drawingServiceRef.current = new DrawingService(scene);
+        buildingServiceRef.current = new BuildingService(scene);
+        console.log('Drawing services initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize drawing services:', error);
+        // Clear refs if initialization failed
+        drawingServiceRef.current = null;
+        buildingServiceRef.current = null;
+      }
     }
   }, [scene]);
 
-  // Optimized preview clearing - only clear what exists
+  // Add a separate effect to handle groundPlane availability
+  useEffect(() => {
+    if (groundPlane) {
+      console.log('Ground plane is now available for drawing');
+    }
+  }, [groundPlane]);
+
+  // Add a validation function to ensure services are ready
+  const validateServices = useCallback(() => {
+    if (!scene) {
+      console.warn('Scene not available for drawing');
+      return false;
+    }
+    if (!camera) {
+      console.warn('Camera not available for drawing');
+      return false;
+    }
+    if (!groundPlane) {
+      console.warn('Ground plane not available for drawing');
+      return false;
+    }
+    if (!drawingServiceRef.current || !buildingServiceRef.current) {
+      console.warn('Drawing services not initialized');
+      return false;
+    }
+    return true;
+  }, [scene, camera, groundPlane]);
+
+  // Enhanced preview clearing with validation
   const clearAllPreviews = useCallback(() => {
-    if (!drawingServiceRef.current || !buildingServiceRef.current) return;
+    // Only validate scene and services for clearing - groundPlane not required for cleanup
+    if (!scene || !drawingServiceRef.current || !buildingServiceRef.current) return;
 
     const preview = previewStateRef.current;
     
@@ -95,7 +132,7 @@ export const useDrawing = (
       previewBuilding: null,
       snapToStart: false
     }) : prev);
-  }, []);
+  }, [scene]); // Remove groundPlane from dependencies since it's not needed for cleanup
 
   const startDrawing = useCallback(() => {
     // Clear all previews immediately
@@ -174,12 +211,21 @@ export const useDrawing = (
     }));
   }, [drawingState.points, drawingState.markers, drawingState.lines, clearAllPreviews]);
 
+  // Enhanced updatePreview with performance optimizations - MOVED UP to fix hoisting
   const updatePreview = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
+    // Early validation - only proceed if ALL required components are ready
+    if (!validateServices()) {
+      return;
+    }
+
     const now = performance.now();
     const preview = previewStateRef.current;
     
+    // Performance mode uses higher throttling
+    const throttleMs = performanceMode ? 16 : MOUSE_MOVE_THROTTLE;
+    
     // Prevent overlapping updates and throttle for performance
-    if (preview.isUpdating || now - preview.lastUpdateTime < MOUSE_MOVE_THROTTLE) {
+    if (preview.isUpdating || now - preview.lastUpdateTime < throttleMs) {
       return;
     }
     
@@ -239,9 +285,11 @@ export const useDrawing = (
 
         // OPTIMIZATION: Only update if position actually changed significantly
         const lastPos = preview.lastPosition;
+        const positionThreshold = performanceMode ? 0.02 : 0.005; // Larger threshold in performance mode
+        
         if (lastPos && 
-            Math.abs(finalPosition.x - lastPos.x) < 0.005 && 
-            Math.abs(finalPosition.z - lastPos.z) < 0.005 &&
+            Math.abs(finalPosition.x - lastPos.x) < positionThreshold && 
+            Math.abs(finalPosition.z - lastPos.z) < positionThreshold &&
             shouldSnapToStart === drawingState.snapToStart) {
           preview.isUpdating = false;
           return; // No significant change, skip update
@@ -274,8 +322,8 @@ export const useDrawing = (
           preview.line = drawingServiceRef.current.createPreviewLine(lastPoint, finalPosition);
         }
 
-        // Create preview building only if we have enough points
-        if (drawingState.points.length >= 2) {
+        // Create preview building only if we have enough points and not in performance mode
+        if (drawingState.points.length >= 2 && !performanceMode) {
           const previewPoints = shouldSnapToStart 
             ? [...drawingState.points]
             : [...drawingState.points, finalPosition];
@@ -300,7 +348,27 @@ export const useDrawing = (
         preview.isUpdating = false;
       }
     });
-  }, [drawingState.isDrawing, drawingState.points, drawingState.snapToStart, camera, groundPlane, snapToGridEnabled, buildingConfig, clearAllPreviews]);
+  }, [drawingState.isDrawing, drawingState.points, drawingState.snapToStart, camera, groundPlane, snapToGridEnabled, buildingConfig, clearAllPreviews, validateServices, performanceMode]);
+
+  // Enhanced performance throttling
+  const PERFORMANCE_THROTTLE = performanceMode ? 16 : 8; // Adjust based on performance mode
+  
+  // Throttled update function - NOW REFERENCES updatePreview CORRECTLY
+  const throttledUpdatePreview = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout | null = null;
+      
+      return (event: MouseEvent, containerElement: HTMLElement) => {
+        if (timeoutId) return; // Skip if already scheduled
+        
+        timeoutId = setTimeout(() => {
+          updatePreview(event, containerElement);
+          timeoutId = null;
+        }, PERFORMANCE_THROTTLE);
+      };
+    })(),
+    [updatePreview, PERFORMANCE_THROTTLE]
+  );
 
   const finishBuilding = useCallback(() => {
     if (!buildingServiceRef.current || !drawingServiceRef.current || drawingState.points.length < 3) {
@@ -348,6 +416,11 @@ export const useDrawing = (
   }, [drawingState.points, drawingState.markers, drawingState.lines, buildingConfig, addBuilding, clearAllPreviews]);
 
   const addPoint = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
+    if (!validateServices()) {
+      console.warn('Cannot add point - services not ready');
+      return;
+    }
+
     if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current) {
       return;
     }
@@ -402,7 +475,7 @@ export const useDrawing = (
       previewBuilding: null,
       snapToStart: false
     }));
-  }, [drawingState.isDrawing, drawingState.points, drawingState.snapToStart, camera, groundPlane, snapToGridEnabled, finishBuilding, clearAllPreviews]);
+  }, [drawingState.isDrawing, drawingState.points, drawingState.snapToStart, camera, groundPlane, snapToGridEnabled, finishBuilding, clearAllPreviews, validateServices]);
 
   // Cleanup on unmount - ensure no orphaned objects
   useEffect(() => {
@@ -418,7 +491,7 @@ export const useDrawing = (
     stopDrawing,
     addPoint,
     finishBuilding,
-    updatePreview,
+    updatePreview: performanceMode ? throttledUpdatePreview : updatePreview, // Use throttled version in performance mode
     undoLastPoint
   };
 };

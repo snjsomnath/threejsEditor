@@ -31,16 +31,16 @@ export const SimpleBuildingCreator: React.FC = () => {
     camera, 
     groundPlane, 
     isInitialized, 
+    isInitializing,
+    initializationError,
     showFPS,
     performanceMode,
     toggleGrid, 
     toggleFPSCounter,
     togglePerformanceMode,
+    retryInitialization,
     debugHelpers 
   } = useThreeJS(containerRef, showGrid);
-  
-  // Debug logging to check initialization
-  console.log('Scene initialized:', !!scene, 'Camera:', !!camera, 'GroundPlane:', !!groundPlane);
   
   // Initialize drawing functionality
   const { drawingState, startDrawing, stopDrawing, addPoint, finishBuilding, updatePreview, undoLastPoint } = useDrawing(
@@ -49,11 +49,8 @@ export const SimpleBuildingCreator: React.FC = () => {
     groundPlane,
     snapToGrid,
     buildingConfig,
-    performanceModeEnabled // Pass performance mode to disable 3D previews
+    performanceMode // Pass performance mode from useThreeJS
   );
-
-  // Debug drawing state
-  console.log('Drawing state:', drawingState);
 
   // Initialize building management
   const { 
@@ -158,10 +155,62 @@ export const SimpleBuildingCreator: React.FC = () => {
     <div className="relative w-full h-screen">
       <div ref={containerRef} className="w-full h-full" />
       
+      {/* Loading Overlay */}
+      {isInitializing && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-900/95 rounded-xl p-8 shadow-2xl border border-gray-700 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <h3 className="text-white text-xl font-bold mb-2">Initializing 3D Scene</h3>
+            <p className="text-gray-300">Setting up WebGL renderer and loading resources...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Error Overlay */}
+      {initializationError && !isInitializing && (
+        <div className="fixed inset-0 bg-red-900/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-red-900/95 rounded-xl p-8 shadow-2xl border border-red-700 text-center max-w-md">
+            <div className="text-red-400 text-4xl mb-4">⚠️</div>
+            <h3 className="text-white text-xl font-bold mb-4">Scene Initialization Failed</h3>
+            <p className="text-red-100 mb-6 text-sm">{initializationError}</p>
+            <div className="space-y-3">
+              <button
+                onClick={retryInitialization}
+                className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg 
+                          transition-all duration-200 font-medium shadow-lg"
+              >
+                Retry Initialization
+              </button>
+              <div className="text-red-200 text-xs space-y-1">
+                <p>Possible causes:</p>
+                <ul className="list-disc list-inside text-left">
+                  <li>WebGL not supported by your browser</li>
+                  <li>GPU drivers need updating</li>
+                  <li>Browser security settings blocking WebGL</li>
+                  <li>Insufficient GPU memory</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Controls Panel */}
       <div className="fixed top-6 left-6 bg-gray-900/95 backdrop-blur-sm rounded-xl p-5 shadow-2xl border border-gray-700">
         <div className="flex flex-col space-y-4">
-          <h2 className="text-white font-bold text-lg">Building Creator</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-white font-bold text-lg">Building Creator</h2>
+            <div className="flex items-center space-x-2">
+              <div className={`w-2 h-2 rounded-full ${
+                isInitialized ? 'bg-green-500' : 
+                isInitializing ? 'bg-yellow-500 animate-pulse' : 
+                'bg-red-500'
+              }`} />
+              <span className="text-xs text-gray-400">
+                {isInitialized ? 'Ready' : isInitializing ? 'Loading' : 'Error'}
+              </span>
+            </div>
+          </div>
           
           <div className="flex flex-col space-y-3">
             {!drawingState.isDrawing ? (
@@ -171,16 +220,20 @@ export const SimpleBuildingCreator: React.FC = () => {
                   disabled={!isInitialized}
                   className="flex items-center space-x-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 
                             disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg 
-                            transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                            transition-all duration-200 font-medium shadow-lg hover:shadow-xl
+                            disabled:opacity-50"
                 >
                   <Pencil className="w-4 h-4" />
-                  <span>Draw Building</span>
+                  <span>{isInitialized ? 'Draw Building' : 'Initializing...'}</span>
                 </button>
                 
                 <button
                   onClick={() => setShowBuildingConfig(!showBuildingConfig)}
+                  disabled={!isInitialized}
                   className="flex items-center space-x-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 
-                            text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                            disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg 
+                            transition-all duration-200 font-medium shadow-lg hover:shadow-xl
+                            disabled:opacity-50"
                 >
                   <Settings className="w-4 h-4" />
                   <span>Building Config</span>
@@ -210,6 +263,20 @@ export const SimpleBuildingCreator: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Initialization Error in Controls */}
+          {initializationError && (
+            <div className="pt-3 border-t border-red-600">
+              <button
+                onClick={retryInitialization}
+                className="flex items-center space-x-2 px-3 py-2 bg-red-600 hover:bg-red-700 
+                          text-white rounded-lg transition-all duration-200 text-sm font-medium w-full"
+              >
+                <span>🔄</span>
+                <span>Retry Scene</span>
+              </button>
+            </div>
+          )}
 
           {/* View Controls */}
           <div className="pt-3 border-t border-gray-600 flex flex-col space-y-2">
@@ -391,8 +458,14 @@ export const SimpleBuildingCreator: React.FC = () => {
                       bg-gray-900/95 backdrop-blur-sm rounded-full px-8 py-3 shadow-2xl border border-gray-700">
         <div className="flex items-center space-x-6 text-sm text-gray-300">
           <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${drawingState.isDrawing ? 'bg-orange-500 animate-pulse' : 'bg-teal-500'}`} />
-            <span className="font-medium">{drawingState.isDrawing ? 'Drawing Mode' : 'View Mode'}</span>
+            <div className={`w-3 h-3 rounded-full ${
+              !isInitialized ? 'bg-red-500' :
+              drawingState.isDrawing ? 'bg-orange-500 animate-pulse' : 'bg-teal-500'
+            }`} />
+            <span className="font-medium">
+              {!isInitialized ? 'Scene Loading' :
+               drawingState.isDrawing ? 'Drawing Mode' : 'View Mode'}
+            </span>
           </div>
           
           {drawingState.points.length > 0 && (
