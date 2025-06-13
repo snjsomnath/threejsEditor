@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Pencil, Square, Trash2, Undo, Save, Download, Grid3X3, Settings, Eye, EyeOff } from 'lucide-react';
+import { Pencil, Square, Trash2, Undo, Save, Download, Grid3X3, Settings, Eye, EyeOff, Activity } from 'lucide-react';
 import { useThreeJS } from '../hooks/useThreeJS';
 import { useDrawing } from '../hooks/useDrawing';
 import { useClickHandler } from '../hooks/useClickHandler';
@@ -16,6 +16,7 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [showBuildingConfig, setShowBuildingConfig] = useState(false);
   const [showBuildingEdit, setShowBuildingEdit] = useState(false);
+  const [performanceModeEnabled, setPerformanceModeEnabled] = useState(false);
   const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
     floors: 3,
     floorHeight: 3.5,
@@ -25,7 +26,18 @@ export const SimpleBuildingCreator: React.FC = () => {
   });
   
   // Initialize Three.js scene
-  const { scene, camera, groundPlane, isInitialized, toggleGrid, enableAmbientOcclusion } = useThreeJS(containerRef, showGrid);
+  const { 
+    scene, 
+    camera, 
+    groundPlane, 
+    isInitialized, 
+    showFPS,
+    performanceMode,
+    toggleGrid, 
+    toggleFPSCounter,
+    togglePerformanceMode,
+    debugHelpers 
+  } = useThreeJS(containerRef, showGrid);
   
   // Debug logging to check initialization
   console.log('Scene initialized:', !!scene, 'Camera:', !!camera, 'GroundPlane:', !!groundPlane);
@@ -36,14 +48,27 @@ export const SimpleBuildingCreator: React.FC = () => {
     camera,
     groundPlane,
     snapToGrid,
-    buildingConfig
+    buildingConfig,
+    performanceModeEnabled // Pass performance mode to disable 3D previews
   );
 
   // Debug drawing state
   console.log('Drawing state:', drawingState);
 
   // Initialize building management
-  const { buildings, selectedBuilding, hoveredBuilding, hoveredFootprint, selectBuilding, updateBuilding, clearAllBuildings, exportBuildings, buildingStats, deleteBuilding, handleBuildingInteraction } = useBuildingManager(scene);
+  const { 
+    buildings, 
+    selectedBuilding, 
+    hoveredBuilding, 
+    hoveredFootprint, 
+    selectBuilding, 
+    updateBuilding, 
+    clearAllBuildings, 
+    exportBuildings, 
+    buildingStats, 
+    deleteBuilding, 
+    handleBuildingInteraction 
+  } = useBuildingManager(scene);
 
   // Handle click events and mouse movement
   useClickHandler(
@@ -51,24 +76,19 @@ export const SimpleBuildingCreator: React.FC = () => {
     (event, container) => {
       if (!hasInteracted) setHasInteracted(true);
       console.log('Adding point, drawing state:', drawingState.isDrawing);
-      addPoint(event, container);
-    }, 
-    () => {
-      console.log('Finishing building');
-      finishBuilding();
-    }, 
-    (event, container) => {
-      // Only update preview if we're actually drawing
+      
       if (drawingState.isDrawing) {
-        updatePreview(event, container);
-      }
-    },
-    (event, container) => {
-      if (camera) {
+        addPoint(event, container);
+      } else if (camera) {
+        // Handle building selection when not drawing
         const result = handleBuildingInteraction(event, camera, container, drawingState.isDrawing);
         
+        // Handle building clicks to select them
+        if (result?.type === 'building') {
+          selectBuilding(result.building === selectedBuilding ? null : result.building);
+        }
         // Handle footprint clicks to show building config
-        if (result?.type === 'footprint' && event.type === 'click') {
+        else if (result?.type === 'footprint') {
           // Set the building config to match the clicked building
           setBuildingConfig({
             floors: result.building.floors,
@@ -79,8 +99,26 @@ export const SimpleBuildingCreator: React.FC = () => {
           });
           setShowBuildingConfig(true);
         }
+        // Clear selection if clicking empty space
+        else if (!result) {
+          selectBuilding(null);
+        }
+      }
+    }, 
+    () => {
+      console.log('Finishing building');
+      finishBuilding();
+    }, 
+    (event, container) => {
+      // Only update preview if we're actually drawing
+      if (drawingState.isDrawing) {
+        updatePreview(event, container);
+      } else if (camera) {
+        // Handle building hover when not drawing
+        handleBuildingInteraction(event, camera, container, drawingState.isDrawing);
       }
     },
+    undefined, // Remove duplicate building interaction handler
     drawingState.isDrawing
   );
 
@@ -94,6 +132,15 @@ export const SimpleBuildingCreator: React.FC = () => {
   const handleToggleGrid = () => {
     setShowGrid(!showGrid);
     toggleGrid();
+  };
+
+  const handleToggleFPS = () => {
+    toggleFPSCounter();
+  };
+
+  const handleTogglePerformanceMode = () => {
+    setPerformanceModeEnabled(!performanceModeEnabled);
+    togglePerformanceMode();
   };
 
   const handleEditBuilding = () => {
@@ -188,6 +235,30 @@ export const SimpleBuildingCreator: React.FC = () => {
             >
               <Grid3X3 className="w-4 h-4" />
               <span>Snap to Grid</span>
+            </button>
+
+            <button
+              onClick={handleToggleFPS}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
+                showFPS 
+                  ? 'bg-red-600 hover:bg-red-700 text-white' 
+                  : 'bg-gray-600 hover:bg-gray-700 text-gray-300'
+              }`}
+            >
+              <Activity className="w-4 h-4" />
+              <span>FPS</span>
+            </button>
+            
+            <button
+              onClick={handleTogglePerformanceMode}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
+                performanceModeEnabled 
+                  ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                  : 'bg-gray-600 hover:bg-gray-700 text-gray-300'
+              }`}
+            >
+              <Activity className="w-4 h-4" />
+              <span>Performance</span>
             </button>
           </div>
 
@@ -370,6 +441,13 @@ export const SimpleBuildingCreator: React.FC = () => {
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 rounded-full bg-cyan-400 animate-pulse" />
               <span>Footprint: {hoveredFootprint.name}</span>
+            </div>
+          )}
+
+          {performanceModeEnabled && (
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded-full bg-orange-500" />
+              <span>Performance mode</span>
             </div>
           )}
         </div>

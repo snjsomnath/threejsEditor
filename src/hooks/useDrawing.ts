@@ -8,7 +8,7 @@ import * as THREE from 'three';
 
 const SNAP_DISTANCE = 2.0;
 const GRID_SIZE = 1.0;
-const MOUSE_MOVE_THROTTLE = 16; // ~60fps, adjust as needed
+const MOUSE_MOVE_THROTTLE = 8; // Increased frequency for smoother preview (120fps)
 
 // Direct preview state management - bypassing React state for immediate updates
 interface PreviewState {
@@ -17,6 +17,7 @@ interface PreviewState {
   building: THREE.Mesh | null;
   lastPosition: Point3D | null;
   lastUpdateTime: number;
+  isUpdating: boolean; // Prevent overlapping updates
 }
 
 export const useDrawing = (
@@ -29,7 +30,7 @@ export const useDrawing = (
   const [drawingState, setDrawingState] = useState<DrawingState>({
     isDrawing: false,
     points: [],
-    markers: [],
+    markers: [],  
     lines: [],
     previewMarker: null,
     previewLine: null,
@@ -41,7 +42,6 @@ export const useDrawing = (
   const buildingServiceRef = useRef<BuildingService | null>(null);
   const mouseRef = useRef(new THREE.Vector2());
   const { addBuilding } = useBuildingManager(scene);
-  const updatePreviewDebounceRef = useRef<number | null>(null);
   
   // Enhanced preview state with position tracking and timing
   const previewStateRef = useRef<PreviewState>({
@@ -49,7 +49,8 @@ export const useDrawing = (
     line: null,
     building: null,
     lastPosition: null,
-    lastUpdateTime: 0
+    lastUpdateTime: 0,
+    isUpdating: false
   });
 
   // Initialize services when scene is available - use useEffect for proper timing
@@ -84,6 +85,7 @@ export const useDrawing = (
 
     // Reset position tracking
     preview.lastPosition = null;
+    preview.isUpdating = false;
 
     // Minimal React state update - only when actually clearing
     setDrawingState(prev => prev.previewMarker || prev.previewLine || prev.previewBuilding ? ({
@@ -176,89 +178,91 @@ export const useDrawing = (
     const now = performance.now();
     const preview = previewStateRef.current;
     
-    // Throttle updates - only update if enough time has passed
-    if (now - preview.lastUpdateTime < MOUSE_MOVE_THROTTLE) {
+    // Prevent overlapping updates and throttle for performance
+    if (preview.isUpdating || now - preview.lastUpdateTime < MOUSE_MOVE_THROTTLE) {
       return;
     }
+    
+    preview.isUpdating = true;
     preview.lastUpdateTime = now;
 
-    // Cancel any pending updates
-    if (updatePreviewDebounceRef.current) {
-      cancelAnimationFrame(updatePreviewDebounceRef.current);
-    }
-    
-    updatePreviewDebounceRef.current = requestAnimationFrame(() => {
+    // Use direct animation frame for immediate response
+    requestAnimationFrame(() => {
       if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current || !buildingServiceRef.current) {
+        preview.isUpdating = false;
         if (preview.marker || preview.line || preview.building) {
           clearAllPreviews();
         }
         return;
-      }
-
-      // Calculate mouse coordinates
-      const rect = containerElement.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) {
-        return;
-      }
-
-      mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-      // Get intersection with ground
-      let intersection = getGroundIntersection(mouseRef.current, camera, groundPlane);
-      
-      if (!intersection) {
-        if (preview.marker || preview.line || preview.building) {
-          clearAllPreviews();
-        }
-        return;
-      }
-
-      // Apply grid snapping if enabled
-      if (snapToGridEnabled) {
-        intersection = snapToGrid(intersection, GRID_SIZE);
-      }
-
-      // Check for snapping to start point
-      let finalPosition = intersection;
-      let shouldSnapToStart = false;
-
-      if (drawingState.points.length >= 3) {
-        const startPoint = drawingState.points[0];
-        const distanceToStart = calculateDistance(intersection, startPoint);
-        
-        if (distanceToStart <= SNAP_DISTANCE) {
-          finalPosition = startPoint;
-          shouldSnapToStart = true;
-        }
-      }
-
-      // OPTIMIZATION: Only update if position actually changed
-      const lastPos = preview.lastPosition;
-      if (lastPos && 
-          Math.abs(finalPosition.x - lastPos.x) < 0.01 && 
-          Math.abs(finalPosition.z - lastPos.z) < 0.01 &&
-          shouldSnapToStart === drawingState.snapToStart) {
-        return; // No significant change, skip update
-      }
-
-      preview.lastPosition = finalPosition;
-
-      // Clear existing previews before creating new ones
-      if (preview.marker) {
-        drawingServiceRef.current.clearPreviewMarker(preview.marker);
-        preview.marker = null;
-      }
-      if (preview.line) {
-        drawingServiceRef.current.clearPreviewLine(preview.line);
-        preview.line = null;
-      }
-      if (preview.building) {
-        buildingServiceRef.current.clearPreviewBuilding(preview.building);
-        preview.building = null;
       }
 
       try {
+        // Calculate mouse coordinates
+        const rect = containerElement.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+          preview.isUpdating = false;
+          return;
+        }
+
+        mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        // Get intersection with ground
+        let intersection = getGroundIntersection(mouseRef.current, camera, groundPlane);
+        
+        if (!intersection) {
+          preview.isUpdating = false;
+          if (preview.marker || preview.line || preview.building) {
+            clearAllPreviews();
+          }
+          return;
+        }
+
+        // Apply grid snapping if enabled
+        if (snapToGridEnabled) {
+          intersection = snapToGrid(intersection, GRID_SIZE);
+        }
+
+        // Check for snapping to start point
+        let finalPosition = intersection;
+        let shouldSnapToStart = false;
+
+        if (drawingState.points.length >= 3) {
+          const startPoint = drawingState.points[0];
+          const distanceToStart = calculateDistance(intersection, startPoint);
+          
+          if (distanceToStart <= SNAP_DISTANCE) {
+            finalPosition = startPoint;
+            shouldSnapToStart = true;
+          }
+        }
+
+        // OPTIMIZATION: Only update if position actually changed significantly
+        const lastPos = preview.lastPosition;
+        if (lastPos && 
+            Math.abs(finalPosition.x - lastPos.x) < 0.005 && 
+            Math.abs(finalPosition.z - lastPos.z) < 0.005 &&
+            shouldSnapToStart === drawingState.snapToStart) {
+          preview.isUpdating = false;
+          return; // No significant change, skip update
+        }
+
+        preview.lastPosition = finalPosition;
+
+        // Clear existing previews before creating new ones
+        if (preview.marker) {
+          drawingServiceRef.current.clearPreviewMarker(preview.marker);
+          preview.marker = null;
+        }
+        if (preview.line) {
+          drawingServiceRef.current.clearPreviewLine(preview.line);
+          preview.line = null;
+        }
+        if (preview.building) {
+          buildingServiceRef.current.clearPreviewBuilding(preview.building);
+          preview.building = null;
+        }
+
         // Create preview marker
         preview.marker = shouldSnapToStart 
           ? drawingServiceRef.current.createSnapPreviewMarker(finalPosition)
@@ -270,8 +274,8 @@ export const useDrawing = (
           preview.line = drawingServiceRef.current.createPreviewLine(lastPoint, finalPosition);
         }
 
-        // Create preview building only if we have enough points and snap state changed
-        if (drawingState.points.length >= 2 && (drawingState.points.length >= 3 || !shouldSnapToStart)) {
+        // Create preview building only if we have enough points
+        if (drawingState.points.length >= 2) {
           const previewPoints = shouldSnapToStart 
             ? [...drawingState.points]
             : [...drawingState.points, finalPosition];
@@ -281,7 +285,7 @@ export const useDrawing = (
           }
         }
 
-        // Minimal React state update - only update snap state when it changes
+        // Only update React state if snap state actually changed
         if (shouldSnapToStart !== drawingState.snapToStart) {
           setDrawingState(prev => ({
             ...prev,
@@ -292,6 +296,8 @@ export const useDrawing = (
       } catch (error) {
         console.error('Error creating preview elements:', error);
         clearAllPreviews();
+      } finally {
+        preview.isUpdating = false;
       }
     });
   }, [drawingState.isDrawing, drawingState.points, drawingState.snapToStart, camera, groundPlane, snapToGridEnabled, buildingConfig, clearAllPreviews]);
@@ -401,10 +407,6 @@ export const useDrawing = (
   // Cleanup on unmount - ensure no orphaned objects
   useEffect(() => {
     return () => {
-      if (updatePreviewDebounceRef.current) {
-        cancelAnimationFrame(updatePreviewDebounceRef.current);
-      }
-      
       // Final cleanup of all previews
       clearAllPreviews();
     };

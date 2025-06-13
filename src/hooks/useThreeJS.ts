@@ -76,6 +76,9 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
   
   // Add stats ref for performance monitoring
   const statsRef = useRef<any>(null);
+  
+  // Add performance mode state
+  const [performanceMode, setPerformanceMode] = useState(false);
 
   /**
    * Creates a test box for scene verification
@@ -399,7 +402,7 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
       statsRef.current.begin();
     }
     
-    // Update FPS counter
+    // Update FPS counter - make sure this runs every frame
     if (showFPS) {
       updateFPSCounter();
     }
@@ -412,6 +415,9 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     // Render the scene with post-processing effects
     if (composerRef.current) {
       composerRef.current.render();
+    } else if (rendererRef.current && sceneRef.current && cameraRef.current) {
+      // Fallback to basic rendering if composer is not available
+      rendererRef.current.render(sceneRef.current, cameraRef.current);
     }
     
     // End stats monitoring if enabled
@@ -631,6 +637,30 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     }
   };
 
+  // Add performance mode toggle
+  const togglePerformanceMode = useCallback(() => {
+    setPerformanceMode(prev => {
+      const newMode = !prev;
+      
+      // Disable post-processing in performance mode
+      if (newMode && composerRef.current && rendererRef.current) {
+        // Switch to basic rendering
+        composerRef.current = null;
+      } else if (!newMode && rendererRef.current && sceneRef.current && cameraRef.current) {
+        // Re-initialize post-processing if needed
+        // This would require storing the composer setup in a separate function
+      }
+      
+      // Adjust shadow quality
+      updateSceneQuality({
+        shadows: newMode ? 'low' : 'medium',
+        ao: newMode ? 'off' : 'medium'
+      });
+      
+      return newMode;
+    });
+  }, []);
+
   // Return only essential objects and a simplified API
   return {
     scene: sceneRef.current,
@@ -639,13 +669,17 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     groundPlane: groundPlaneRef.current,
     isInitialized,
     showFPS,
+    performanceMode,
     toggleFPSCounter,
+    togglePerformanceMode,
     toggleGrid: () => {
       if (gridHelperRef.current) {
         gridHelperRef.current.visible = !gridHelperRef.current.visible;
       }
     },
     updateSceneQuality,
+    toggleShadowHelper,
+    toggleShadowQuality,
     
     // For development only - consider removing in production
     debugHelpers: {
