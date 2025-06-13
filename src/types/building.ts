@@ -36,5 +36,5 @@ export interface BuildingData {
   description?: string;
   color?: number;
   enableShadows?: boolean;
-  footprintOutline?: THREE.LineLoop | null;
+  footprintOutline?: THREE.Mesh | null;
 }

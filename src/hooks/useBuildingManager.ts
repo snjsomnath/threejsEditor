@@ -48,19 +48,32 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
     setBuildings(prev => [...prev, building]);
   }, [scene]);
 
-  const createFootprintOutline = (points: Point3D[], scene: THREE.Scene): THREE.LineLoop => {
-    const outlinePoints = points.map(p => new THREE.Vector3(p.x, 0.1, p.z));
-    const geometry = new THREE.BufferGeometry().setFromPoints(outlinePoints);
-    const material = new THREE.LineBasicMaterial({ 
-      color: 0x00ff88,
-      linewidth: 3,
+  const createFootprintOutline = (points: Point3D[], scene: THREE.Scene): THREE.Mesh => {
+    // Create a thin plane geometry that follows the building footprint
+    const shape = new THREE.Shape();
+    
+    if (points.length > 0) {
+      shape.moveTo(points[0].x, points[0].z);
+      for (let i = 1; i < points.length; i++) {
+        shape.lineTo(points[i].x, points[i].z);
+      }
+      shape.lineTo(points[0].x, points[0].z); // Close the shape
+    }
+
+    const geometry = new THREE.ShapeGeometry(shape);
+    const material = new THREE.MeshBasicMaterial({ 
+      color: 0x00ffaa,
       transparent: true,
-      opacity: 0.8
+      opacity: 0,
+      side: THREE.DoubleSide
     });
     
-    const outline = new THREE.LineLoop(geometry, material);
-    scene.add(outline);
-    return outline;
+    const footprint = new THREE.Mesh(geometry, material);
+    footprint.rotation.x = -Math.PI / 2; // Lay flat on ground
+    footprint.position.y = 0.05; // Slightly above ground
+    
+    scene.add(footprint);
+    return footprint;
   };
 
   const updateBuilding = useCallback((id: string, updates: Partial<BuildingData> & { config?: BuildingConfig }) => {
@@ -166,18 +179,22 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
   const hoverFootprint = useCallback((building: BuildingData | null) => {
     // Hide previous footprint outline
     if (hoveredFootprint && hoveredFootprint.footprintOutline) {
-      hoveredFootprint.footprintOutline.visible = false;
+      const material = hoveredFootprint.footprintOutline.material as THREE.MeshBasicMaterial;
+      material.opacity = 0;
     }
 
-    // Show new footprint outline
+    // Show new footprint outline with animation
     if (building && building.footprintOutline) {
-      building.footprintOutline.visible = true;
-      // Animate the outline
-      const material = building.footprintOutline.material as THREE.LineBasicMaterial;
+      const material = building.footprintOutline.material as THREE.MeshBasicMaterial;
+      material.opacity = 0.3;
+      
+      // Create pulsing animation
       const animate = () => {
-        if (building === hoveredFootprint && building.footprintOutline?.visible) {
-          const time = Date.now() * 0.003;
-          material.opacity = 0.6 + Math.sin(time) * 0.2;
+        if (building === hoveredFootprint && building.footprintOutline) {
+          const time = Date.now() * 0.004;
+          const opacity = 0.2 + Math.sin(time) * 0.15;
+          material.opacity = opacity;
+          material.color.setHex(0x00ffaa + Math.floor(Math.sin(time * 2) * 0x001100));
           requestAnimationFrame(animate);
         }
       };
@@ -284,13 +301,13 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
 
     raycaster.current.setFromCamera(mouse.current, camera);
     
-    // Check for footprint intersections first (they're closer to ground)
-    const footprintOutlines = buildings.map(b => b.footprintOutline).filter(Boolean) as THREE.LineLoop[];
-    const footprintIntersects = raycaster.current.intersectObjects(footprintOutlines);
+    // Check for footprint intersections first (they're at ground level)
+    const footprintMeshes = buildings.map(b => b.footprintOutline).filter(Boolean) as THREE.Mesh[];
+    const footprintIntersects = raycaster.current.intersectObjects(footprintMeshes);
     
     if (footprintIntersects.length > 0) {
-      const clickedOutline = footprintIntersects[0].object as THREE.LineLoop;
-      const buildingId = clickedOutline.userData.buildingId;
+      const clickedFootprint = footprintIntersects[0].object as THREE.Mesh;
+      const buildingId = clickedFootprint.userData.buildingId;
       const building = buildings.find(b => b.id === buildingId);
       
       if (building) {
@@ -298,7 +315,7 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
           hoverFootprint(building);
           hoverBuilding(null); // Clear building hover when hovering footprint
         }
-        // Click handling will be done by the parent component
+        // Return the interaction result for click handling
         return { type: 'footprint', building };
       }
     } else {
