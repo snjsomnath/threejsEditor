@@ -17,7 +17,7 @@
  * @param containerRef - React ref to the DOM element that will contain the Three.js canvas
  * @param showGrid - Boolean to control grid visibility (default: true)
  */
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { Point3D } from '../types/building';
 
@@ -64,6 +64,18 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
   const shadowHelperRef = useRef<THREE.CameraHelper | null>(null); // New ref for shadow helper
   const aoPassRef = useRef<any>(null); // Store the SAO pass for later control
   const [isInitialized, setIsInitialized] = useState(false);
+  
+  // FPS Counter state and refs
+  const [showFPS, setShowFPS] = useState(false);
+  const fpsCounterRef = useRef<HTMLDivElement | null>(null);
+  const fpsStatsRef = useRef<{ frames: number; lastTime: number; fps: number }>({
+    frames: 0,
+    lastTime: performance.now(),
+    fps: 0
+  });
+  
+  // Add stats ref for performance monitoring
+  const statsRef = useRef<any>(null);
 
   /**
    * Creates a test box for scene verification
@@ -382,6 +394,16 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
   const animate = () => {
     requestAnimationFrame(animate);
     
+    // Begin stats monitoring if enabled
+    if (statsRef.current) {
+      statsRef.current.begin();
+    }
+    
+    // Update FPS counter
+    if (showFPS) {
+      updateFPSCounter();
+    }
+    
     // Update orbit controls to enable smooth damping effect
     if (controlsRef.current) {
       controlsRef.current.update();
@@ -391,7 +413,66 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     if (composerRef.current) {
       composerRef.current.render();
     }
+    
+    // End stats monitoring if enabled
+    if (statsRef.current) {
+      statsRef.current.end();
+    }
   };
+
+  // Simple FPS counter implementation
+  const updateFPSCounter = () => {
+    const stats = fpsStatsRef.current;
+    const now = performance.now();
+    
+    stats.frames++;
+    
+    if (now >= stats.lastTime + 1000) {
+      stats.fps = Math.round((stats.frames * 1000) / (now - stats.lastTime));
+      stats.frames = 0;
+      stats.lastTime = now;
+      
+      if (fpsCounterRef.current) {
+        fpsCounterRef.current.textContent = `FPS: ${stats.fps}`;
+      }
+    }
+  };
+
+  // Toggle FPS counter visibility
+  const toggleFPSCounter = useCallback(() => {
+    setShowFPS(prev => {
+      const newShowFPS = !prev;
+      
+      if (newShowFPS && !fpsCounterRef.current) {
+        // Create FPS counter element
+        const fpsDiv = document.createElement('div');
+        fpsDiv.style.cssText = `
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          background: rgba(0, 0, 0, 0.8);
+          color: #00ff00;
+          padding: 8px 12px;
+          font-family: 'Courier New', monospace;
+          font-size: 14px;
+          font-weight: bold;
+          border-radius: 4px;
+          z-index: 1000;
+          pointer-events: none;
+          user-select: none;
+        `;
+        fpsDiv.textContent = 'FPS: --';
+        document.body.appendChild(fpsDiv);
+        fpsCounterRef.current = fpsDiv;
+      } else if (!newShowFPS && fpsCounterRef.current) {
+        // Remove FPS counter element
+        document.body.removeChild(fpsCounterRef.current);
+        fpsCounterRef.current = null;
+      }
+      
+      return newShowFPS;
+    });
+  }, []);
 
   // Unified function to control visual quality settings
   const updateSceneQuality = (settings: {
@@ -458,6 +539,12 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
    * This prevents memory leaks when the component unmounts
    */
   const cleanup = () => {
+    // Remove FPS counter if it exists
+    if (fpsCounterRef.current) {
+      document.body.removeChild(fpsCounterRef.current);
+      fpsCounterRef.current = null;
+    }
+    
     // Remove the canvas element from the DOM
     if (containerRef.current && rendererRef.current) {
       containerRef.current.removeChild(rendererRef.current.domElement);
@@ -490,13 +577,8 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
         stats.dom.style.right = '0px';
         stats.dom.style.left = 'auto';
         
-        // Update the animate function to include stats
-        const originalAnimate = animate;
-        animate = () => {
-          stats.begin();
-          originalAnimate();
-          stats.end();
-        };
+        // Store stats in ref so animate function can use it
+        statsRef.current = stats;
       });
     }
   };
@@ -556,6 +638,8 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     renderer: rendererRef.current,
     groundPlane: groundPlaneRef.current,
     isInitialized,
+    showFPS,
+    toggleFPSCounter,
     toggleGrid: () => {
       if (gridHelperRef.current) {
         gridHelperRef.current.visible = !gridHelperRef.current.visible;

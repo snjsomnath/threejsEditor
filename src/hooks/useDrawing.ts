@@ -8,12 +8,15 @@ import * as THREE from 'three';
 
 const SNAP_DISTANCE = 2.0;
 const GRID_SIZE = 1.0;
+const MOUSE_MOVE_THROTTLE = 16; // ~60fps, adjust as needed
 
 // Direct preview state management - bypassing React state for immediate updates
 interface PreviewState {
   marker: THREE.Mesh | null;
   line: THREE.Line | null;
   building: THREE.Mesh | null;
+  lastPosition: Point3D | null;
+  lastUpdateTime: number;
 }
 
 export const useDrawing = (
@@ -40,11 +43,13 @@ export const useDrawing = (
   const { addBuilding } = useBuildingManager(scene);
   const updatePreviewDebounceRef = useRef<number | null>(null);
   
-  // Direct preview state - not managed by React for immediate updates
+  // Enhanced preview state with position tracking and timing
   const previewStateRef = useRef<PreviewState>({
     marker: null,
     line: null,
-    building: null
+    building: null,
+    lastPosition: null,
+    lastUpdateTime: 0
   });
 
   // Initialize services when scene is available - use useEffect for proper timing
@@ -57,13 +62,13 @@ export const useDrawing = (
     }
   }, [scene]);
 
-  // Professional preview clearing - immediate and guaranteed
+  // Optimized preview clearing - only clear what exists
   const clearAllPreviews = useCallback(() => {
     if (!drawingServiceRef.current || !buildingServiceRef.current) return;
 
     const preview = previewStateRef.current;
     
-    // Clear from scene immediately
+    // Only clear if objects exist
     if (preview.marker) {
       drawingServiceRef.current.clearPreviewMarker(preview.marker);
       preview.marker = null;
@@ -77,14 +82,17 @@ export const useDrawing = (
       preview.building = null;
     }
 
-    // Update React state to keep it in sync (but don't depend on it for clearing)
-    setDrawingState(prev => ({
+    // Reset position tracking
+    preview.lastPosition = null;
+
+    // Minimal React state update - only when actually clearing
+    setDrawingState(prev => prev.previewMarker || prev.previewLine || prev.previewBuilding ? ({
       ...prev,
       previewMarker: null,
       previewLine: null,
       previewBuilding: null,
       snapToStart: false
-    }));
+    }) : prev);
   }, []);
 
   const startDrawing = useCallback(() => {
@@ -165,6 +173,15 @@ export const useDrawing = (
   }, [drawingState.points, drawingState.markers, drawingState.lines, clearAllPreviews]);
 
   const updatePreview = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
+    const now = performance.now();
+    const preview = previewStateRef.current;
+    
+    // Throttle updates - only update if enough time has passed
+    if (now - preview.lastUpdateTime < MOUSE_MOVE_THROTTLE) {
+      return;
+    }
+    preview.lastUpdateTime = now;
+
     // Cancel any pending updates
     if (updatePreviewDebounceRef.current) {
       cancelAnimationFrame(updatePreviewDebounceRef.current);
@@ -172,14 +189,15 @@ export const useDrawing = (
     
     updatePreviewDebounceRef.current = requestAnimationFrame(() => {
       if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current || !buildingServiceRef.current) {
-        clearAllPreviews();
+        if (preview.marker || preview.line || preview.building) {
+          clearAllPreviews();
+        }
         return;
       }
 
       // Calculate mouse coordinates
       const rect = containerElement.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) {
-        clearAllPreviews();
         return;
       }
 
@@ -190,7 +208,9 @@ export const useDrawing = (
       let intersection = getGroundIntersection(mouseRef.current, camera, groundPlane);
       
       if (!intersection) {
-        clearAllPreviews();
+        if (preview.marker || preview.line || preview.building) {
+          clearAllPreviews();
+        }
         return;
       }
 
@@ -213,12 +233,31 @@ export const useDrawing = (
         }
       }
 
-      // CRITICAL: Clear all existing previews BEFORE creating new ones
-      clearAllPreviews();
+      // OPTIMIZATION: Only update if position actually changed
+      const lastPos = preview.lastPosition;
+      if (lastPos && 
+          Math.abs(finalPosition.x - lastPos.x) < 0.01 && 
+          Math.abs(finalPosition.z - lastPos.z) < 0.01 &&
+          shouldSnapToStart === drawingState.snapToStart) {
+        return; // No significant change, skip update
+      }
 
-      // Create new preview elements and store them directly
-      const preview = previewStateRef.current;
-      
+      preview.lastPosition = finalPosition;
+
+      // Clear existing previews before creating new ones
+      if (preview.marker) {
+        drawingServiceRef.current.clearPreviewMarker(preview.marker);
+        preview.marker = null;
+      }
+      if (preview.line) {
+        drawingServiceRef.current.clearPreviewLine(preview.line);
+        preview.line = null;
+      }
+      if (preview.building) {
+        buildingServiceRef.current.clearPreviewBuilding(preview.building);
+        preview.building = null;
+      }
+
       try {
         // Create preview marker
         preview.marker = shouldSnapToStart 
@@ -231,8 +270,8 @@ export const useDrawing = (
           preview.line = drawingServiceRef.current.createPreviewLine(lastPoint, finalPosition);
         }
 
-        // Create preview building
-        if (drawingState.points.length >= 2) {
+        // Create preview building only if we have enough points and snap state changed
+        if (drawingState.points.length >= 2 && (drawingState.points.length >= 3 || !shouldSnapToStart)) {
           const previewPoints = shouldSnapToStart 
             ? [...drawingState.points]
             : [...drawingState.points, finalPosition];
@@ -242,21 +281,20 @@ export const useDrawing = (
           }
         }
 
-        // Update React state for UI consistency (but don't depend on it for rendering)
-        setDrawingState(prev => ({
-          ...prev,
-          previewMarker: preview.marker,
-          previewLine: preview.line,
-          previewBuilding: preview.building,
-          snapToStart: shouldSnapToStart
-        }));
+        // Minimal React state update - only update snap state when it changes
+        if (shouldSnapToStart !== drawingState.snapToStart) {
+          setDrawingState(prev => ({
+            ...prev,
+            snapToStart: shouldSnapToStart
+          }));
+        }
 
       } catch (error) {
         console.error('Error creating preview elements:', error);
         clearAllPreviews();
       }
     });
-  }, [drawingState.isDrawing, drawingState.points, camera, groundPlane, snapToGridEnabled, buildingConfig, clearAllPreviews]);
+  }, [drawingState.isDrawing, drawingState.points, drawingState.snapToStart, camera, groundPlane, snapToGridEnabled, buildingConfig, clearAllPreviews]);
 
   const finishBuilding = useCallback(() => {
     if (!buildingServiceRef.current || !drawingServiceRef.current || drawingState.points.length < 3) {
