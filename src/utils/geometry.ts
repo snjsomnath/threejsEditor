@@ -63,14 +63,21 @@ export const getGroundIntersection = (
   camera: THREE.Camera,
   groundPlane: THREE.Mesh
 ): Point3D | null => {
+  console.log('getGroundIntersection called', { mouse, hasCamera: !!camera, hasGroundPlane: !!groundPlane });
+  
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObject(groundPlane);
   
+  console.log('Raycaster intersects:', intersects.length);
+  
   if (intersects.length > 0) {
     const point = intersects[0].point;
-    return { x: point.x, y: point.y, z: point.z };
+    const result = { x: point.x, y: point.y, z: point.z };
+    console.log('Ground intersection found:', result);
+    return result;
   }
   
+  console.log('No ground intersection');
   return null;
 };

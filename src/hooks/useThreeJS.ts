@@ -550,7 +550,13 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     scene: sceneRef.current,
     camera: cameraRef.current,
     renderer: rendererRef.current,
+    groundPlane: groundPlaneRef.current,
     isInitialized,
+    toggleGrid: () => {
+      if (gridHelperRef.current) {
+        gridHelperRef.current.visible = !gridHelperRef.current.visible;
+      }
+    },
     updateSceneQuality,
     
     // For development only - consider removing in production

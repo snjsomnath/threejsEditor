@@ -9,6 +9,7 @@ export class DrawingService {
   }
 
   createPointMarker(position: Point3D): THREE.Mesh {
+    console.log('Creating point marker at:', position);
     // Smaller, more subtle point markers
     const geometry = new THREE.SphereGeometry(0.25, 12, 12);
     const material = new THREE.MeshLambertMaterial({ 
@@ -18,14 +19,16 @@ export class DrawingService {
     });
     const marker = new THREE.Mesh(geometry, material);
     
-    marker.position.set(position.x, 0.25, position.z);
+    marker.position.set(position.x, position.y + 0.25, position.z);
     marker.castShadow = true;
     this.scene.add(marker);
+    console.log('Point marker added to scene');
     
     return marker;
   }
 
   createPreviewMarker(position: Point3D): THREE.Mesh {
+    console.log('Creating preview marker at:', position);
     const geometry = new THREE.SphereGeometry(0.2, 12, 12);
     const material = new THREE.MeshLambertMaterial({ 
       color: 0x00ff00,
@@ -36,13 +39,15 @@ export class DrawingService {
     });
     const marker = new THREE.Mesh(geometry, material);
     
-    marker.position.set(position.x, 0.2, position.z);
+    marker.position.set(position.x, position.y + 0.2, position.z);
     this.scene.add(marker);
+    console.log('Preview marker added to scene');
     
     return marker;
   }
 
   createSnapPreviewMarker(position: Point3D): THREE.Mesh {
+    console.log('Creating snap preview marker at:', position);
     const geometry = new THREE.SphereGeometry(0.3, 16, 16);
     const material = new THREE.MeshLambertMaterial({ 
       color: 0xffff00,
@@ -53,8 +58,9 @@ export class DrawingService {
     });
     const marker = new THREE.Mesh(geometry, material);
     
-    marker.position.set(position.x, 0.3, position.z);
+    marker.position.set(position.x, position.y + 0.3, position.z);
     this.scene.add(marker);
+    console.log('Snap preview marker added to scene');
     
     // Enhanced pulsing animation
     const animate = () => {

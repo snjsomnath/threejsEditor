@@ -27,6 +27,9 @@ export const SimpleBuildingCreator: React.FC = () => {
   // Initialize Three.js scene
   const { scene, camera, groundPlane, isInitialized, toggleGrid, enableAmbientOcclusion } = useThreeJS(containerRef, showGrid);
   
+  // Debug logging to check initialization
+  console.log('Scene initialized:', !!scene, 'Camera:', !!camera, 'GroundPlane:', !!groundPlane);
+  
   // Initialize drawing functionality
   const { drawingState, startDrawing, stopDrawing, addPoint, finishBuilding, updatePreview, undoLastPoint } = useDrawing(
     scene,
@@ -36,6 +39,9 @@ export const SimpleBuildingCreator: React.FC = () => {
     buildingConfig
   );
 
+  // Debug drawing state
+  console.log('Drawing state:', drawingState);
+
   // Initialize building management
   const { buildings, selectedBuilding, hoveredBuilding, hoveredFootprint, selectBuilding, updateBuilding, clearAllBuildings, exportBuildings, buildingStats, deleteBuilding, handleBuildingInteraction } = useBuildingManager(scene);
 
@@ -44,10 +50,19 @@ export const SimpleBuildingCreator: React.FC = () => {
     containerRef, 
     (event, container) => {
       if (!hasInteracted) setHasInteracted(true);
+      console.log('Adding point, drawing state:', drawingState.isDrawing);
       addPoint(event, container);
     }, 
-    finishBuilding, 
-    updatePreview,
+    () => {
+      console.log('Finishing building');
+      finishBuilding();
+    }, 
+    (event, container) => {
+      // Only update preview if we're actually drawing
+      if (drawingState.isDrawing) {
+        updatePreview(event, container);
+      }
+    },
     (event, container) => {
       if (camera) {
         const result = handleBuildingInteraction(event, camera, container, drawingState.isDrawing);
