@@ -3,6 +3,7 @@ import { Point3D } from '../types/building';
 
 export class DrawingService {
   private scene: THREE.Scene;
+  private animationFrameIds: Map<THREE.Mesh, number> = new Map();
   
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -62,8 +63,13 @@ export class DrawingService {
     this.scene.add(marker);
     console.log('Snap preview marker added to scene');
     
-    // Enhanced pulsing animation
+    // Enhanced pulsing animation with proper cleanup
+    let isActive = true;
     const animate = () => {
+      if (!isActive || !this.scene.children.includes(marker)) {
+        return; // Stop animation if marker is removed
+      }
+      
       const time = Date.now() * 0.008;
       const scale = 1 + Math.sin(time) * 0.3;
       marker.scale.setScalar(scale);
@@ -72,10 +78,15 @@ export class DrawingService {
       const intensity = 0.4 + Math.sin(time * 1.5) * 0.2;
       (marker.material as THREE.MeshLambertMaterial).emissiveIntensity = intensity;
       
-      requestAnimationFrame(animate);
+      const frameId = requestAnimationFrame(animate);
+      this.animationFrameIds.set(marker, frameId);
     };
-    animate();
     
+    // Store animation state on marker for cleanup
+    (marker as any).isActive = () => isActive;
+    (marker as any).stopAnimation = () => { isActive = false; };
+    
+    animate();
     return marker;
   }
 
@@ -136,6 +147,18 @@ export class DrawingService {
   }
 
   clearPreviewMarker(marker: THREE.Mesh): void {
+    // Stop any ongoing animations
+    if (this.animationFrameIds.has(marker)) {
+      const frameId = this.animationFrameIds.get(marker)!;
+      cancelAnimationFrame(frameId);
+      this.animationFrameIds.delete(marker);
+    }
+    
+    // Stop animation if it's a snap marker
+    if ((marker as any).stopAnimation) {
+      (marker as any).stopAnimation();
+    }
+    
     this.scene.remove(marker);
     marker.geometry.dispose();
     (marker.material as THREE.Material).dispose();

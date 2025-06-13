@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Point3D, DrawingState, BuildingConfig } from '../types/building';
 import { DrawingService } from '../services/DrawingService';
 import { BuildingService } from '../services/BuildingService';
@@ -8,6 +8,13 @@ import * as THREE from 'three';
 
 const SNAP_DISTANCE = 2.0;
 const GRID_SIZE = 1.0;
+
+// Direct preview state management - bypassing React state for immediate updates
+interface PreviewState {
+  marker: THREE.Mesh | null;
+  line: THREE.Line | null;
+  building: THREE.Mesh | null;
+}
 
 export const useDrawing = (
   scene: THREE.Scene | null,
@@ -31,40 +38,58 @@ export const useDrawing = (
   const buildingServiceRef = useRef<BuildingService | null>(null);
   const mouseRef = useRef(new THREE.Vector2());
   const { addBuilding } = useBuildingManager(scene);
+  const updatePreviewDebounceRef = useRef<number | null>(null);
+  
+  // Direct preview state - not managed by React for immediate updates
+  const previewStateRef = useRef<PreviewState>({
+    marker: null,
+    line: null,
+    building: null
+  });
 
-  // Initialize services when scene is available
-  if (scene && !drawingServiceRef.current) {
-    drawingServiceRef.current = new DrawingService(scene);
-    buildingServiceRef.current = new BuildingService(scene);
-  }
+  // Initialize services when scene is available - use useEffect for proper timing
+  useEffect(() => {
+    if (scene && !drawingServiceRef.current) {
+      console.log('Initializing drawing services...');
+      drawingServiceRef.current = new DrawingService(scene);
+      buildingServiceRef.current = new BuildingService(scene);
+      console.log('Drawing services initialized');
+    }
+  }, [scene]);
 
-  const clearPreviewElements = useCallback(() => {
+  // Professional preview clearing - immediate and guaranteed
+  const clearAllPreviews = useCallback(() => {
     if (!drawingServiceRef.current || !buildingServiceRef.current) return;
 
-    // Use the current state directly instead of depending on state values
-    setDrawingState(prev => {
-      if (prev.previewMarker) {
-        drawingServiceRef.current?.clearPreviewMarker(prev.previewMarker);
-      }
-      if (prev.previewLine) {
-        drawingServiceRef.current?.clearPreviewLine(prev.previewLine);
-      }
-      if (prev.previewBuilding) {
-        buildingServiceRef.current?.clearPreviewBuilding(prev.previewBuilding);
-      }
-      
-      return {
-        ...prev,
-        previewMarker: null,
-        previewLine: null,
-        previewBuilding: null
-      };
-    });
-  }, []); // Remove dependencies to prevent infinite loops
+    const preview = previewStateRef.current;
+    
+    // Clear from scene immediately
+    if (preview.marker) {
+      drawingServiceRef.current.clearPreviewMarker(preview.marker);
+      preview.marker = null;
+    }
+    if (preview.line) {
+      drawingServiceRef.current.clearPreviewLine(preview.line);
+      preview.line = null;
+    }
+    if (preview.building) {
+      buildingServiceRef.current.clearPreviewBuilding(preview.building);
+      preview.building = null;
+    }
+
+    // Update React state to keep it in sync (but don't depend on it for clearing)
+    setDrawingState(prev => ({
+      ...prev,
+      previewMarker: null,
+      previewLine: null,
+      previewBuilding: null,
+      snapToStart: false
+    }));
+  }, []);
 
   const startDrawing = useCallback(() => {
-    // Clear any existing preview elements first
-    clearPreviewElements();
+    // Clear all previews immediately
+    clearAllPreviews();
     
     setDrawingState({
       isDrawing: true,
@@ -76,30 +101,37 @@ export const useDrawing = (
       previewBuilding: null,
       snapToStart: false
     });
-  }, [clearPreviewElements]);
+  }, [clearAllPreviews]);
 
   const stopDrawing = useCallback(() => {
-    if (!drawingServiceRef.current) return;
+    if (!drawingServiceRef.current || !buildingServiceRef.current) return;
 
-    // Clear all drawing elements
-    drawingServiceRef.current.clearMarkers(drawingState.markers);
-    drawingServiceRef.current.clearLines(drawingState.lines);
-    clearPreviewElements();
+    // Clear all previews first
+    clearAllPreviews();
 
-    setDrawingState({
-      isDrawing: false,
-      points: [],
-      markers: [],
-      lines: [],
-      previewMarker: null,
-      previewLine: null,
-      previewBuilding: null,
-      snapToStart: false
+    setDrawingState(prev => {
+      // Clear all existing elements from scene
+      drawingServiceRef.current?.clearMarkers(prev.markers);
+      drawingServiceRef.current?.clearLines(prev.lines);
+
+      return {
+        isDrawing: false,
+        points: [],
+        markers: [],
+        lines: [],
+        previewMarker: null,
+        previewLine: null,
+        previewBuilding: null,
+        snapToStart: false
+      };
     });
-  }, [drawingState, clearPreviewElements]);
+  }, [clearAllPreviews]);
 
   const undoLastPoint = useCallback(() => {
     if (!drawingServiceRef.current || drawingState.points.length === 0) return;
+
+    // Clear previews immediately first
+    clearAllPreviews();
 
     const newPoints = [...drawingState.points];
     const newMarkers = [...drawingState.markers];
@@ -120,9 +152,6 @@ export const useDrawing = (
       drawingServiceRef.current.clearLines([lastLine]);
     }
 
-    // Clear preview elements to avoid stale previews
-    clearPreviewElements();
-
     setDrawingState(prev => ({
       ...prev,
       points: newPoints,
@@ -130,211 +159,104 @@ export const useDrawing = (
       lines: newLines,
       previewMarker: null,
       previewLine: null,
+      previewBuilding: null,
       snapToStart: false
     }));
-  }, [drawingState, clearPreviewElements]);
+  }, [drawingState.points, drawingState.markers, drawingState.lines, clearAllPreviews]);
 
   const updatePreview = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
-    console.log('updatePreview called', { 
-      isDrawing: drawingState.isDrawing, 
-      hasCamera: !!camera, 
-      hasGroundPlane: !!groundPlane,
-      hasDrawingService: !!drawingServiceRef.current,
-      hasBuildingService: !!buildingServiceRef.current
-    });
-
-    if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current || !buildingServiceRef.current) {
-      console.log('updatePreview early return');
-      return;
+    // Cancel any pending updates
+    if (updatePreviewDebounceRef.current) {
+      cancelAnimationFrame(updatePreviewDebounceRef.current);
     }
-
-    // Calculate mouse coordinates
-    const rect = containerElement.getBoundingClientRect();
-    mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    console.log('Mouse coords:', mouseRef.current);
-
-    // Get intersection with ground
-    let intersection = getGroundIntersection(mouseRef.current, camera, groundPlane);
-    console.log('Ground intersection:', intersection);
     
-    if (!intersection) {
-      console.log('No ground intersection found');
-      return;
-    }
+    updatePreviewDebounceRef.current = requestAnimationFrame(() => {
+      if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current || !buildingServiceRef.current) {
+        clearAllPreviews();
+        return;
+      }
 
-    // Apply grid snapping if enabled
-    if (snapToGridEnabled) {
-      intersection = snapToGrid(intersection, GRID_SIZE);
-      console.log('Snapped intersection:', intersection);
-    }
+      // Calculate mouse coordinates
+      const rect = containerElement.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        clearAllPreviews();
+        return;
+      }
 
-    // Check for snapping to start point
-    let finalPosition = intersection;
-    let shouldSnapToStart = false;
+      mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-    if (drawingState.points.length >= 3) {
-      const startPoint = drawingState.points[0];
-      const distanceToStart = calculateDistance(intersection, startPoint);
+      // Get intersection with ground
+      let intersection = getGroundIntersection(mouseRef.current, camera, groundPlane);
       
-      if (distanceToStart <= SNAP_DISTANCE) {
-        finalPosition = startPoint;
-        shouldSnapToStart = true;
-        console.log('Snapping to start point');
-      }
-    }
-
-    // Update state with new preview elements - clear and create in one action
-    setDrawingState(prev => {
-      console.log('Updating drawing state with preview elements');
-      
-      // Clear existing preview elements
-      if (prev.previewMarker) {
-        drawingServiceRef.current?.clearPreviewMarker(prev.previewMarker);
-      }
-      if (prev.previewLine) {
-        drawingServiceRef.current?.clearPreviewLine(prev.previewLine);
-      }
-      if (prev.previewBuilding) {
-        buildingServiceRef.current?.clearPreviewBuilding(prev.previewBuilding);
+      if (!intersection) {
+        clearAllPreviews();
+        return;
       }
 
-      // Create new preview marker
-      let previewMarker: THREE.Mesh | null = null;
-      if (drawingServiceRef.current) {
-        try {
-          previewMarker = shouldSnapToStart 
-            ? drawingServiceRef.current.createSnapPreviewMarker(finalPosition)
-            : drawingServiceRef.current.createPreviewMarker(finalPosition);
-          console.log('Created preview marker:', !!previewMarker);
-        } catch (error) {
-          console.error('Error creating preview marker:', error);
+      // Apply grid snapping if enabled
+      if (snapToGridEnabled) {
+        intersection = snapToGrid(intersection, GRID_SIZE);
+      }
+
+      // Check for snapping to start point
+      let finalPosition = intersection;
+      let shouldSnapToStart = false;
+
+      if (drawingState.points.length >= 3) {
+        const startPoint = drawingState.points[0];
+        const distanceToStart = calculateDistance(intersection, startPoint);
+        
+        if (distanceToStart <= SNAP_DISTANCE) {
+          finalPosition = startPoint;
+          shouldSnapToStart = true;
         }
       }
 
-      // Create preview line to last point if exists
-      let previewLine: THREE.Line | null = null;
-      if (prev.points.length > 0 && drawingServiceRef.current) {
-        try {
-          const lastPoint = prev.points[prev.points.length - 1];
-          previewLine = drawingServiceRef.current.createPreviewLine(lastPoint, finalPosition);
-          console.log('Created preview line:', !!previewLine);
-        } catch (error) {
-          console.error('Error creating preview line:', error);
-        }
-      }
+      // CRITICAL: Clear all existing previews BEFORE creating new ones
+      clearAllPreviews();
 
-      // Create preview building if we have enough points
-      let previewBuilding: THREE.Mesh | null = null;
-      if (prev.points.length >= 2) {
-        try {
+      // Create new preview elements and store them directly
+      const preview = previewStateRef.current;
+      
+      try {
+        // Create preview marker
+        preview.marker = shouldSnapToStart 
+          ? drawingServiceRef.current.createSnapPreviewMarker(finalPosition)
+          : drawingServiceRef.current.createPreviewMarker(finalPosition);
+
+        // Create preview line to last point
+        if (drawingState.points.length > 0) {
+          const lastPoint = drawingState.points[drawingState.points.length - 1];
+          preview.line = drawingServiceRef.current.createPreviewLine(lastPoint, finalPosition);
+        }
+
+        // Create preview building
+        if (drawingState.points.length >= 2) {
           const previewPoints = shouldSnapToStart 
-            ? [...prev.points] // Complete shape when snapping to start
-            : [...prev.points, finalPosition]; // Include current mouse position
+            ? [...drawingState.points]
+            : [...drawingState.points, finalPosition];
             
-          if (previewPoints.length >= 3 && buildingServiceRef.current) {
-            previewBuilding = buildingServiceRef.current.createPreviewBuilding(previewPoints, buildingConfig);
-            console.log('Created preview building:', !!previewBuilding);
+          if (previewPoints.length >= 3) {
+            preview.building = buildingServiceRef.current.createPreviewBuilding(previewPoints, buildingConfig);
           }
-        } catch (error) {
-          // Ignore errors for invalid shapes during preview
-          console.debug('Preview building creation failed:', error);
         }
-      }
 
-      return {
-        ...prev,
-        previewMarker,
-        previewLine,
-        previewBuilding,
-        snapToStart: shouldSnapToStart
-      };
+        // Update React state for UI consistency (but don't depend on it for rendering)
+        setDrawingState(prev => ({
+          ...prev,
+          previewMarker: preview.marker,
+          previewLine: preview.line,
+          previewBuilding: preview.building,
+          snapToStart: shouldSnapToStart
+        }));
+
+      } catch (error) {
+        console.error('Error creating preview elements:', error);
+        clearAllPreviews();
+      }
     });
-  }, [drawingState.isDrawing, drawingState.points, camera, groundPlane, snapToGridEnabled, buildingConfig]);
-
-  const addPoint = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
-    console.log('addPoint called', { 
-      isDrawing: drawingState.isDrawing, 
-      hasCamera: !!camera, 
-      hasGroundPlane: !!groundPlane,
-      hasDrawingService: !!drawingServiceRef.current 
-    });
-
-    if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current) {
-      console.log('addPoint early return');
-      return;
-    }
-
-    // If we're snapping to start and have enough points, finish the building
-    if (drawingState.snapToStart && drawingState.points.length >= 3) {
-      console.log('Finishing building via snap to start');
-      finishBuilding();
-      return;
-    }
-
-    // Calculate mouse coordinates
-    const rect = containerElement.getBoundingClientRect();
-    mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    // Get intersection with ground
-    let intersection = getGroundIntersection(mouseRef.current, camera, groundPlane);
-    console.log('Point intersection:', intersection);
-    
-    if (!intersection) {
-      console.log('No intersection for point');
-      return;
-    }
-
-    // Apply grid snapping if enabled
-    if (snapToGridEnabled) {
-      intersection = snapToGrid(intersection, GRID_SIZE);
-    }
-
-    console.log('Adding point at:', intersection);
-
-    // Update state - clear preview elements and add new point
-    setDrawingState(prev => {
-      // Clear preview elements
-      if (prev.previewMarker) {
-        drawingServiceRef.current?.clearPreviewMarker(prev.previewMarker);
-      }
-      if (prev.previewLine) {
-        drawingServiceRef.current?.clearPreviewLine(prev.previewLine);
-      }
-      if (prev.previewBuilding) {
-        buildingServiceRef.current?.clearPreviewBuilding(prev.previewBuilding);
-      }
-
-      // Create point marker
-      const marker = drawingServiceRef.current?.createPointMarker(intersection);
-      console.log('Created point marker:', !!marker);
-
-      // Create line to previous point if exists
-      let line: THREE.Line | null = null;
-      if (prev.points.length > 0 && drawingServiceRef.current) {
-        try {
-          const previousPoint = prev.points[prev.points.length - 1];
-          line = drawingServiceRef.current.createLine(previousPoint, intersection);
-          console.log('Created line:', !!line);
-        } catch (error) {
-          console.error('Error creating line:', error);
-        }
-      }
-
-      return {
-        ...prev,
-        points: [...prev.points, intersection],
-        markers: marker ? [...prev.markers, marker] : prev.markers,
-        lines: line ? [...prev.lines, line] : prev.lines,
-        previewMarker: null,
-        previewLine: null,
-        previewBuilding: null,
-        snapToStart: false
-      };
-    });
-  }, [drawingState.isDrawing, drawingState.points.length, drawingState.snapToStart, camera, groundPlane, snapToGridEnabled]);
+  }, [drawingState.isDrawing, drawingState.points, camera, groundPlane, snapToGridEnabled, buildingConfig, clearAllPreviews]);
 
   const finishBuilding = useCallback(() => {
     if (!buildingServiceRef.current || !drawingServiceRef.current || drawingState.points.length < 3) {
@@ -345,13 +267,13 @@ export const useDrawing = (
     try {
       console.log('Finishing building with points:', drawingState.points);
       
-      // Clear preview elements immediately
-      clearPreviewElements();
+      // Clear ALL previews immediately - this is critical
+      clearAllPreviews();
 
       // Create the building with current configuration
       const buildingMesh = buildingServiceRef.current.createBuilding(drawingState.points, buildingConfig);
       
-      // Add to building manager with detailed info
+      // Add to building manager
       addBuilding(
         buildingMesh, 
         drawingState.points, 
@@ -379,7 +301,76 @@ export const useDrawing = (
     } catch (error) {
       console.error('Error creating building:', error);
     }
-  }, [drawingState, buildingConfig, addBuilding, clearPreviewElements]);
+  }, [drawingState.points, drawingState.markers, drawingState.lines, buildingConfig, addBuilding, clearAllPreviews]);
+
+  const addPoint = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
+    if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current) {
+      return;
+    }
+
+    // If we're snapping to start and have enough points, finish the building
+    if (drawingState.snapToStart && drawingState.points.length >= 3) {
+      finishBuilding();
+      return;
+    }
+
+    // Calculate mouse coordinates
+    const rect = containerElement.getBoundingClientRect();
+    mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    // Get intersection with ground
+    let intersection = getGroundIntersection(mouseRef.current, camera, groundPlane);
+    
+    if (!intersection) {
+      return;
+    }
+
+    // Apply grid snapping if enabled
+    if (snapToGridEnabled) {
+      intersection = snapToGrid(intersection, GRID_SIZE);
+    }
+
+    // IMMEDIATELY clear all previews before adding point
+    clearAllPreviews();
+
+    // Create point marker
+    const marker = drawingServiceRef.current.createPointMarker(intersection);
+
+    // Create line to previous point if exists
+    let line: THREE.Line | null = null;
+    if (drawingState.points.length > 0) {
+      try {
+        const previousPoint = drawingState.points[drawingState.points.length - 1];
+        line = drawingServiceRef.current.createLine(previousPoint, intersection);
+      } catch (error) {
+        console.error('Error creating line:', error);
+      }
+    }
+
+    setDrawingState(prev => ({
+      ...prev,
+      points: [...prev.points, intersection],
+      markers: marker ? [...prev.markers, marker] : prev.markers,
+      lines: line ? [...prev.lines, line] : prev.lines,
+      previewMarker: null,
+      previewLine: null,
+      previewBuilding: null,
+      snapToStart: false
+    }));
+  }, [drawingState.isDrawing, drawingState.points, drawingState.snapToStart, camera, groundPlane, snapToGridEnabled, finishBuilding, clearAllPreviews]);
+
+  // Cleanup on unmount - ensure no orphaned objects
+  useEffect(() => {
+    return () => {
+      if (updatePreviewDebounceRef.current) {
+        cancelAnimationFrame(updatePreviewDebounceRef.current);
+      }
+      
+      // Final cleanup of all previews
+      clearAllPreviews();
+    };
+  }, [clearAllPreviews]);
 
   return {
     drawingState,

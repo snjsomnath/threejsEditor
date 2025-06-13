@@ -207,17 +207,21 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     // GROUND PLANE
     // ------------
     // A flat surface that serves as a reference point and shadow receiver
-    const groundGeometry = new THREE.PlaneGeometry(50, 50); // Increase size to catch more shadows
-    const groundMaterial = new THREE.MeshStandardMaterial({  // Change to MeshStandardMaterial
+    const groundGeometry = new THREE.PlaneGeometry(200, 200); // Make it much larger
+    const groundMaterial = new THREE.MeshStandardMaterial({
       color: COLORS.GROUND,
       transparent: true,
-      opacity: 0.9, // Slightly more opaque
-      roughness: 0.9, // Add roughness for better shadow appearance
-      metalness: 0.2  // Add slight metalness
+      opacity: 0.9,
+      roughness: 0.9,
+      metalness: 0.2,
+      side: THREE.DoubleSide // Ensure both sides are rendered for raycasting
     });
     const groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
     groundPlane.rotation.x = -Math.PI / 2; // Rotate to be horizontal (x-z plane)
-    groundPlane.receiveShadow = true; // Allow shadows to be cast onto the plane
+    groundPlane.position.y = 0; // Ensure it's exactly at y=0
+    groundPlane.receiveShadow = true;
+    // Make sure the ground plane is raycastable
+    groundPlane.userData = { isGround: true };
     scene.add(groundPlane);
     groundPlaneRef.current = groundPlane;
 

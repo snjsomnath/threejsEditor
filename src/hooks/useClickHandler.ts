@@ -12,6 +12,7 @@ export const useClickHandler = (
   const isDoubleClickRef = useRef(false);
   const lastClickTimeRef = useRef(0);
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
+  const mouseMoveThrottleRef = useRef<number | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -22,14 +23,23 @@ export const useClickHandler = (
     };
 
     const handleMouseMove = (event: MouseEvent) => {
-      if (onMouseMove) {
-        onMouseMove(event, container);
+      // Throttle mouse move events to improve performance
+      if (mouseMoveThrottleRef.current) {
+        return;
       }
       
-      // Handle building hover when not drawing
-      if (onBuildingInteraction && !isDrawing) {
-        onBuildingInteraction(event, container);
-      }
+      mouseMoveThrottleRef.current = requestAnimationFrame(() => {
+        mouseMoveThrottleRef.current = null;
+        
+        if (onMouseMove) {
+          onMouseMove(event, container);
+        }
+        
+        // Handle building hover when not drawing
+        if (onBuildingInteraction && !isDrawing) {
+          onBuildingInteraction(event, container);
+        }
+      });
     };
 
     const handleMouseUp = (event: MouseEvent) => {
@@ -96,6 +106,9 @@ export const useClickHandler = (
       container.removeEventListener('mousemove', handleMouseMove);
       if (clickTimeoutRef.current) {
         window.clearTimeout(clickTimeoutRef.current);
+      }
+      if (mouseMoveThrottleRef.current) {
+        cancelAnimationFrame(mouseMoveThrottleRef.current);
       }
     };
   }, [containerRef, onSingleClick, onDoubleClick, onMouseMove, onBuildingInteraction, isDrawing]);

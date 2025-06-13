@@ -63,11 +63,27 @@ export const getGroundIntersection = (
   camera: THREE.Camera,
   groundPlane: THREE.Mesh
 ): Point3D | null => {
-  console.log('getGroundIntersection called', { mouse, hasCamera: !!camera, hasGroundPlane: !!groundPlane });
+  console.log('getGroundIntersection called', { 
+    mouse: { x: mouse.x, y: mouse.y }, 
+    hasCamera: !!camera, 
+    hasGroundPlane: !!groundPlane,
+    groundPlaneVisible: groundPlane.visible,
+    groundPlanePosition: groundPlane.position,
+    groundPlaneRotation: groundPlane.rotation
+  });
   
   const raycaster = new THREE.Raycaster();
+  
+  // Set raycaster from camera with mouse coordinates
   raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObject(groundPlane);
+  
+  console.log('Raycaster ray:', {
+    origin: raycaster.ray.origin,
+    direction: raycaster.ray.direction
+  });
+  
+  // Try intersecting with the ground plane specifically
+  const intersects = raycaster.intersectObject(groundPlane, false);
   
   console.log('Raycaster intersects:', intersects.length);
   
@@ -76,6 +92,18 @@ export const getGroundIntersection = (
     const result = { x: point.x, y: point.y, z: point.z };
     console.log('Ground intersection found:', result);
     return result;
+  }
+  
+  // Fallback: calculate intersection with y=0 plane manually
+  const ray = raycaster.ray;
+  if (Math.abs(ray.direction.y) > 0.0001) { // Avoid division by zero
+    const t = -ray.origin.y / ray.direction.y;
+    if (t > 0) { // Only intersections in front of camera
+      const intersection = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
+      const result = { x: intersection.x, y: 0, z: intersection.z };
+      console.log('Manual ground intersection found:', result);
+      return result;
+    }
   }
   
   console.log('No ground intersection');
