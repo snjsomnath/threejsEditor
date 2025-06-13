@@ -441,11 +441,12 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
         opacity: 0.9,
         roughness: 0.9,
         metalness: 0.2,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        depthWrite: true
       });
       const groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
       groundPlane.rotation.x = -Math.PI / 2;
-      groundPlane.position.y = 0;
+      groundPlane.position.y = -0.01; // Slightly below grid to prevent z-fighting
       groundPlane.receiveShadow = true;
       groundPlane.userData = { isGround: true };
       scene.add(groundPlane);
@@ -455,11 +456,35 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
       // GRID HELPER
       // -----------
       console.log('🕸️ Creating grid helper...');
-      const gridHelper = new THREE.GridHelper(50, 50, COLORS.GRID, COLORS.GRID);
+      // Create custom grid to have better control over rendering
+      const gridSize = 50;
+      const gridDivisions = 50;
+      const gridColorCenter = new THREE.Color(COLORS.GRID);
+      const gridColorGrid = new THREE.Color(COLORS.GRID).multiplyScalar(0.7);
+      
+      const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, gridColorCenter, gridColorGrid);
+      gridHelper.position.y = 0.001; // Slightly above ground plane to prevent z-fighting
       gridHelper.visible = showGrid;
+      
+      // Improve grid material properties to reduce flickering
+      if (gridHelper.material instanceof THREE.Material) {
+        gridHelper.material.transparent = true;
+        gridHelper.material.opacity = 0.6;
+        gridHelper.material.depthWrite = false; // Prevent depth writing to reduce z-fighting
+        gridHelper.material.depthTest = true;
+      } else if (Array.isArray(gridHelper.material)) {
+        // GridHelper has two materials (center line and grid lines)
+        gridHelper.material.forEach(material => {
+          material.transparent = true;
+          material.opacity = 0.6;
+          material.depthWrite = false;
+          material.depthTest = true;
+        });
+      }
+      
       scene.add(gridHelper);
       gridHelperRef.current = gridHelper;
-      console.log('✅ Grid helper created');
+      console.log('✅ Grid helper created with anti-flicker improvements');
 
       // LIGHTING
       // --------
