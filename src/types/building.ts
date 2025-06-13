@@ -10,6 +10,7 @@ export interface BuildingConfig {
   color: number;
   enableShadows: boolean;
   buildingType: 'residential' | 'commercial' | 'industrial';
+  height?: number; // Computed property for BuildingService
 }
 
 export interface DrawingState {
@@ -35,4 +36,5 @@ export interface BuildingData {
   description?: string;
   color?: number;
   enableShadows?: boolean;
+  footprintOutline?: THREE.LineLoop | null;
 }

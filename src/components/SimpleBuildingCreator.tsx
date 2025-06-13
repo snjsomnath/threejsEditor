@@ -37,7 +37,7 @@ export const SimpleBuildingCreator: React.FC = () => {
   );
 
   // Initialize building management
-  const { buildings, selectedBuilding, hoveredBuilding, selectBuilding, updateBuilding, clearAllBuildings, exportBuildings, buildingStats, deleteBuilding, handleBuildingInteraction } = useBuildingManager(scene);
+  const { buildings, selectedBuilding, hoveredBuilding, hoveredFootprint, selectBuilding, updateBuilding, clearAllBuildings, exportBuildings, buildingStats, deleteBuilding, handleBuildingInteraction } = useBuildingManager(scene);
 
   // Handle click events and mouse movement
   useClickHandler(
@@ -50,7 +50,20 @@ export const SimpleBuildingCreator: React.FC = () => {
     updatePreview,
     (event, container) => {
       if (camera) {
-        handleBuildingInteraction(event, camera, container, drawingState.isDrawing);
+        const result = handleBuildingInteraction(event, camera, container, drawingState.isDrawing);
+        
+        // Handle footprint clicks to show building config
+        if (result?.type === 'footprint' && event.type === 'click') {
+          // Set the building config to match the clicked building
+          setBuildingConfig({
+            floors: result.building.floors,
+            floorHeight: result.building.floorHeight,
+            color: result.building.color || 0x6366f1,
+            enableShadows: result.building.enableShadows !== false,
+            buildingType: result.building.buildingType as 'residential' | 'commercial' | 'industrial'
+          });
+          setShowBuildingConfig(true);
+        }
       }
     },
     drawingState.isDrawing
@@ -337,8 +350,38 @@ export const SimpleBuildingCreator: React.FC = () => {
               <span>Hover: {hoveredBuilding.name}</span>
             </div>
           )}
+
+          {hoveredFootprint && !hoveredBuilding && (
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded-full bg-cyan-400 animate-pulse" />
+              <span>Footprint: {hoveredFootprint.name}</span>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Footprint Selection Instructions */}
+      {!drawingState.isDrawing && buildings.length > 0 && !selectedBuilding && !showBuildingConfig && (
+        <div className="fixed top-6 right-6 bg-cyan-900/95 backdrop-blur-sm rounded-xl p-4 shadow-2xl border border-cyan-700 max-w-xs">
+          <div className="text-cyan-100">
+            <h3 className="font-bold mb-2 text-cyan-200">Selection Mode</h3>
+            <div className="text-sm space-y-1">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 rounded-full bg-cyan-400"></div>
+                <span>Hover footprint to highlight</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                <span>Click footprint for config</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
+                <span>Click building for details</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Welcome Message for New Users - Only show if never interacted */}
       {!hasInteracted && !drawingState.isDrawing && buildings.length === 0 && isInitialized && (
@@ -352,6 +395,7 @@ export const SimpleBuildingCreator: React.FC = () => {
               <p>• Configure building details before drawing</p>
               <p>• Draw shapes with 3+ points</p>
               <p>• Click buildings to select and view details</p>
+              <p>• Click footprints to configure buildings</p>
               <p>• Export your architectural designs</p>
             </div>
           </div>

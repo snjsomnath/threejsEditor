@@ -12,6 +12,7 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingData | null>(null);
   const [hoveredBuilding, setHoveredBuilding] = useState<BuildingData | null>(null);
+  const [hoveredFootprint, setHoveredFootprint] = useState<BuildingData | null>(null);
   const buildingIdCounter = useRef(0);
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
@@ -32,14 +33,35 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
       name: `${buildingType.charAt(0).toUpperCase() + buildingType.slice(1)} Building`,
       description: '',
       color: (mesh.material as THREE.MeshLambertMaterial).color.getHex(),
-      enableShadows: mesh.castShadow
+      enableShadows: mesh.castShadow,
+      footprintOutline: null
     };
+
+    // Create footprint outline for selection
+    building.footprintOutline = createFootprintOutline(points, scene);
+    building.footprintOutline.userData = { buildingId: building.id, isFootprint: true };
+    building.footprintOutline.visible = false; // Hidden by default
 
     // Add click handler to mesh for selection
     mesh.userData = { buildingId: building.id };
 
     setBuildings(prev => [...prev, building]);
   }, [scene]);
+
+  const createFootprintOutline = (points: Point3D[], scene: THREE.Scene): THREE.LineLoop => {
+    const outlinePoints = points.map(p => new THREE.Vector3(p.x, 0.1, p.z));
+    const geometry = new THREE.BufferGeometry().setFromPoints(outlinePoints);
+    const material = new THREE.LineBasicMaterial({ 
+      color: 0x00ff88,
+      linewidth: 3,
+      transparent: true,
+      opacity: 0.8
+    });
+    
+    const outline = new THREE.LineLoop(geometry, material);
+    scene.add(outline);
+    return outline;
+  };
 
   const updateBuilding = useCallback((id: string, updates: Partial<BuildingData> & { config?: BuildingConfig }) => {
     if (!scene) return;
@@ -141,6 +163,30 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
     setHoveredBuilding(building);
   }, [hoveredBuilding, selectedBuilding]);
 
+  const hoverFootprint = useCallback((building: BuildingData | null) => {
+    // Hide previous footprint outline
+    if (hoveredFootprint && hoveredFootprint.footprintOutline) {
+      hoveredFootprint.footprintOutline.visible = false;
+    }
+
+    // Show new footprint outline
+    if (building && building.footprintOutline) {
+      building.footprintOutline.visible = true;
+      // Animate the outline
+      const material = building.footprintOutline.material as THREE.LineBasicMaterial;
+      const animate = () => {
+        if (building === hoveredFootprint && building.footprintOutline?.visible) {
+          const time = Date.now() * 0.003;
+          material.opacity = 0.6 + Math.sin(time) * 0.2;
+          requestAnimationFrame(animate);
+        }
+      };
+      animate();
+    }
+
+    setHoveredFootprint(building);
+  }, [hoveredFootprint]);
+
   const deleteBuilding = useCallback((id: string) => {
     if (!scene) return;
 
@@ -150,6 +196,13 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
         scene.remove(building.mesh);
         building.mesh.geometry.dispose();
         (building.mesh.material as THREE.Material).dispose();
+        
+        // Remove footprint outline
+        if (building.footprintOutline) {
+          scene.remove(building.footprintOutline);
+          building.footprintOutline.geometry.dispose();
+          (building.footprintOutline.material as THREE.Material).dispose();
+        }
       }
       return prev.filter(b => b.id !== id);
     });
@@ -160,7 +213,10 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
     if (hoveredBuilding?.id === id) {
       setHoveredBuilding(null);
     }
-  }, [scene, selectedBuilding, hoveredBuilding]);
+    if (hoveredFootprint?.id === id) {
+      setHoveredFootprint(null);
+    }
+  }, [scene, selectedBuilding, hoveredBuilding, hoveredFootprint]);
 
   const clearAllBuildings = useCallback(() => {
     if (!scene) return;
@@ -169,11 +225,19 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
       scene.remove(building.mesh);
       building.mesh.geometry.dispose();
       (building.mesh.material as THREE.Material).dispose();
+      
+      // Remove footprint outline
+      if (building.footprintOutline) {
+        scene.remove(building.footprintOutline);
+        building.footprintOutline.geometry.dispose();
+        (building.footprintOutline.material as THREE.Material).dispose();
+      }
     });
 
     setBuildings([]);
     setSelectedBuilding(null);
     setHoveredBuilding(null);
+    setHoveredFootprint(null);
   }, [scene, buildings]);
 
   const exportBuildings = useCallback(() => {
@@ -210,7 +274,7 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
     URL.revokeObjectURL(url);
   }, [buildings]);
 
-  // Handle building selection and hover via mouse events
+  // Handle building and footprint interaction via mouse events
   const handleBuildingInteraction = useCallback((event: MouseEvent, camera: THREE.Camera, containerElement: HTMLElement, isDrawing: boolean) => {
     if (!scene || !camera || isDrawing) return;
 
@@ -220,29 +284,57 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
 
     raycaster.current.setFromCamera(mouse.current, camera);
     
-    const buildingMeshes = buildings.map(b => b.mesh);
-    const intersects = raycaster.current.intersectObjects(buildingMeshes);
-
-    if (intersects.length > 0) {
-      const clickedMesh = intersects[0].object as THREE.Mesh;
-      const buildingId = clickedMesh.userData.buildingId;
+    // Check for footprint intersections first (they're closer to ground)
+    const footprintOutlines = buildings.map(b => b.footprintOutline).filter(Boolean) as THREE.LineLoop[];
+    const footprintIntersects = raycaster.current.intersectObjects(footprintOutlines);
+    
+    if (footprintIntersects.length > 0) {
+      const clickedOutline = footprintIntersects[0].object as THREE.LineLoop;
+      const buildingId = clickedOutline.userData.buildingId;
       const building = buildings.find(b => b.id === buildingId);
       
       if (building) {
-        if (event.type === 'click') {
-          selectBuilding(building === selectedBuilding ? null : building);
-        } else if (event.type === 'mousemove') {
-          hoverBuilding(building);
+        if (event.type === 'mousemove') {
+          hoverFootprint(building);
+          hoverBuilding(null); // Clear building hover when hovering footprint
         }
+        // Click handling will be done by the parent component
+        return { type: 'footprint', building };
       }
     } else {
-      if (event.type === 'click') {
-        selectBuilding(null);
-      } else if (event.type === 'mousemove') {
-        hoverBuilding(null);
+      // Clear footprint hover if not hovering any footprint
+      if (event.type === 'mousemove') {
+        hoverFootprint(null);
+      }
+      
+      // Check for building mesh intersections
+      const buildingMeshes = buildings.map(b => b.mesh);
+      const buildingIntersects = raycaster.current.intersectObjects(buildingMeshes);
+
+      if (buildingIntersects.length > 0) {
+        const clickedMesh = buildingIntersects[0].object as THREE.Mesh;
+        const buildingId = clickedMesh.userData.buildingId;
+        const building = buildings.find(b => b.id === buildingId);
+        
+        if (building) {
+          if (event.type === 'click') {
+            selectBuilding(building === selectedBuilding ? null : building);
+          } else if (event.type === 'mousemove') {
+            hoverBuilding(building);
+          }
+          return { type: 'building', building };
+        }
+      } else {
+        if (event.type === 'click') {
+          selectBuilding(null);
+        } else if (event.type === 'mousemove') {
+          hoverBuilding(null);
+        }
       }
     }
-  }, [buildings, selectedBuilding, selectBuilding, hoverBuilding, scene]);
+    
+    return null;
+  }, [buildings, selectedBuilding, selectBuilding, hoverBuilding, hoverFootprint, scene]);
 
   const buildingStats: BuildingStats = {
     count: buildings.length,
@@ -254,10 +346,12 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
     buildings,
     selectedBuilding,
     hoveredBuilding,
+    hoveredFootprint,
     addBuilding,
     updateBuilding,
     selectBuilding,
     hoverBuilding,
+    hoverFootprint,
     deleteBuilding,
     clearAllBuildings,
     exportBuildings,
