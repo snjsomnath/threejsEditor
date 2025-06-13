@@ -20,6 +20,7 @@ export interface DrawingState {
   lines: THREE.Line[];
   previewMarker: THREE.Mesh | null;
   previewLine: THREE.Line | null;
+  previewBuilding: THREE.Mesh | null;
   snapToStart: boolean;
 }
 

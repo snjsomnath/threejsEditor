@@ -23,6 +23,7 @@ export const useDrawing = (
     lines: [],
     previewMarker: null,
     previewLine: null,
+    previewBuilding: null,
     snapToStart: false
   });
 
@@ -38,15 +39,28 @@ export const useDrawing = (
   }
 
   const clearPreviewElements = useCallback(() => {
-    if (!drawingServiceRef.current) return;
+    if (!drawingServiceRef.current || !buildingServiceRef.current) return;
 
-    if (drawingState.previewMarker) {
-      drawingServiceRef.current.clearPreviewMarker(drawingState.previewMarker);
-    }
-    if (drawingState.previewLine) {
-      drawingServiceRef.current.clearPreviewLine(drawingState.previewLine);
-    }
-  }, [drawingState.previewMarker, drawingState.previewLine]);
+    // Use the current state directly instead of depending on state values
+    setDrawingState(prev => {
+      if (prev.previewMarker) {
+        drawingServiceRef.current?.clearPreviewMarker(prev.previewMarker);
+      }
+      if (prev.previewLine) {
+        drawingServiceRef.current?.clearPreviewLine(prev.previewLine);
+      }
+      if (prev.previewBuilding) {
+        buildingServiceRef.current?.clearPreviewBuilding(prev.previewBuilding);
+      }
+      
+      return {
+        ...prev,
+        previewMarker: null,
+        previewLine: null,
+        previewBuilding: null
+      };
+    });
+  }, []); // Remove dependencies to prevent infinite loops
 
   const startDrawing = useCallback(() => {
     // Clear any existing preview elements first
@@ -59,6 +73,7 @@ export const useDrawing = (
       lines: [],
       previewMarker: null,
       previewLine: null,
+      previewBuilding: null,
       snapToStart: false
     });
   }, [clearPreviewElements]);
@@ -78,6 +93,7 @@ export const useDrawing = (
       lines: [],
       previewMarker: null,
       previewLine: null,
+      previewBuilding: null,
       snapToStart: false
     });
   }, [drawingState, clearPreviewElements]);
@@ -119,7 +135,7 @@ export const useDrawing = (
   }, [drawingState, clearPreviewElements]);
 
   const updatePreview = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
-    if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current) {
+    if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current || !buildingServiceRef.current) {
       return;
     }
 
@@ -151,34 +167,57 @@ export const useDrawing = (
       }
     }
 
-    // Clear existing preview elements IMMEDIATELY
-    if (drawingState.previewMarker) {
-      drawingServiceRef.current.clearPreviewMarker(drawingState.previewMarker);
-    }
-    if (drawingState.previewLine) {
-      drawingServiceRef.current.clearPreviewLine(drawingState.previewLine);
-    }
+    // Update state with new preview elements - clear and create in one action
+    setDrawingState(prev => {
+      // Clear existing preview elements
+      if (prev.previewMarker) {
+        drawingServiceRef.current?.clearPreviewMarker(prev.previewMarker);
+      }
+      if (prev.previewLine) {
+        drawingServiceRef.current?.clearPreviewLine(prev.previewLine);
+      }
+      if (prev.previewBuilding) {
+        buildingServiceRef.current?.clearPreviewBuilding(prev.previewBuilding);
+      }
 
-    // Create new preview marker
-    const previewMarker = shouldSnapToStart 
-      ? drawingServiceRef.current.createSnapPreviewMarker(finalPosition)
-      : drawingServiceRef.current.createPreviewMarker(finalPosition);
+      // Create new preview marker
+      const previewMarker = shouldSnapToStart 
+        ? drawingServiceRef.current?.createSnapPreviewMarker(finalPosition)
+        : drawingServiceRef.current?.createPreviewMarker(finalPosition);
 
-    // Create preview line to last point if exists
-    let previewLine: THREE.Line | null = null;
-    if (drawingState.points.length > 0) {
-      const lastPoint = drawingState.points[drawingState.points.length - 1];
-      previewLine = drawingServiceRef.current.createPreviewLine(lastPoint, finalPosition);
-    }
+      // Create preview line to last point if exists
+      let previewLine: THREE.Line | null = null;
+      if (prev.points.length > 0) {
+        const lastPoint = prev.points[prev.points.length - 1];
+        previewLine = drawingServiceRef.current?.createPreviewLine(lastPoint, finalPosition) || null;
+      }
 
-    // Update state with new preview elements
-    setDrawingState(prev => ({
-      ...prev,
-      previewMarker,
-      previewLine,
-      snapToStart: shouldSnapToStart
-    }));
-  }, [drawingState.isDrawing, drawingState.points, drawingState.previewMarker, drawingState.previewLine, camera, groundPlane, snapToGridEnabled]);
+      // Create preview building if we have enough points
+      let previewBuilding: THREE.Mesh | null = null;
+      if (prev.points.length >= 2) {
+        try {
+          const previewPoints = shouldSnapToStart 
+            ? [...prev.points] // Complete shape when snapping to start
+            : [...prev.points, finalPosition]; // Include current mouse position
+            
+          if (previewPoints.length >= 3) {
+            previewBuilding = buildingServiceRef.current?.createPreviewBuilding(previewPoints, buildingConfig) || null;
+          }
+        } catch (error) {
+          // Ignore errors for invalid shapes during preview
+          console.debug('Preview building creation failed:', error);
+        }
+      }
+
+      return {
+        ...prev,
+        previewMarker: previewMarker || null,
+        previewLine,
+        previewBuilding,
+        snapToStart: shouldSnapToStart
+      };
+    });
+  }, [drawingState.isDrawing, drawingState.points.length, camera, groundPlane, snapToGridEnabled, buildingConfig]);
 
   const addPoint = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
     if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current) {
@@ -205,35 +244,41 @@ export const useDrawing = (
       intersection = snapToGrid(intersection, GRID_SIZE);
     }
 
-    // Clear preview elements before adding the actual point
-    if (drawingState.previewMarker) {
-      drawingServiceRef.current.clearPreviewMarker(drawingState.previewMarker);
-    }
-    if (drawingState.previewLine) {
-      drawingServiceRef.current.clearPreviewLine(drawingState.previewLine);
-    }
+    // Update state - clear preview elements and add new point
+    setDrawingState(prev => {
+      // Clear preview elements
+      if (prev.previewMarker) {
+        drawingServiceRef.current?.clearPreviewMarker(prev.previewMarker);
+      }
+      if (prev.previewLine) {
+        drawingServiceRef.current?.clearPreviewLine(prev.previewLine);
+      }
+      if (prev.previewBuilding) {
+        buildingServiceRef.current?.clearPreviewBuilding(prev.previewBuilding);
+      }
 
-    // Create point marker (smaller and more subtle)
-    const marker = drawingServiceRef.current.createPointMarker(intersection);
+      // Create point marker
+      const marker = drawingServiceRef.current?.createPointMarker(intersection);
 
-    // Create line to previous point if exists
-    let line: THREE.Line | null = null;
-    if (drawingState.points.length > 0) {
-      const previousPoint = drawingState.points[drawingState.points.length - 1];
-      line = drawingServiceRef.current.createLine(previousPoint, intersection);
-    }
+      // Create line to previous point if exists
+      let line: THREE.Line | null = null;
+      if (prev.points.length > 0) {
+        const previousPoint = prev.points[prev.points.length - 1];
+        line = drawingServiceRef.current?.createLine(previousPoint, intersection) || null;
+      }
 
-    // Update state - clear preview elements
-    setDrawingState(prev => ({
-      ...prev,
-      points: [...prev.points, intersection],
-      markers: [...prev.markers, marker],
-      lines: line ? [...prev.lines, line] : prev.lines,
-      previewMarker: null,
-      previewLine: null,
-      snapToStart: false
-    }));
-  }, [drawingState.isDrawing, drawingState.points, drawingState.snapToStart, drawingState.previewMarker, drawingState.previewLine, camera, groundPlane, snapToGridEnabled]);
+      return {
+        ...prev,
+        points: [...prev.points, intersection],
+        markers: marker ? [...prev.markers, marker] : prev.markers,
+        lines: line ? [...prev.lines, line] : prev.lines,
+        previewMarker: null,
+        previewLine: null,
+        previewBuilding: null,
+        snapToStart: false
+      };
+    });
+  }, [drawingState.isDrawing, drawingState.points.length, drawingState.snapToStart, camera, groundPlane, snapToGridEnabled]);
 
   const finishBuilding = useCallback(() => {
     if (!buildingServiceRef.current || !drawingServiceRef.current || drawingState.points.length < 3) {
@@ -245,11 +290,7 @@ export const useDrawing = (
       clearPreviewElements();
 
       // Create the building with current configuration
-      const buildingMesh = buildingServiceRef.current.createBuilding(drawingState.points, {
-        height: buildingConfig.floors * buildingConfig.floorHeight,
-        color: buildingConfig.color,
-        enableShadows: buildingConfig.enableShadows
-      });
+      const buildingMesh = buildingServiceRef.current.createBuilding(drawingState.points, buildingConfig);
       
       // Add to building manager with detailed info
       addBuilding(
@@ -271,6 +312,7 @@ export const useDrawing = (
         lines: [],
         previewMarker: null,
         previewLine: null,
+        previewBuilding: null,
         snapToStart: false
       });
     } catch (error) {
