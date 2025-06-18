@@ -44,7 +44,6 @@ export const SimpleBuildingCreator: React.FC = () => {
     buildings, 
     selectedBuilding, 
     hoveredBuilding, 
-    hoveredFootprint, 
     selectBuilding, 
     updateBuilding, 
     clearAllBuildings, 
@@ -515,13 +514,6 @@ export const SimpleBuildingCreator: React.FC = () => {
             </div>
           )}
 
-          {hoveredFootprint && !hoveredBuilding && (
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 rounded-full bg-cyan-400 animate-pulse" />
-              <span>Footprint: {hoveredFootprint.name}</span>
-            </div>
-          )}
-
           {performanceModeEnabled && (
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 rounded-full bg-orange-500" />
@@ -537,10 +529,6 @@ export const SimpleBuildingCreator: React.FC = () => {
           <div className="text-cyan-100">
             <h3 className="font-bold mb-2 text-cyan-200">Selection Mode</h3>
             <div className="text-sm space-y-1">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 rounded-full bg-cyan-400"></div>
-                <span>Hover footprint to highlight</span>
-              </div>
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 rounded-full bg-green-400"></div>
                 <span>Click footprint for config</span>

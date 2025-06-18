@@ -12,7 +12,6 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingData | null>(null);
   const [hoveredBuilding, setHoveredBuilding] = useState<BuildingData | null>(null);
-  const [hoveredFootprint, setHoveredFootprint] = useState<BuildingData | null>(null);
   const buildingIdCounter = useRef(0);
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
@@ -29,12 +28,13 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     const shape = new THREE.Shape();
     
     if (points.length > 0) {
-      // Use points in original order, but adjust the shape creation
-      shape.moveTo(points[0].x, points[0].z);
+      // Use points in original order with corrected coordinate mapping
+      // Since we rotate the mesh by -PI/2 around X, we need to map coordinates correctly
+      shape.moveTo(points[0].x, -points[0].z); // Negate Z to correct for rotation
       for (let i = 1; i < points.length; i++) {
-        shape.lineTo(points[i].x, points[i].z);
+        shape.lineTo(points[i].x, -points[i].z); // Negate Z to correct for rotation
       }
-      shape.lineTo(points[0].x, points[0].z); // Close the shape
+      shape.lineTo(points[0].x, -points[0].z); // Close the shape
     }
 
     const geometry = new THREE.ShapeGeometry(shape);
@@ -233,34 +233,6 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     setHoveredBuilding(building);
   }, [hoveredBuilding, selectedBuilding]);
 
-  const hoverFootprint = useCallback((building: BuildingData | null) => {
-    // Hide previous footprint outline
-    if (hoveredFootprint && hoveredFootprint.footprintOutline) {
-      const material = hoveredFootprint.footprintOutline.material as THREE.MeshBasicMaterial;
-      material.opacity = 0;
-    }
-
-    // Show new footprint outline with animation
-    if (building && building.footprintOutline) {
-      const material = building.footprintOutline.material as THREE.MeshBasicMaterial;
-      material.opacity = 0.3;
-      
-      // Create pulsing animation
-      const animate = () => {
-        if (building === hoveredFootprint && building.footprintOutline) {
-          const time = Date.now() * 0.004;
-          const opacity = 0.2 + Math.sin(time) * 0.15;
-          material.opacity = opacity;
-          material.color.setHex(0x00ffaa + Math.floor(Math.sin(time * 2) * 0x001100));
-          requestAnimationFrame(animate);
-        }
-      };
-      animate();
-    }
-
-    setHoveredFootprint(building);
-  }, [hoveredFootprint]);
-
   const deleteBuilding = useCallback((id: string) => {
     if (!scene) return;
 
@@ -287,10 +259,7 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     if (hoveredBuilding?.id === id) {
       setHoveredBuilding(null);
     }
-    if (hoveredFootprint?.id === id) {
-      setHoveredFootprint(null);
-    }
-  }, [scene, selectedBuilding, hoveredBuilding, hoveredFootprint]);
+  }, [scene, selectedBuilding, hoveredBuilding]);
 
   const clearAllBuildings = useCallback(() => {
     if (!scene) return;
@@ -338,7 +307,6 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     setBuildings([]);
     setSelectedBuilding(null);
     setHoveredBuilding(null);
-    setHoveredFootprint(null);
   }, [scene]);
 
   const exportBuildings = useCallback(() => {
@@ -414,8 +382,7 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
           // Handle click
           if (event.type === 'click') {
             if (intersectedMesh.userData.isFootprint) {
-              // Handle footprint click
-              hoverFootprint(building);
+              // Handle footprint click - just return building without hover
               return { type: 'footprint', building };
             } else {
               // Handle building click
@@ -430,11 +397,10 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     } else {
       // Clear hover states when not over any building
       hoverBuilding(null);
-      hoverFootprint(null);
     }
 
     return null;
-  }, [scene, camera, hoverBuilding, hoverFootprint, selectBuilding]);
+  }, [scene, camera, hoverBuilding, selectBuilding]);
 
   const buildingStats: BuildingStats = {
     count: buildings.length,
@@ -446,12 +412,10 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     buildings,
     selectedBuilding,
     hoveredBuilding,
-    hoveredFootprint,
     addBuilding,
     updateBuilding,
     selectBuilding,
     hoverBuilding,
-    hoverFootprint,
     deleteBuilding,
     clearAllBuildings,
     exportBuildings,
