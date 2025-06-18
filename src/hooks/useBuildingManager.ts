@@ -193,13 +193,23 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     // Reset previous selection
     if (selectedBuilding) {
       const material = selectedBuilding.mesh.material as THREE.MeshLambertMaterial;
+      // Restore original color and opacity
       material.emissive.setHex(0x000000);
+      if (typeof selectedBuilding.color === 'number') {
+        material.color.setHex(selectedBuilding.color);
+      }
+      material.transparent = false;
+      material.opacity = 1.0;
     }
 
     // Highlight new selection
     if (building) {
       const material = building.mesh.material as THREE.MeshLambertMaterial;
-      material.emissive.setHex(0x444444);
+      // Set to very transparent orange
+      material.color.setHex(0xffa500); // orange
+      material.transparent = true;
+      material.opacity = 0.2;
+      material.emissive.setHex(0xffa500); // strong orange glow
     }
 
     setSelectedBuilding(building);

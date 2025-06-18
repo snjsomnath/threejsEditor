@@ -267,6 +267,7 @@ export const useDrawing = (
         // Check for snap to start point
         const points = drawingState.points;
         let snapToStart = false;
+        let snapActive = false;
         if (points.length > 2) {
           const startPoint = points[0];
           const distance = calculateDistance(snappedPosition, startPoint);
@@ -274,6 +275,27 @@ export const useDrawing = (
             snappedPosition.x = startPoint.x;
             snappedPosition.z = startPoint.z;
             snapToStart = true;
+            snapActive = true;
+          }
+        }
+
+        // Highlight first marker if snapping to start
+        if (points.length > 0 && drawingState.markers.length > 0) {
+          const firstMarker = drawingState.markers[0];
+          const mat = firstMarker.material as THREE.MeshLambertMaterial;
+          if (snapActive) {
+            mat.color.setHex(0xffff00);
+            mat.emissive.setHex(0xffff00);
+            mat.emissiveIntensity = 0.7;
+            mat.opacity = 1.0;
+            mat.transparent = false;
+          } else {
+            // Restore to default (red)
+            mat.color.setHex(0xff4444);
+            mat.emissive.setHex(0xff0000);
+            mat.emissiveIntensity = 0.2;
+            mat.opacity = 1.0;
+            mat.transparent = false;
           }
         }
 
@@ -392,12 +414,6 @@ export const useDrawing = (
       return;
     }
 
-    // If we're snapping to start and have enough points, finish the building
-    if (drawingState.snapToStart && drawingState.points.length >= 3) {
-      finishBuilding();
-      return;
-    }
-
     // Calculate mouse coordinates
     const rect = containerElement.getBoundingClientRect();
     mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -405,7 +421,6 @@ export const useDrawing = (
 
     // Get intersection with ground
     let intersection = getGroundIntersection(mouseRef.current, camera, groundPlane);
-    
     if (!intersection) {
       return;
     }
@@ -413,6 +428,20 @@ export const useDrawing = (
     // Apply grid snapping if enabled
     if (snapToGridEnabled) {
       intersection = snapToGrid(intersection, GRID_SIZE);
+    }
+
+    // Snap to start point if close enough
+    const points = drawingState.points;
+    if (points.length > 2) {
+      const startPoint = points[0];
+      const distance = calculateDistance(intersection, startPoint);
+      if (distance < SNAP_DISTANCE) {
+        intersection.x = startPoint.x;
+        intersection.z = startPoint.z;
+        // Finish building if snapping to start
+        finishBuilding();
+        return;
+      }
     }
 
     // IMMEDIATELY clear all previews before adding point
