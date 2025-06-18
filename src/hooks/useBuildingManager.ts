@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { Point3D, BuildingData, BuildingConfig } from '../types/building';
 
@@ -8,7 +8,7 @@ interface BuildingStats {
   totalFloors: number;
 }
 
-export const useBuildingManager = (scene: THREE.Scene | null) => {
+export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.PerspectiveCamera | null) => {
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingData | null>(null);
   const [hoveredBuilding, setHoveredBuilding] = useState<BuildingData | null>(null);
@@ -16,13 +16,67 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
   const buildingIdCounter = useRef(0);
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
+  const buildingsRef = useRef<BuildingData[]>([]);
+
+  // Keep buildingsRef in sync with buildings state
+  useEffect(() => {
+    buildingsRef.current = buildings;
+    console.log('Buildings updated:', buildings.map(b => b.id));
+  }, [buildings]);
+
+  const createFootprintOutline = (points: Point3D[], scene: THREE.Scene): THREE.Mesh => {
+    // Create a thin plane geometry that follows the building footprint
+    const shape = new THREE.Shape();
+    
+    if (points.length > 0) {
+      // Use points in original order, but adjust the shape creation
+      shape.moveTo(points[0].x, points[0].z);
+      for (let i = 1; i < points.length; i++) {
+        shape.lineTo(points[i].x, points[i].z);
+      }
+      shape.lineTo(points[0].x, points[0].z); // Close the shape
+    }
+
+    const geometry = new THREE.ShapeGeometry(shape);
+    const material = new THREE.MeshBasicMaterial({ 
+      color: 0x00ffaa,
+      transparent: true,
+      opacity: 0.3,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    
+    const footprint = new THREE.Mesh(geometry, material);
+    footprint.rotation.x = -Math.PI / 2; // Lay flat on ground
+    footprint.position.y = 0.05; // Slightly above ground
+    footprint.visible = true;
+    footprint.frustumCulled = false;
+    
+    scene.add(footprint);
+    return footprint;
+  };
 
   const addBuilding = useCallback((mesh: THREE.Mesh, points: Point3D[], floors: number, floorHeight: number) => {
     if (!scene) return;
 
     const area = calculatePolygonArea(points);
+    const buildingId = `building_${++buildingIdCounter.current}`;
+    
+    // Add click handler to mesh for selection
+    mesh.userData = { buildingId };
+    mesh.visible = true;
+    mesh.frustumCulled = false;
+    
+    // Ensure material is properly set up for interaction
+    if (mesh.material) {
+      const material = mesh.material as THREE.MeshLambertMaterial;
+      material.depthTest = true;
+      material.transparent = false;
+      material.side = THREE.FrontSide;
+    }
+
     const building: BuildingData = {
-      id: `building_${++buildingIdCounter.current}`,
+      id: buildingId,
       mesh,
       points,
       area,
@@ -37,42 +91,41 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
 
     // Create footprint outline for selection
     building.footprintOutline = createFootprintOutline(points, scene);
-    building.footprintOutline.userData = { buildingId: building.id, isFootprint: true };
-    building.footprintOutline.visible = false; // Hidden by default
+    building.footprintOutline.userData = { buildingId, isFootprint: true };
+    building.footprintOutline.visible = true;
+    building.footprintOutline.frustumCulled = false;
 
-    // Add click handler to mesh for selection
-    mesh.userData = { buildingId: building.id };
-
-    setBuildings(prev => [...prev, building]);
-  }, [scene]);
-
-  const createFootprintOutline = (points: Point3D[], scene: THREE.Scene): THREE.Mesh => {
-    // Create a thin plane geometry that follows the building footprint
-    const shape = new THREE.Shape();
-    
-    if (points.length > 0) {
-      shape.moveTo(points[0].x, points[0].z);
-      for (let i = 1; i < points.length; i++) {
-        shape.lineTo(points[i].x, points[i].z);
-      }
-      shape.lineTo(points[0].x, points[0].z); // Close the shape
+    // Ensure mesh is added to the scene
+    if (!scene.children.includes(mesh)) {
+      scene.add(mesh);
     }
 
-    const geometry = new THREE.ShapeGeometry(shape);
-    const material = new THREE.MeshBasicMaterial({ 
-      color: 0x00ffaa,
-      transparent: true,
-      opacity: 0,
-      side: THREE.DoubleSide
+    // Debug: confirm mesh is in scene
+    console.log('Adding building to scene:', {
+      id: building.id,
+      mesh: mesh.uuid,
+      footprint: building.footprintOutline.uuid,
+      sceneChildren: scene.children.length,
+      userData: {
+        mesh: mesh.userData,
+        footprint: building.footprintOutline.userData
+      }
     });
-    
-    const footprint = new THREE.Mesh(geometry, material);
-    footprint.rotation.x = -Math.PI / 2; // Lay flat on ground
-    footprint.position.y = 0.05; // Slightly above ground
-    
-    scene.add(footprint);
-    return footprint;
-  };
+
+    // Update both state and ref synchronously
+    const newBuildings = [...buildingsRef.current, building];
+    buildingsRef.current = newBuildings;
+    setBuildings(newBuildings);
+
+    // Debug: verify building was added
+    console.log('Building added:', {
+      id: building.id,
+      buildingsCount: newBuildings.length,
+      buildingsIds: newBuildings.map(b => b.id)
+    });
+
+    return building; // Return the building for immediate use
+  }, [scene]);
 
   const updateBuilding = useCallback((id: string, updates: Partial<BuildingData> & { config?: BuildingConfig }) => {
     if (!scene) return;
@@ -284,66 +337,67 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
   }, [buildings]);
 
   // Handle building and footprint interaction via mouse events
-  const handleBuildingInteraction = useCallback((event: MouseEvent, camera: THREE.Camera, containerElement: HTMLElement, isDrawing: boolean) => {
-    if (!scene || !camera || isDrawing) return;
+  const handleBuildingInteraction = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
+    if (!scene || !camera) {
+      console.warn('Scene or camera not available');
+      return null;
+    }
 
+    // Calculate mouse position
     const rect = containerElement.getBoundingClientRect();
     mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
+    // Update raycaster
     raycaster.current.setFromCamera(mouse.current, camera);
-    
-    // Check for footprint intersections first (they're at ground level)
-    const footprintMeshes = buildings.map(b => b.footprintOutline).filter(Boolean) as THREE.Mesh[];
-    const footprintIntersects = raycaster.current.intersectObjects(footprintMeshes);
-    
-    if (footprintIntersects.length > 0) {
-      const clickedFootprint = footprintIntersects[0].object as THREE.Mesh;
-      const buildingId = clickedFootprint.userData.buildingId;
-      const building = buildings.find(b => b.id === buildingId);
-      
-      if (building) {
-        if (event.type === 'mousemove') {
-          hoverFootprint(building);
-          hoverBuilding(null); // Clear building hover when hovering footprint
+
+    // Get all meshes in the scene
+    const meshes = scene.children.filter(child => child instanceof THREE.Mesh) as THREE.Mesh[];
+    console.log('Found meshes:', meshes.length, meshes);
+
+    // Get intersections
+    const intersects = raycaster.current.intersectObjects(meshes);
+    console.log('Raycast intersects:', intersects.length, intersects);
+
+    if (intersects.length > 0) {
+      const intersectedMesh = intersects[0].object as THREE.Mesh;
+      console.log('Intersected mesh userData:', intersectedMesh.userData);
+
+      // Get building ID from userData
+      const buildingId = intersectedMesh.userData.buildingId;
+      if (buildingId) {
+        // Find building in current state
+        const building = buildingsRef.current.find(b => b.id === buildingId);
+        console.log('Found building:', building, 'type:', typeof building);
+
+        if (building) {
+          // Handle hover
+          hoverBuilding(building);
+          
+          // Handle click
+          if (event.type === 'click') {
+            if (intersectedMesh.userData.isFootprint) {
+              // Handle footprint click
+              hoverFootprint(building);
+              return { type: 'footprint', building };
+            } else {
+              // Handle building click
+              selectBuilding(building);
+              return { type: 'building', building };
+            }
+          }
+        } else {
+          console.warn('Building not found for ID:', buildingId, 'Available buildings:', buildingsRef.current);
         }
-        // Return the interaction result for click handling
-        return { type: 'footprint', building };
       }
     } else {
-      // Clear footprint hover if not hovering any footprint
-      if (event.type === 'mousemove') {
-        hoverFootprint(null);
-      }
-      
-      // Check for building mesh intersections
-      const buildingMeshes = buildings.map(b => b.mesh);
-      const buildingIntersects = raycaster.current.intersectObjects(buildingMeshes);
-
-      if (buildingIntersects.length > 0) {
-        const clickedMesh = buildingIntersects[0].object as THREE.Mesh;
-        const buildingId = clickedMesh.userData.buildingId;
-        const building = buildings.find(b => b.id === buildingId);
-        
-        if (building) {
-          if (event.type === 'click') {
-            selectBuilding(building === selectedBuilding ? null : building);
-          } else if (event.type === 'mousemove') {
-            hoverBuilding(building);
-          }
-          return { type: 'building', building };
-        }
-      } else {
-        if (event.type === 'click') {
-          selectBuilding(null);
-        } else if (event.type === 'mousemove') {
-          hoverBuilding(null);
-        }
-      }
+      // Clear hover states when not over any building
+      hoverBuilding(null);
+      hoverFootprint(null);
     }
-    
+
     return null;
-  }, [buildings, selectedBuilding, selectBuilding, hoverBuilding, hoverFootprint, scene]);
+  }, [scene, camera, hoverBuilding, hoverFootprint, selectBuilding]);
 
   const buildingStats: BuildingStats = {
     count: buildings.length,

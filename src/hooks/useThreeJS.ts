@@ -928,21 +928,21 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     initializationError,
     showFPS,
     performanceMode,
-    toggleFPSCounter,
-    togglePerformanceMode,
-    retryInitialization,
     toggleGrid: () => {
       if (gridHelperRef.current) {
         gridHelperRef.current.visible = !gridHelperRef.current.visible;
       }
     },
-    updateSceneQuality,
-    toggleShadowHelper,
-    toggleShadowQuality,
-    
-    // For development only - consider removing in production
+    toggleFPSCounter: () => setShowFPS(!showFPS),
+    togglePerformanceMode: () => setPerformanceMode(!performanceMode),
+    retryInitialization: () => {
+      setIsInitialized(false);
+      setInitializationError(null);
+      initializeScene();
+    },
     debugHelpers: {
-      createTestBox,
+      toggleShadowHelper,
+      toggleShadowQuality,
       enablePerformanceMonitoring
     }
   };

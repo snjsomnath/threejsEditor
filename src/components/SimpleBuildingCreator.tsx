@@ -10,6 +10,7 @@ import { BuildingConfig } from '../types/building';
 
 export const SimpleBuildingCreator: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
@@ -38,16 +39,6 @@ export const SimpleBuildingCreator: React.FC = () => {
     debugHelpers 
   } = useThreeJS(containerRef, showGrid);
   
-  // Initialize drawing functionality
-  const { drawingState, startDrawing, stopDrawing, addPoint, finishBuilding, updatePreview, undoLastPoint } = useDrawing(
-    scene,
-    camera,
-    groundPlane,
-    snapToGrid,
-    buildingConfig,
-    performanceMode // Pass performance mode from useThreeJS
-  );
-
   // Initialize building management
   const { 
     buildings, 
@@ -60,21 +51,48 @@ export const SimpleBuildingCreator: React.FC = () => {
     exportBuildings, 
     buildingStats, 
     deleteBuilding, 
-    handleBuildingInteraction 
-  } = useBuildingManager(scene);
+    handleBuildingInteraction,
+    addBuilding 
+  } = useBuildingManager(scene, camera);
 
+  // Initialize drawing functionality
+  const { drawingState, startDrawing, stopDrawing, addPoint, finishBuilding, updatePreview, undoLastPoint } = useDrawing(
+    scene,
+    camera,
+    groundPlane,
+    snapToGrid,
+    buildingConfig,
+    performanceMode,
+    addBuilding
+  );
+
+  // After scene is initialized, get the canvas element
+  React.useEffect(() => {
+    if (containerRef.current) {
+      const canvas = containerRef.current.querySelector('canvas');
+      if (canvas && canvas !== canvasEl) {
+        setCanvasEl(canvas as HTMLCanvasElement);
+      }
+    }
+  }, [scene, containerRef, canvasEl]);
+
+  // Use canvasEl for event handling
   // Handle click events and mouse movement
+  const isDrawingRef = React.useRef(drawingState.isDrawing);
+  React.useEffect(() => {
+    isDrawingRef.current = drawingState.isDrawing;
+  }, [drawingState.isDrawing]);
+
   useClickHandler(
-    containerRef, 
+    { current: canvasEl } as React.RefObject<HTMLCanvasElement>,
     (event, container) => {
       if (!hasInteracted) setHasInteracted(true);
-      console.log('Adding point, drawing state:', drawingState.isDrawing);
       
       if (drawingState.isDrawing) {
         addPoint(event, container);
       } else if (camera) {
         // Handle building selection when not drawing
-        const result = handleBuildingInteraction(event, camera, container, drawingState.isDrawing);
+        const result = handleBuildingInteraction(event, container);
         
         // On building click, open edit panel directly
         if (result?.type === 'building') {
@@ -97,20 +115,19 @@ export const SimpleBuildingCreator: React.FC = () => {
       }
     }, 
     () => {
-      console.log('Finishing building');
       finishBuilding();
     }, 
     (event, container) => {
-      // Only update preview if we're actually drawing
       if (drawingState.isDrawing) {
         updatePreview(event, container);
-      } else if (camera) {
-        // Handle building hover when not drawing
-        handleBuildingInteraction(event, camera, container, drawingState.isDrawing);
       }
     },
-    undefined, // Remove duplicate building interaction handler
-    drawingState.isDrawing
+    (event, container) => {
+      if (!drawingState.isDrawing) {
+        handleBuildingInteraction(event, container);
+      }
+    },
+    isDrawingRef
   );
 
   const handleStartDrawing = () => {

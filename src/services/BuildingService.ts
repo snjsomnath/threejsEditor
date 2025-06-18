@@ -99,6 +99,35 @@ export class BuildingService {
     (building.material as THREE.Material).dispose();
   }
 
+  updatePreviewBuilding(building: THREE.Mesh, points: Point3D[], config: BuildingConfig): void {
+    if (points.length < 3) {
+      return;
+    }
+
+    const centroid = calculateCentroid(points);
+    const shape = createShapeFromPoints(points, centroid);
+    
+    // Calculate height from floors and floorHeight
+    const height = config.height || (config.floors * config.floorHeight);
+    
+    // Extrude the shape to create 3D geometry
+    const extrudeSettings = {
+      depth: height,
+      bevelEnabled: false,
+      steps: 1
+    };
+
+    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    
+    // Rotate geometry so it extrudes upward (Y-axis)
+    geometry.rotateX(-Math.PI / 2);
+    
+    // Update building geometry and position
+    building.geometry.dispose();
+    building.geometry = geometry;
+    building.position.set(centroid.x, 0, centroid.z);
+  }
+
   createDebugMarker(position: Point3D, color: number = 0x00ff00): THREE.Mesh {
     const geometry = new THREE.SphereGeometry(1.5, 16, 16);
     const material = new THREE.MeshLambertMaterial({

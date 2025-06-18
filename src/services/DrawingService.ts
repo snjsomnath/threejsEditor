@@ -191,4 +191,18 @@ export class DrawingService {
     line.geometry.dispose();
     (line.material as THREE.Material).dispose();
   }
+
+  updatePreviewMarker(marker: THREE.Mesh, position: Point3D): void {
+    marker.position.set(position.x, position.y + 0.2, position.z);
+  }
+
+  updatePreviewLine(line: THREE.Line, from: Point3D, to: Point3D): void {
+    const points = [
+      new THREE.Vector3(from.x, 0.2, from.z),
+      new THREE.Vector3(to.x, 0.2, to.z)
+    ];
+    
+    line.geometry.dispose();
+    line.geometry = new THREE.BufferGeometry().setFromPoints(points);
+  }
 }

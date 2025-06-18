@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
 
 export const useClickHandler = (
-  containerRef: React.RefObject<HTMLDivElement>,
+  containerRef: React.RefObject<HTMLElement>,
   onSingleClick: (event: MouseEvent, container: HTMLElement) => void,
   onDoubleClick: () => void,
   onMouseMove?: (event: MouseEvent, container: HTMLElement) => void,
   onBuildingInteraction?: (event: MouseEvent, container: HTMLElement) => void,
-  isDrawing?: boolean
+  isDrawing?: React.RefObject<boolean> // Accept a ref
 ) => {
   const clickTimeoutRef = useRef<number | null>(null);
   const isDoubleClickRef = useRef(false);
@@ -34,9 +34,8 @@ export const useClickHandler = (
         if (onMouseMove) {
           onMouseMove(event, container);
         }
-        
-        // Handle building hover when not drawing
-        if (onBuildingInteraction && !isDrawing) {
+        // Always call building interaction on mouse move if it exists
+        if (typeof onBuildingInteraction === 'function') {
           onBuildingInteraction(event, container);
         }
       });
@@ -66,7 +65,7 @@ export const useClickHandler = (
           clickTimeoutRef.current = null;
         }
         
-        if (isDrawing) {
+        if (isDrawing?.current) {
           onDoubleClick();
         }
       } else {
@@ -80,10 +79,10 @@ export const useClickHandler = (
         // Reduced to just 50ms for near-instant response!
         clickTimeoutRef.current = window.setTimeout(() => {
           if (!isDoubleClickRef.current && container) {
-            if (isDrawing) {
+            if (isDrawing?.current) {
               onSingleClick(event, container);
-            } else if (onBuildingInteraction) {
-              // Handle building selection when not drawing
+            } else if (typeof onBuildingInteraction === 'function') {
+              // Always call building interaction on click when not drawing
               onBuildingInteraction(event, container);
             }
           }

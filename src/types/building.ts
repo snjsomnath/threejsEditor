@@ -9,6 +9,7 @@ export interface BuildingConfig {
   floorHeight: number;
   color: number;
   height?: number; // Computed property for BuildingService
+  enableShadows?: boolean; // Optional property to enable/disable shadows
 }
 
 export interface DrawingState {
