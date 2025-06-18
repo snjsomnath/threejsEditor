@@ -545,7 +545,16 @@ export const SimpleBuildingCreator: React.FC = () => {
       {/* Welcome Message for New Users - Only show if never interacted */}
       {!hasInteracted && !drawingState.isDrawing && buildings.length === 0 && isInitialized && (
         <div className="fixed inset-0 flex items-center justify-center pointer-events-none">
-          <div className="bg-gray-900/90 backdrop-blur-sm rounded-2xl p-8 shadow-2xl border border-gray-700 max-w-md text-center">
+          <div className="bg-gray-900/90 backdrop-blur-sm rounded-2xl p-8 shadow-2xl border border-gray-700 max-w-md text-center pointer-events-auto relative">
+            <button
+              onClick={() => setHasInteracted(true)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors duration-200 p-1 rounded-full hover:bg-gray-700"
+              aria-label="Close welcome message"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
             <h3 className="text-white text-xl font-bold mb-4">Welcome to Building Creator</h3>
             <p className="text-gray-300 mb-6">
               Create detailed 3D buildings with custom floors, heights, and materials. Click "Draw Building" to get started!
