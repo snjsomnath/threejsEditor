@@ -295,7 +295,7 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
   const clearAllBuildings = useCallback(() => {
     if (!scene) return;
 
-    buildings.forEach(building => {
+    buildingsRef.current.forEach(building => {
       scene.remove(building.mesh);
       building.mesh.geometry.dispose();
       (building.mesh.material as THREE.Material).dispose();
@@ -308,11 +308,38 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
       }
     });
 
+    // Also remove any other footprint-related objects (lines, points, etc.)
+    const objectsToRemove = scene.children.filter(child => {
+      // Remove objects that might be footprint lines or points
+      return child.userData?.isFootprintLine || 
+             child.userData?.isFootprintPoint || 
+             child.userData?.isDrawingElement ||
+             child.userData?.isPolygonFootprint ||
+             (child instanceof THREE.Line) ||
+             (child instanceof THREE.Points);
+    });
+
+    objectsToRemove.forEach(obj => {
+      scene.remove(obj);
+      if (obj.geometry) {
+        obj.geometry.dispose();
+      }
+      if (obj.material) {
+        if (Array.isArray(obj.material)) {
+          obj.material.forEach(mat => mat.dispose());
+        } else {
+          obj.material.dispose();
+        }
+      }
+    });
+
+    // Clear both ref and state
+    buildingsRef.current = [];
     setBuildings([]);
     setSelectedBuilding(null);
     setHoveredBuilding(null);
     setHoveredFootprint(null);
-  }, [scene, buildings]);
+  }, [scene]);
 
   const exportBuildings = useCallback(() => {
     const exportData = {

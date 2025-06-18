@@ -192,6 +192,43 @@ export class DrawingService {
     (line.material as THREE.Material).dispose();
   }
 
+  clearAllDrawingElements(): void {
+    // Clear all animation frames
+    this.animationFrameIds.forEach(frameId => {
+      cancelAnimationFrame(frameId);
+    });
+    this.animationFrameIds.clear();
+    
+    // Find and remove all drawing-related objects from scene
+    const objectsToRemove: THREE.Object3D[] = [];
+    this.scene.traverse((child) => {
+      if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
+        // Check if it's a drawing element (markers, lines, footprints)
+        if (child.userData.isDrawingElement || 
+            child.userData.isFootprint ||
+            child.geometry === DrawingService.pointGeometry ||
+            child.geometry === DrawingService.previewGeometry ||
+            child.geometry === DrawingService.snapGeometry) {
+          objectsToRemove.push(child);
+        }
+      }
+    });
+    
+    objectsToRemove.forEach(obj => {
+      this.scene.remove(obj);
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        obj.geometry.dispose();
+        if (obj.material !== DrawingService.pointMaterial && 
+            obj.material !== DrawingService.previewMaterial &&
+            obj.material !== DrawingService.snapMaterial &&
+            obj.material !== DrawingService.lineMaterial &&
+            obj.material !== DrawingService.previewLineMaterial) {
+          (obj.material as THREE.Material).dispose();
+        }
+      }
+    });
+  }
+
   updatePreviewMarker(marker: THREE.Mesh, position: Point3D): void {
     marker.position.set(position.x, position.y + 0.2, position.z);
   }

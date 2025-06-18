@@ -133,7 +133,29 @@ export const useDrawing = (
       previewBuilding: null,
       snapToStart: false
     }) : prev);
-  }, [scene]); // Remove groundPlane from dependencies since it's not needed for cleanup
+  }, [scene]);
+
+  const clearAllDrawingElements = useCallback(() => {
+    if (!drawingServiceRef.current || !buildingServiceRef.current) return;
+
+    // Clear all previews first
+    clearAllPreviews();
+
+    // Clear all drawing elements using the service
+    drawingServiceRef.current.clearAllDrawingElements();
+
+    // Reset drawing state completely
+    setDrawingState({
+      isDrawing: false,
+      points: [],
+      markers: [],
+      lines: [],
+      previewMarker: null,
+      previewLine: null,
+      previewBuilding: null,
+      snapToStart: false
+    });
+  }, [clearAllPreviews]);
 
   const startDrawing = useCallback(() => {
     // Clear all previews immediately
@@ -488,6 +510,7 @@ export const useDrawing = (
     addPoint,
     finishBuilding,
     updatePreview: performanceMode ? throttledUpdatePreview : updatePreview, // Use throttled version in performance mode
-    undoLastPoint
+    undoLastPoint,
+    clearAllDrawingElements
   };
 };
