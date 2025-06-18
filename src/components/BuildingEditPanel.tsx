@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, RotateCcw, Home, Building, Factory, Layers, Palette } from 'lucide-react';
+import { X, Save, RotateCcw, Layers, Palette } from 'lucide-react';
 import { BuildingData, BuildingConfig } from '../types/building';
 
 interface BuildingEditPanelProps {
@@ -7,12 +7,6 @@ interface BuildingEditPanelProps {
   onClose: () => void;
   onSave: (updates: Partial<BuildingData> & { config?: BuildingConfig }) => void;
 }
-
-const buildingTypes = [
-  { id: 'residential', name: 'Residential', icon: Home, color: 0x10b981 },
-  { id: 'commercial', name: 'Commercial', icon: Building, color: 0x3b82f6 },
-  { id: 'industrial', name: 'Industrial', icon: Factory, color: 0xf59e0b }
-];
 
 const colorOptions = [
   { name: 'Blue', value: 0x3b82f6 },
@@ -61,9 +55,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
       config: {
         floors: editedBuilding.floors,
         floorHeight: editedBuilding.floorHeight,
-        color: editedBuilding.color,
-        enableShadows: building.enableShadows !== false,
-        buildingType: building.buildingType as 'residential' | 'commercial' | 'industrial'
+        color: editedBuilding.color
       }
     };
     
@@ -78,32 +70,14 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
     });
   };
 
-  const getBuildingIcon = (type: string) => {
-    const buildingType = buildingTypes.find(t => t.id === type);
-    if (buildingType) {
-      const IconComponent = buildingType.icon;
-      return <IconComponent className="w-5 h-5" />;
-    }
-    return <Building className="w-5 h-5" />;
-  };
-
-  const getBuildingTypeColor = (type: string) => {
-    switch (type) {
-      case 'residential': return 'text-green-400';
-      case 'commercial': return 'text-blue-400';
-      case 'industrial': return 'text-orange-400';
-      default: return 'text-gray-400';
-    }
-  };
-
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-gray-900/95 backdrop-blur-sm rounded-xl shadow-2xl border border-gray-700 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <div className="flex items-center space-x-3">
-            <div className={getBuildingTypeColor(building.buildingType)}>
-              {getBuildingIcon(building.buildingType)}
+            <div>
+              {/* Removed building type icon and color */}
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">Edit Building</h2>

@@ -17,7 +17,7 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
 
-  const addBuilding = useCallback((mesh: THREE.Mesh, points: Point3D[], floors: number, floorHeight: number, buildingType: string) => {
+  const addBuilding = useCallback((mesh: THREE.Mesh, points: Point3D[], floors: number, floorHeight: number) => {
     if (!scene) return;
 
     const area = calculatePolygonArea(points);
@@ -28,12 +28,10 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
       area,
       floors,
       floorHeight,
-      buildingType,
       createdAt: new Date(),
-      name: `${buildingType.charAt(0).toUpperCase() + buildingType.slice(1)} Building`,
+      name: `Building`,
       description: '',
       color: (mesh.material as THREE.MeshLambertMaterial).color.getHex(),
-      enableShadows: mesh.castShadow,
       footprintOutline: null
     };
 
@@ -123,16 +121,10 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
         const material = building.mesh.material as THREE.MeshLambertMaterial;
         material.color.setHex(config.color);
         
-        // Update shadow settings
-        building.mesh.castShadow = config.enableShadows;
-        building.mesh.receiveShadow = config.enableShadows;
-        
         // Update building data
         updatedBuilding.floors = config.floors;
         updatedBuilding.floorHeight = config.floorHeight;
         updatedBuilding.color = config.color;
-        updatedBuilding.enableShadows = config.enableShadows;
-        updatedBuilding.buildingType = config.buildingType;
       }
 
       return updatedBuilding;
@@ -171,6 +163,8 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
     if (building && building !== selectedBuilding) {
       const material = building.mesh.material as THREE.MeshLambertMaterial;
       material.emissive.setHex(0x222222);
+      // Log to console when hovering a building
+      console.log('Hovering building:', building.id, building.name);
     }
 
     setHoveredBuilding(building);
@@ -269,9 +263,7 @@ export const useBuildingManager = (scene: THREE.Scene | null) => {
         area: building.area,
         floors: building.floors,
         floorHeight: building.floorHeight,
-        buildingType: building.buildingType,
         color: building.color,
-        enableShadows: building.enableShadows,
         totalHeight: building.floors * building.floorHeight,
         createdAt: building.createdAt.toISOString()
       }))

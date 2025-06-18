@@ -4,7 +4,6 @@ import { useThreeJS } from '../hooks/useThreeJS';
 import { useDrawing } from '../hooks/useDrawing';
 import { useClickHandler } from '../hooks/useClickHandler';
 import { useBuildingManager } from '../hooks/useBuildingManager';
-import { BuildingDetailsPanel } from './BuildingDetailsPanel';
 import { BuildingConfigPanel } from './BuildingConfigPanel';
 import { BuildingEditPanel } from './BuildingEditPanel';
 import { BuildingConfig } from '../types/building';
@@ -15,14 +14,11 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [showBuildingConfig, setShowBuildingConfig] = useState(false);
-  const [showBuildingEdit, setShowBuildingEdit] = useState(false);
   const [performanceModeEnabled, setPerformanceModeEnabled] = useState(false);
   const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
     floors: 3,
     floorHeight: 3.5,
-    color: 0x6366f1,
-    enableShadows: true,
-    buildingType: 'residential'
+    color: 0x6366f1
   });
   
   // Initialize Three.js scene
@@ -80,19 +76,17 @@ export const SimpleBuildingCreator: React.FC = () => {
         // Handle building selection when not drawing
         const result = handleBuildingInteraction(event, camera, container, drawingState.isDrawing);
         
-        // Handle building clicks to select them
+        // On building click, open edit panel directly
         if (result?.type === 'building') {
-          selectBuilding(result.building === selectedBuilding ? null : result.building);
+          selectBuilding(result.building);
         }
-        // Handle footprint clicks to show building config
+        // On footprint click, open config panel
         else if (result?.type === 'footprint') {
           // Set the building config to match the clicked building
           setBuildingConfig({
             floors: result.building.floors,
             floorHeight: result.building.floorHeight,
-            color: result.building.color || 0x6366f1,
-            enableShadows: result.building.enableShadows !== false,
-            buildingType: result.building.buildingType as 'residential' | 'commercial' | 'industrial'
+            color: result.building.color || 0x6366f1
           });
           setShowBuildingConfig(true);
         }
@@ -140,14 +134,10 @@ export const SimpleBuildingCreator: React.FC = () => {
     togglePerformanceMode();
   };
 
-  const handleEditBuilding = () => {
-    setShowBuildingEdit(true);
-  };
-
   const handleSaveBuilding = (updates: any) => {
     if (selectedBuilding) {
       updateBuilding(selectedBuilding.id, updates);
-      setShowBuildingEdit(false);
+      selectBuilding(null);
     }
   };
 
@@ -383,24 +373,11 @@ export const SimpleBuildingCreator: React.FC = () => {
         />
       )}
 
-      {/* Building Details Panel */}
-      {selectedBuilding && !showBuildingEdit && (
-        <BuildingDetailsPanel
-          building={selectedBuilding}
-          onClose={() => selectBuilding(null)}
-          onEdit={handleEditBuilding}
-          onDelete={() => {
-            deleteBuilding(selectedBuilding.id);
-            selectBuilding(null);
-          }}
-        />
-      )}
-
-      {/* Building Edit Panel */}
-      {selectedBuilding && showBuildingEdit && (
+      {/* Building Edit Panel (open directly on click) */}
+      {selectedBuilding && (
         <BuildingEditPanel
           building={selectedBuilding}
-          onClose={() => setShowBuildingEdit(false)}
+          onClose={() => selectBuilding(null)}
           onSave={handleSaveBuilding}
         />
       )}

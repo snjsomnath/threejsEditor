@@ -8,8 +8,6 @@ export interface BuildingConfig {
   floors: number;
   floorHeight: number;
   color: number;
-  enableShadows: boolean;
-  buildingType: 'residential' | 'commercial' | 'industrial';
   height?: number; // Computed property for BuildingService
 }
 
@@ -31,11 +29,9 @@ export interface BuildingData {
   area: number;
   floors: number;
   floorHeight: number;
-  buildingType: string;
   createdAt: Date;
   name?: string;
   description?: string;
   color?: number;
-  enableShadows?: boolean;
   footprintOutline?: THREE.Mesh | null;
 }
