@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import * as THREE from 'three';
-import { Point3D, BuildingData, BuildingConfig } from '../types/building';
+import { Point3D, BuildingData, BuildingConfig, BuildingTooltipData } from '../types/building';
 
 interface BuildingStats {
   count: number;
@@ -12,6 +12,7 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingData | null>(null);
   const [hoveredBuilding, setHoveredBuilding] = useState<BuildingData | null>(null);
+  const [buildingTooltip, setBuildingTooltip] = useState<BuildingTooltipData | null>(null);
   const buildingIdCounter = useRef(0);
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
@@ -193,7 +194,7 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     // Reset previous selection
     if (selectedBuilding) {
       const material = selectedBuilding.mesh.material as THREE.MeshLambertMaterial;
-      // Restore original color and opacity
+      // Restore original color and remove selection effects
       material.emissive.setHex(0x000000);
       if (typeof selectedBuilding.color === 'number') {
         material.color.setHex(selectedBuilding.color);
@@ -202,14 +203,14 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
       material.opacity = 1.0;
     }
 
-    // Highlight new selection
+    // Apply selection to new building
     if (building) {
       const material = building.mesh.material as THREE.MeshLambertMaterial;
-      // Set to very transparent orange
+      // Set selection color (orange with transparency)
       material.color.setHex(0xffa500); // orange
       material.transparent = true;
-      material.opacity = 0.2;
-      material.emissive.setHex(0xffa500); // strong orange glow
+      material.opacity = 0.6; // More visible than before
+      material.emissive.setHex(0x332200); // subtle orange glow
     }
 
     setSelectedBuilding(building);
@@ -220,13 +221,16 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     if (hoveredBuilding && hoveredBuilding !== selectedBuilding) {
       const material = hoveredBuilding.mesh.material as THREE.MeshLambertMaterial;
       material.emissive.setHex(0x000000);
+      // Restore original color
+      if (typeof hoveredBuilding.color === 'number') {
+        material.color.setHex(hoveredBuilding.color);
+      }
     }
 
-    // Highlight new hover (only if not selected)
+    // Apply hover to new building (only if not selected)
     if (building && building !== selectedBuilding) {
       const material = building.mesh.material as THREE.MeshLambertMaterial;
-      material.emissive.setHex(0x222222);
-      // Log to console when hovering a building
+      material.emissive.setHex(0x444444); // Gray highlight for hover
       console.log('Hovering building:', building.id, building.name);
     }
 
@@ -341,6 +345,29 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     URL.revokeObjectURL(url);
   }, [buildings]);
 
+  const showBuildingTooltip = useCallback((building: BuildingData, screenPosition: { x: number; y: number }) => {
+    setBuildingTooltip({
+      building,
+      position: screenPosition,
+      visible: true
+    });
+  }, []);
+
+  const hideBuildingTooltip = useCallback(() => {
+    setBuildingTooltip(null);
+  }, []);
+
+  // Convert 3D world position to screen coordinates
+  const worldToScreen = useCallback((worldPosition: THREE.Vector3, camera: THREE.PerspectiveCamera): { x: number; y: number } => {
+    const vector = worldPosition.clone();
+    vector.project(camera);
+    
+    const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (vector.y * -0.5 + 0.5) * window.innerHeight;
+    
+    return { x, y };
+  }, []);
+
   // Handle building and footprint interaction via mouse events
   const handleBuildingInteraction = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
     if (!scene || !camera) {
@@ -358,49 +385,59 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
 
     // Get all meshes in the scene
     const meshes = scene.children.filter(child => child instanceof THREE.Mesh) as THREE.Mesh[];
-    console.log('Found meshes:', meshes.length, meshes);
 
     // Get intersections
     const intersects = raycaster.current.intersectObjects(meshes);
-    console.log('Raycast intersects:', intersects.length, intersects);
 
     if (intersects.length > 0) {
       const intersectedMesh = intersects[0].object as THREE.Mesh;
-      console.log('Intersected mesh userData:', intersectedMesh.userData);
+      const intersectionPoint = intersects[0].point;
 
       // Get building ID from userData
       const buildingId = intersectedMesh.userData.buildingId;
       if (buildingId) {
         // Find building in current state
         const building = buildingsRef.current.find(b => b.id === buildingId);
-        console.log('Found building:', building, 'type:', typeof building);
 
         if (building) {
-          // Handle hover
-          hoverBuilding(building);
-          
-          // Handle click
           if (event.type === 'click') {
+            // Handle click - select building and show tooltip
+            selectBuilding(building);
+            const screenPos = worldToScreen(intersectionPoint, camera);
+            showBuildingTooltip(building, screenPos);
+            
             if (intersectedMesh.userData.isFootprint) {
-              // Handle footprint click - just return building without hover
               return { type: 'footprint', building };
             } else {
-              // Handle building click
-              selectBuilding(building);
               return { type: 'building', building };
             }
+          } else if (event.type === 'mousemove') {
+            // Handle hover - only if not already selected and not already hovered
+            if (building !== selectedBuilding && building !== hoveredBuilding) {
+              hoverBuilding(building);
+            }
           }
-        } else {
-          console.warn('Building not found for ID:', buildingId, 'Available buildings:', buildingsRef.current);
+        }
+      } else {
+        // Intersected with something that's not a building - clear hover
+        if (event.type === 'mousemove') {
+          hoverBuilding(null);
         }
       }
     } else {
-      // Clear hover states when not over any building
-      hoverBuilding(null);
+      // No intersections - handle accordingly
+      if (event.type === 'mousemove') {
+        // Clear hover when not over any building
+        hoverBuilding(null);
+      } else if (event.type === 'click') {
+        // Click on empty space - clear selection and tooltip
+        selectBuilding(null);
+        hideBuildingTooltip();
+      }
     }
 
     return null;
-  }, [scene, camera, hoverBuilding, selectBuilding]);
+  }, [scene, camera, selectedBuilding, hoveredBuilding, selectBuilding, hoverBuilding, showBuildingTooltip, hideBuildingTooltip, worldToScreen]);
 
   const buildingStats: BuildingStats = {
     count: buildings.length,
@@ -412,6 +449,7 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     buildings,
     selectedBuilding,
     hoveredBuilding,
+    buildingTooltip,
     addBuilding,
     updateBuilding,
     selectBuilding,
@@ -420,7 +458,9 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     clearAllBuildings,
     exportBuildings,
     buildingStats,
-    handleBuildingInteraction
+    handleBuildingInteraction,
+    showBuildingTooltip,
+    hideBuildingTooltip
   };
 };
 

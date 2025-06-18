@@ -36,3 +36,9 @@ export interface BuildingData {
   color?: number;
   footprintOutline?: THREE.Mesh | null;
 }
+
+export interface BuildingTooltipData {
+  building: BuildingData;
+  position: { x: number; y: number };
+  visible: boolean;
+}

@@ -25,6 +25,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
   onSave
 }) => {
   const [editedBuilding, setEditedBuilding] = useState({
+    name: building.name || 'Unnamed Building',
     floors: building.floors,
     floorHeight: building.floorHeight,
     color: building.color || 0x3b82f6
@@ -34,6 +35,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
 
   useEffect(() => {
     const originalData = {
+      name: building.name || 'Unnamed Building',
       floors: building.floors,
       floorHeight: building.floorHeight,
       color: building.color || 0x3b82f6
@@ -49,6 +51,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
 
   const handleSave = () => {
     const updates = {
+      name: editedBuilding.name,
       floors: editedBuilding.floors,
       floorHeight: editedBuilding.floorHeight,
       color: editedBuilding.color,
@@ -64,6 +67,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
 
   const handleReset = () => {
     setEditedBuilding({
+      name: building.name || 'Unnamed Building',
       floors: building.floors,
       floorHeight: building.floorHeight,
       color: building.color || 0x3b82f6
@@ -77,11 +81,8 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <div className="flex items-center space-x-3">
             <div>
-              {/* Removed building type icon and color */}
-            </div>
-            <div>
               <h2 className="text-xl font-bold text-white">Edit Building</h2>
-              <p className="text-sm text-gray-400">{building.name}</p>
+              <p className="text-sm text-gray-400">{building.name || 'Unnamed Building'}</p>
             </div>
           </div>
           <button
@@ -93,6 +94,21 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
         </div>
 
         <div className="p-6 space-y-6">
+          {/* Building Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Building Name
+            </label>
+            <input
+              type="text"
+              value={editedBuilding.name}
+              onChange={(e) => updateField('name', e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white 
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Enter building name"
+            />
+          </div>
+
           {/* Dimensions */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-white flex items-center space-x-2">

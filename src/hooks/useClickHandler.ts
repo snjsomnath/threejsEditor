@@ -31,12 +31,22 @@ export const useClickHandler = (
       mouseMoveThrottleRef.current = requestAnimationFrame(() => {
         mouseMoveThrottleRef.current = null;
         
+        // Call onMouseMove for drawing preview
         if (onMouseMove) {
           onMouseMove(event, container);
         }
-        // Always call building interaction on mouse move if it exists
+        
+        // Always call building interaction on mouse move for hover management
+        // Create a new event object with the correct type
+        const mouseMoveEvent = new MouseEvent('mousemove', {
+          clientX: event.clientX,
+          clientY: event.clientY,
+          bubbles: event.bubbles,
+          cancelable: event.cancelable
+        });
+        
         if (typeof onBuildingInteraction === 'function') {
-          onBuildingInteraction(event, container);
+          onBuildingInteraction(mouseMoveEvent, container);
         }
       });
     };

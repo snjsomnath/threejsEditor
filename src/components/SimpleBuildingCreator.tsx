@@ -6,6 +6,7 @@ import { useClickHandler } from '../hooks/useClickHandler';
 import { useBuildingManager } from '../hooks/useBuildingManager';
 import { BuildingConfigPanel } from './BuildingConfigPanel';
 import { BuildingEditPanel } from './BuildingEditPanel';
+import { BuildingTooltip } from './BuildingTooltip';
 import { BuildingConfig } from '../types/building';
 
 export const SimpleBuildingCreator: React.FC = () => {
@@ -44,6 +45,7 @@ export const SimpleBuildingCreator: React.FC = () => {
     buildings, 
     selectedBuilding, 
     hoveredBuilding, 
+    buildingTooltip,
     selectBuilding, 
     updateBuilding, 
     clearAllBuildings, 
@@ -51,7 +53,8 @@ export const SimpleBuildingCreator: React.FC = () => {
     buildingStats, 
     deleteBuilding, 
     handleBuildingInteraction,
-    addBuilding 
+    addBuilding,
+    hideBuildingTooltip
   } = useBuildingManager(scene, camera);
 
   // Initialize drawing functionality
@@ -93,9 +96,9 @@ export const SimpleBuildingCreator: React.FC = () => {
         // Handle building selection when not drawing
         const result = handleBuildingInteraction(event, container);
         
-        // On building click, open edit panel directly
+        // On building click, tooltip is now shown by handleBuildingInteraction
         if (result?.type === 'building') {
-          selectBuilding(result.building);
+          // Building tooltip will be shown, don't open edit panel immediately
         }
         // On footprint click, open config panel
         else if (result?.type === 'footprint') {
@@ -122,9 +125,8 @@ export const SimpleBuildingCreator: React.FC = () => {
       }
     },
     (event, container) => {
-      if (!drawingState.isDrawing) {
-        handleBuildingInteraction(event, container);
-      }
+      // Always handle building interaction for hover management
+      handleBuildingInteraction(event, container);
     },
     isDrawingRef
   );
@@ -155,6 +157,10 @@ export const SimpleBuildingCreator: React.FC = () => {
       updateBuilding(selectedBuilding.id, updates);
       selectBuilding(null);
     }
+  };
+
+  const handleEditBuilding = (building: any) => {
+    selectBuilding(building);
   };
 
   const handleClearAll = () => {
@@ -391,6 +397,17 @@ export const SimpleBuildingCreator: React.FC = () => {
         </div>
       </div>
 
+      {/* Building Tooltip */}
+      {buildingTooltip && (
+        <BuildingTooltip
+          building={buildingTooltip.building}
+          position={buildingTooltip.position}
+          onEdit={handleEditBuilding}
+          onDelete={deleteBuilding}
+          onClose={hideBuildingTooltip}
+        />
+      )}
+
       {/* Building Configuration Panel */}
       {showBuildingConfig && (
         <BuildingConfigPanel
@@ -400,7 +417,7 @@ export const SimpleBuildingCreator: React.FC = () => {
         />
       )}
 
-      {/* Building Edit Panel (open directly on click) */}
+      {/* Building Edit Panel (open directly on edit click) */}
       {selectedBuilding && (
         <BuildingEditPanel
           building={selectedBuilding}
