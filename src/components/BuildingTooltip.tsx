@@ -41,11 +41,10 @@ export const BuildingTooltip: React.FC<BuildingTooltipProps> = ({
       
       {/* Tooltip */}
       <div
-        className="fixed z-50 bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-2xl border border-gray-600 p-4 min-w-64"
+        className="fixed z-50 bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-2xl border border-gray-600 p-4 min-w-64 pointer-events-auto"
         style={{
-          left: Math.min(position.x, window.innerWidth - 280),
-          top: Math.max(position.y - 120, 10),
-          transform: position.x > window.innerWidth - 280 ? 'translateX(-100%)' : 'none'
+          left: Math.min(Math.max(position.x - 140, 10), window.innerWidth - 280),
+          top: Math.max(Math.min(position.y - 120, window.innerHeight - 200), 10),
         }}
       >
         {/* Header */}

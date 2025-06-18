@@ -11,7 +11,6 @@ import { BuildingConfig } from '../types/building';
 
 export const SimpleBuildingCreator: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
@@ -68,40 +67,35 @@ export const SimpleBuildingCreator: React.FC = () => {
     addBuilding
   );
 
-  // After scene is initialized, get the canvas element
-  React.useEffect(() => {
-    if (containerRef.current) {
-      const canvas = containerRef.current.querySelector('canvas');
-      if (canvas && canvas !== canvasEl) {
-        setCanvasEl(canvas as HTMLCanvasElement);
-      }
-    }
-  }, [scene, containerRef, canvasEl]);
-
-  // Use canvasEl for event handling
-  // Handle click events and mouse movement
+  // Handle click events and mouse movement - use containerRef directly
   const isDrawingRef = React.useRef(drawingState.isDrawing);
   React.useEffect(() => {
     isDrawingRef.current = drawingState.isDrawing;
   }, [drawingState.isDrawing]);
 
   useClickHandler(
-    { current: canvasEl } as React.RefObject<HTMLCanvasElement>,
+    containerRef, // Use container directly instead of canvas
     (event, container) => {
+      console.log('Click handler triggered', { isDrawing: drawingState.isDrawing, isInitialized });
+      
       if (!hasInteracted) setHasInteracted(true);
       
       if (drawingState.isDrawing) {
         addPoint(event, container);
-      } else if (camera) {
+      } else if (isInitialized && camera && scene) {
         // Handle building selection when not drawing
+        console.log('Handling building interaction click');
         const result = handleBuildingInteraction(event, container);
+        console.log('Building interaction result:', result);
         
         // On building click, tooltip is now shown by handleBuildingInteraction
         if (result?.type === 'building') {
+          console.log('Building clicked:', result.building.id);
           // Building tooltip will be shown, don't open edit panel immediately
         }
         // On footprint click, open config panel
         else if (result?.type === 'footprint') {
+          console.log('Footprint clicked:', result.building.id);
           // Set the building config to match the clicked building
           setBuildingConfig({
             floors: result.building.floors,
@@ -112,6 +106,7 @@ export const SimpleBuildingCreator: React.FC = () => {
         }
         // Clear selection if clicking empty space
         else if (!result) {
+          console.log('Empty space clicked');
           selectBuilding(null);
         }
       }
@@ -125,8 +120,10 @@ export const SimpleBuildingCreator: React.FC = () => {
       }
     },
     (event, container) => {
-      // Always handle building interaction for hover management
-      handleBuildingInteraction(event, container);
+      // Always handle building interaction for hover management when not drawing
+      if (!drawingState.isDrawing && isInitialized && camera && scene) {
+        handleBuildingInteraction(event, container);
+      }
     },
     isDrawingRef
   );

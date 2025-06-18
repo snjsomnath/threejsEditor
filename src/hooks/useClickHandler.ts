@@ -16,10 +16,16 @@ export const useClickHandler = (
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) {
+      console.warn('Container not available for click handler');
+      return;
+    }
+
+    console.log('Setting up click handlers on container');
 
     const handleMouseDown = (event: MouseEvent) => {
       mouseDownPosRef.current = { x: event.clientX, y: event.clientY };
+      console.log('Mouse down at:', mouseDownPosRef.current);
     };
 
     const handleMouseMove = (event: MouseEvent) => {
@@ -37,37 +43,40 @@ export const useClickHandler = (
         }
         
         // Always call building interaction on mouse move for hover management
-        // Create a new event object with the correct type
-        const mouseMoveEvent = new MouseEvent('mousemove', {
-          clientX: event.clientX,
-          clientY: event.clientY,
-          bubbles: event.bubbles,
-          cancelable: event.cancelable
-        });
-        
         if (typeof onBuildingInteraction === 'function') {
-          onBuildingInteraction(mouseMoveEvent, container);
+          onBuildingInteraction(event, container);
         }
       });
     };
 
-    const handleMouseUp = (event: MouseEvent) => {
-      if (!mouseDownPosRef.current) return;
+    const handleMouseClick = (event: MouseEvent) => {
+      console.log('Mouse click event:', { 
+        clientX: event.clientX, 
+        clientY: event.clientY,
+        isDrawing: isDrawing?.current 
+      });
 
-      // Ultra-tight drag threshold for instant response
+      if (!mouseDownPosRef.current) {
+        console.log('No mouse down position recorded');
+        return;
+      }
+
+      // Check for drag - if user dragged, don't treat as click
       const dx = Math.abs(event.clientX - mouseDownPosRef.current.x);
       const dy = Math.abs(event.clientY - mouseDownPosRef.current.y);
-      if (dx > 2 || dy > 2) {
+      
+      if (dx > 3 || dy > 3) {
+        console.log('Mouse drag detected, ignoring click');
         mouseDownPosRef.current = null;
         return;
       }
 
-      // Ultra-fast click detection
+      // Handle click timing for single/double click detection
       const now = Date.now();
       const timeDiff = now - lastClickTimeRef.current;
 
-      if (timeDiff < 200) { // Reduced to 200ms for faster double-click
-        // Double click - immediate response
+      if (timeDiff < 300) { // Double click detected
+        console.log('Double click detected');
         isDoubleClickRef.current = true;
         
         if (clickTimeoutRef.current) {
@@ -79,39 +88,38 @@ export const useClickHandler = (
           onDoubleClick();
         }
       } else {
-        // Single click - IMMEDIATE response with minimal delay
+        // Single click - immediate processing
+        console.log('Single click detected');
         isDoubleClickRef.current = false;
         
         if (clickTimeoutRef.current) {
           window.clearTimeout(clickTimeoutRef.current);
         }
         
-        // Reduced to just 50ms for near-instant response!
-        clickTimeoutRef.current = window.setTimeout(() => {
-          if (!isDoubleClickRef.current && container) {
-            if (isDrawing?.current) {
-              onSingleClick(event, container);
-            } else if (typeof onBuildingInteraction === 'function') {
-              // Always call building interaction on click when not drawing
-              onBuildingInteraction(event, container);
-            }
-          }
-          clickTimeoutRef.current = null;
-        }, 50);
+        // Handle single clicks appropriately
+        if (isDrawing?.current) {
+          onSingleClick(event, container);
+        } else if (typeof onBuildingInteraction === 'function') {
+          // For building interaction, call immediately but only for selection/tooltip
+          console.log('Calling building interaction for click (selection only)');
+          const result = onBuildingInteraction(event, container);
+          // Don't trigger any additional actions - just selection and tooltip
+        }
       }
 
       lastClickTimeRef.current = now;
       mouseDownPosRef.current = null;
     };
 
-    // High-frequency event listeners for maximum responsiveness
+    // Use click event instead of mouseup for more reliable detection
     container.addEventListener('mousedown', handleMouseDown, { passive: true });
-    container.addEventListener('mouseup', handleMouseUp, { passive: true });
+    container.addEventListener('click', handleMouseClick, { passive: true });
     container.addEventListener('mousemove', handleMouseMove, { passive: true });
 
     return () => {
+      console.log('Cleaning up click handlers');
       container.removeEventListener('mousedown', handleMouseDown);
-      container.removeEventListener('mouseup', handleMouseUp);
+      container.removeEventListener('click', handleMouseClick);
       container.removeEventListener('mousemove', handleMouseMove);
       if (clickTimeoutRef.current) {
         window.clearTimeout(clickTimeoutRef.current);

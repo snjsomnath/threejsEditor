@@ -47,6 +47,12 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
 
   const updateField = (field: string, value: any) => {
     setEditedBuilding(prev => ({ ...prev, [field]: value }));
+    
+    // Apply color changes immediately for responsive feedback
+    if (field === 'color' && building.mesh && building.mesh.material) {
+      const material = building.mesh.material as THREE.MeshLambertMaterial;
+      material.color.setHex(value);
+    }
   };
 
   const handleSave = () => {
@@ -66,12 +72,20 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
   };
 
   const handleReset = () => {
-    setEditedBuilding({
+    const resetData = {
       name: building.name || 'Unnamed Building',
       floors: building.floors,
       floorHeight: building.floorHeight,
       color: building.color || 0x3b82f6
-    });
+    };
+    
+    setEditedBuilding(resetData);
+    
+    // Reset color in 3D view immediately
+    if (building.mesh && building.mesh.material) {
+      const material = building.mesh.material as THREE.MeshLambertMaterial;
+      material.color.setHex(resetData.color);
+    }
   };
 
   return (

@@ -43,6 +43,13 @@ export class BuildingService {
     // Position at centroid
     building.position.set(centroid.x, 0, centroid.z);
     
+    // Ensure proper userData for interaction
+    building.userData = { 
+      type: 'building',
+      interactive: true,
+      clickable: true
+    };
+    
     if (config.enableShadows) {
       building.castShadow = true;
       building.receiveShadow = true;

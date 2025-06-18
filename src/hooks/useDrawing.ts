@@ -394,6 +394,10 @@ export const useDrawing = (
         // Create the building mesh
         const buildingMesh = buildingServiceRef.current.createBuilding(drawingState.points, buildingConfig);
         
+        // Ensure the mesh is properly configured for interaction
+        buildingMesh.userData.interactive = true;
+        buildingMesh.userData.clickable = true;
+        
         // Add the building to the building manager
         const building = addBuilding(
           buildingMesh,

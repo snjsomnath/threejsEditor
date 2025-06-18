@@ -120,7 +120,7 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
       const now = performance.now();
       if (frameCount % 60 === 0) {
         const fps = 60000 / (now - lastLogTime);
-        console.log(`🎭 Animation loop running, FPS: ${fps.toFixed(1)}, Frame: ${frameCount}`);
+        //console.log(`🎭 Animation loop running, FPS: ${fps.toFixed(1)}, Frame: ${frameCount}`);
         lastLogTime = now;
       }
       
