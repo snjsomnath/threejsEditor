@@ -359,16 +359,58 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
           });
         }
 
-        // Remove any associated drawing elements (points, lines, polygons)
+        // AGGRESSIVE CLEANUP: Remove ALL drawing elements that could be related
         const objectsToRemove = scene.children.filter(child => {
-          return child.userData?.buildingId === id || 
-                 child.userData?.associatedBuildingId === id ||
-                 (child.userData?.isDrawingElement && child.userData?.buildingId === id) ||
-                 (child.userData?.isFootprintLine && child.userData?.buildingId === id) ||
-                 (child.userData?.isFootprintPoint && child.userData?.buildingId === id) ||
-                 (child.userData?.isFloorLines && child.userData?.buildingId === id) ||
-                 (child.userData?.isFloorLine && child.userData?.buildingId === id);
+          const userData = child.userData || {};
+          
+          // Check for specific building ID associations
+          const hasSpecificBuildingId = userData.buildingId === id || 
+                                      userData.associatedBuildingId === id ||
+                                      userData.targetBuildingId === id ||
+                                      userData.parentBuildingId === id ||
+                                      userData.drawingBuildingId === id ||
+                                      userData.belongsToBuilding === id;
+
+          // Check for drawing element types
+          const isDrawingElement = userData.isDrawingElement || 
+                                 userData.isFootprintLine || 
+                                 userData.isFootprintPoint || 
+                                 userData.isFootprintPreview || 
+                                 userData.isPreviewLine || 
+                                 userData.isPreviewPoint || 
+                                 userData.isFloorLines || 
+                                 userData.isFloorLine;
+
+          // Check for generic drawing objects (Points, Lines that might be footprint elements)
+          const isGenericDrawingObject = (child instanceof THREE.Points && 
+                                        (userData.type === 'footprint' || 
+                                         userData.isPoint || 
+                                         child.material && (child.material as any).color && 
+                                         (child.material as any).color.getHex() === 0xffff00)) || // Yellow points
+                                       (child instanceof THREE.Line && 
+                                        (userData.type === 'footprint' || 
+                                         userData.isLine ||
+                                         child.material && (child.material as any).color &&
+                                         (child.material as any).color.getHex() === 0x00ff00)); // Green lines
+
+          // Check for any mesh that might be a preview
+          const isPreviewMesh = child instanceof THREE.Mesh && 
+                               (userData.type === 'footprint' || 
+                                userData.isPreview ||
+                                userData.isFootprint);
+
+          return hasSpecificBuildingId || 
+                 (isDrawingElement && userData.buildingId === id) ||
+                 isGenericDrawingObject ||
+                 isPreviewMesh;
         });
+
+        console.log(`Removing ${objectsToRemove.length} associated objects for building ${id}:`, 
+                   objectsToRemove.map(obj => ({ 
+                     type: obj.constructor.name, 
+                     userData: obj.userData,
+                     uuid: obj.uuid 
+                   })));
 
         objectsToRemove.forEach(obj => {
           scene.remove(obj);
@@ -380,6 +422,59 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
               obj.material.forEach(mat => mat.dispose());
             } else {
               obj.material.dispose();
+            }
+          }
+        });
+
+        // NUCLEAR OPTION: If objects still remain, remove all Points and Lines without building associations
+        const remainingDrawingObjects = scene.children.filter(child => 
+          (child instanceof THREE.Points || child instanceof THREE.Line) &&
+          !child.userData?.buildingId &&
+          !child.userData?.isBuilding &&
+          !child.userData?.isPermanent &&
+          !child.userData?.isGrid &&
+          !child.userData?.isHelper &&
+          !child.userData?.isAxis &&
+          child.userData?.type !== 'grid' &&
+          child.userData?.type !== 'helper' &&
+          child.userData?.type !== 'axis' &&
+          !(child instanceof THREE.GridHelper) &&
+          !(child instanceof THREE.AxesHelper)
+        );
+
+        if (remainingDrawingObjects.length > 0) {
+          console.log(`Removing ${remainingDrawingObjects.length} orphaned drawing objects`);
+          remainingDrawingObjects.forEach(obj => {
+            scene.remove(obj);
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material) {
+              if (Array.isArray(obj.material)) {
+                obj.material.forEach(mat => mat.dispose());
+              } else {
+                obj.material.dispose();
+              }
+            }
+          });
+        }
+
+        // FINAL CLEANUP: Remove ALL Points (spheres) that might be footprint markers, but preserve grid/helpers
+        const allPoints = scene.children.filter(child => 
+          child instanceof THREE.Points &&
+          !child.userData?.isPermanent &&
+          !child.userData?.isGrid &&
+          !child.userData?.isHelper &&
+          child.userData?.type !== 'grid' &&
+          child.userData?.type !== 'helper'
+        );
+        console.log(`Found ${allPoints.length} Points objects to remove (preserving grid/helpers)`);
+        allPoints.forEach(pointsObj => {
+          scene.remove(pointsObj);
+          if (pointsObj.geometry) pointsObj.geometry.dispose();
+          if (pointsObj.material) {
+            if (Array.isArray(pointsObj.material)) {
+              pointsObj.material.forEach(mat => mat.dispose());
+            } else {
+              pointsObj.material.dispose();
             }
           }
         });

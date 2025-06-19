@@ -412,10 +412,25 @@ export const useDrawing = (
         }
 
         console.log('Building created and added:', building.id);
+
+        // IMPORTANT: Associate all current drawing elements with this building ID
+        // This ensures they get cleaned up when the building is deleted
+        const drawingElements = [...drawingState.markers, ...drawingState.lines];
+        drawingElements.forEach(element => {
+          if (element.userData) {
+            element.userData.buildingId = building.id;
+            element.userData.belongsToBuilding = building.id;
+          }
+        });
+
       } catch (error) {
         console.error('Error creating building:', error);
       }
     }
+
+    // Clear all existing drawing elements from scene before resetting state
+    drawingServiceRef.current.clearMarkers(drawingState.markers);
+    drawingServiceRef.current.clearLines(drawingState.lines);
 
     // Reset drawing state
     setDrawingState({
@@ -428,7 +443,7 @@ export const useDrawing = (
       previewBuilding: null,
       snapToStart: false
     });
-  }, [drawingState.points, buildingConfig, scene, clearAllPreviews, addBuilding]);
+  }, [drawingState.points, drawingState.markers, drawingState.lines, buildingConfig, scene, clearAllPreviews, addBuilding]);
 
   const addPoint = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
     if (!validateServices()) {

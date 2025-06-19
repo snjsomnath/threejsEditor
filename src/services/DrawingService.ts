@@ -69,6 +69,15 @@ export class DrawingService {
     const marker = new THREE.Mesh(DrawingService.pointGeometry!, DrawingService.pointMaterial!);
     marker.position.set(position.x, position.y + 0.25, position.z);
     marker.castShadow = true;
+    
+    // Add userData for identification and cleanup
+    marker.userData = {
+      isDrawingElement: true,
+      isPoint: true,
+      type: 'footprint',
+      isFootprintPoint: true
+    };
+    
     this.scene.add(marker);
     return marker;
   }
@@ -76,6 +85,15 @@ export class DrawingService {
   createPreviewMarker(position: Point3D): THREE.Mesh {
     const marker = new THREE.Mesh(DrawingService.previewGeometry!, DrawingService.previewMaterial!);
     marker.position.set(position.x, position.y + 0.2, position.z);
+    
+    // Add userData for identification and cleanup
+    marker.userData = {
+      isDrawingElement: true,
+      isPreviewPoint: true,
+      type: 'footprint',
+      isFootprintPreview: true
+    };
+    
     this.scene.add(marker);
     return marker;
   }
@@ -92,6 +110,15 @@ export class DrawingService {
     
     const marker = new THREE.Mesh(DrawingService.snapGeometry!, material);
     marker.position.set(position.x, position.y + 0.3, position.z);
+    
+    // Add userData for identification and cleanup
+    marker.userData = {
+      isDrawingElement: true,
+      isSnapPoint: true,
+      type: 'footprint',
+      isFootprintPreview: true
+    };
+    
     this.scene.add(marker);
     
     // Optimized pulsing animation
@@ -126,6 +153,14 @@ export class DrawingService {
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const line = new THREE.Line(geometry, DrawingService.lineMaterial!);
     
+    // Add userData for identification and cleanup
+    line.userData = {
+      isDrawingElement: true,
+      isLine: true,
+      type: 'footprint',
+      isFootprintLine: true
+    };
+    
     this.scene.add(line);
     return line;
   }
@@ -138,6 +173,14 @@ export class DrawingService {
     
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const line = new THREE.Line(geometry, DrawingService.previewLineMaterial!);
+    
+    // Add userData for identification and cleanup
+    line.userData = {
+      isDrawingElement: true,
+      isPreviewLine: true,
+      type: 'footprint',
+      isFootprintPreview: true
+    };
     
     this.scene.add(line);
     return line;

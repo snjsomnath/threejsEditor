@@ -96,6 +96,14 @@ export class BuildingService {
     // Position at centroid
     previewBuilding.position.set(centroid.x, 0, centroid.z);
     
+    // Add userData for identification and cleanup
+    previewBuilding.userData = {
+      isDrawingElement: true,
+      isPreview: true,
+      type: 'footprint',
+      isFootprintPreview: true
+    };
+    
     this.scene.add(previewBuilding);
     return previewBuilding;
   }
