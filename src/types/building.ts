@@ -17,9 +17,11 @@ export interface DrawingState {
   points: Point3D[];
   markers: THREE.Mesh[];
   lines: THREE.Line[];
+  lengthLabels: THREE.Sprite[]; // Add this line
   previewMarker: THREE.Mesh | null;
   previewLine: THREE.Line | null;
   previewBuilding: THREE.Mesh | null;
+  previewLengthLabel: THREE.Sprite | null; // Add this line
   snapToStart: boolean;
 }
 
