@@ -58,6 +58,39 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     return footprint;
   };
 
+  const createFloorLines = (points: Point3D[], floors: number, floorHeight: number, scene: THREE.Scene, buildingId: string): THREE.Group => {
+    const floorGroup = new THREE.Group();
+    floorGroup.userData = { buildingId, isFloorLines: true };
+
+    // Create lines for each floor level (starting from floor 1, not ground level)
+    for (let floor = 1; floor < floors; floor++) {
+      const yPosition = floor * floorHeight;
+      
+      // Create line geometry from building footprint points
+      const linePoints: THREE.Vector3[] = [];
+      points.forEach(point => {
+        linePoints.push(new THREE.Vector3(point.x, yPosition, point.z));
+      });
+      // Close the line by adding the first point again
+      linePoints.push(new THREE.Vector3(points[0].x, yPosition, points[0].z));
+
+      const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+      const lineMaterial = new THREE.LineBasicMaterial({ 
+        color: 0x888888, // Gray color for floor lines
+        transparent: false,
+        opacity: 1,
+        linewidth: 5
+      });
+
+      const floorLine = new THREE.Line(lineGeometry, lineMaterial);
+      floorLine.userData = { buildingId, isFloorLine: true, floor };
+      floorGroup.add(floorLine);
+    }
+
+    scene.add(floorGroup);
+    return floorGroup;
+  };
+
   const addBuilding = useCallback((mesh: THREE.Mesh, points: Point3D[], floors: number, floorHeight: number) => {
     if (!scene) return;
 
@@ -88,7 +121,8 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
       name: `Building`,
       description: '',
       color: (mesh.material as THREE.MeshLambertMaterial).color.getHex(),
-      footprintOutline: null
+      footprintOutline: null,
+      floorLines: null
     };
 
     // Create footprint outline for selection
@@ -96,6 +130,11 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     building.footprintOutline.userData = { buildingId, isFootprint: true };
     building.footprintOutline.visible = true;
     building.footprintOutline.frustumCulled = false;
+
+    // Create floor lines if building has more than 1 floor
+    if (floors > 1) {
+      building.floorLines = createFloorLines(points, floors, floorHeight, scene, buildingId);
+    }
 
     // Ensure mesh is added to the scene
     if (!scene.children.includes(mesh)) {
@@ -149,10 +188,19 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
         const newHeight = config.floors * config.floorHeight;
         const currentHeight = building.floors * building.floorHeight;
         
-        if (newHeight !== currentHeight) {
+        if (newHeight !== currentHeight || config.floors !== building.floors || config.floorHeight !== building.floorHeight) {
           // Remove old mesh
           scene.remove(building.mesh);
           building.mesh.geometry.dispose();
+          
+          // Remove old floor lines
+          if (building.floorLines) {
+            scene.remove(building.floorLines);
+            building.floorLines.children.forEach(child => {
+              if (child.geometry) child.geometry.dispose();
+              if (child.material) (child.material as THREE.Material).dispose();
+            });
+          }
           
           // Create new geometry with updated height
           const centroid = calculateCentroid(building.points);
@@ -177,6 +225,13 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
           // Reapply color after geometry change
           const newMaterial = building.mesh.material as THREE.MeshLambertMaterial;
           newMaterial.color.setHex(config.color);
+
+          // Create new floor lines if building has more than 1 floor
+          if (config.floors > 1) {
+            updatedBuilding.floorLines = createFloorLines(building.points, config.floors, config.floorHeight, scene, building.id);
+          } else {
+            updatedBuilding.floorLines = null;
+          }
         }
         
         // Update building data
@@ -295,13 +350,24 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
           (building.footprintOutline.material as THREE.Material).dispose();
         }
 
+        // Remove floor lines
+        if (building.floorLines) {
+          scene.remove(building.floorLines);
+          building.floorLines.children.forEach(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) (child.material as THREE.Material).dispose();
+          });
+        }
+
         // Remove any associated drawing elements (points, lines, polygons)
         const objectsToRemove = scene.children.filter(child => {
           return child.userData?.buildingId === id || 
                  child.userData?.associatedBuildingId === id ||
                  (child.userData?.isDrawingElement && child.userData?.buildingId === id) ||
                  (child.userData?.isFootprintLine && child.userData?.buildingId === id) ||
-                 (child.userData?.isFootprintPoint && child.userData?.buildingId === id);
+                 (child.userData?.isFootprintPoint && child.userData?.buildingId === id) ||
+                 (child.userData?.isFloorLines && child.userData?.buildingId === id) ||
+                 (child.userData?.isFloorLine && child.userData?.buildingId === id);
         });
 
         objectsToRemove.forEach(obj => {
@@ -346,6 +412,15 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
         building.footprintOutline.geometry.dispose();
         (building.footprintOutline.material as THREE.Material).dispose();
       }
+
+      // Remove floor lines
+      if (building.floorLines) {
+        scene.remove(building.floorLines);
+        building.floorLines.children.forEach(child => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) (child.material as THREE.Material).dispose();
+        });
+      }
     });
 
     // Also remove any other footprint-related objects (lines, points, etc.)
@@ -355,6 +430,8 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
              child.userData?.isFootprintPoint || 
              child.userData?.isDrawingElement ||
              child.userData?.isPolygonFootprint ||
+             child.userData?.isFloorLines ||
+             child.userData?.isFloorLine ||
              (child instanceof THREE.Line) ||
              (child instanceof THREE.Points);
     });
