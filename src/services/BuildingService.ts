@@ -5,8 +5,22 @@ import { calculateCentroid, createShapeFromPoints } from '../utils/geometry';
 export class BuildingService {
   private scene: THREE.Scene;
   
+  // Reusable geometries and materials for better performance
+  private static debugMaterial: THREE.MeshLambertMaterial | null = null;
+  
   constructor(scene: THREE.Scene) {
     this.scene = scene;
+    this.initializeSharedResources();
+  }
+
+  private initializeSharedResources(): void {
+    if (!BuildingService.debugMaterial) {
+      BuildingService.debugMaterial = new THREE.MeshLambertMaterial({
+        color: 0x00ff00,
+        emissive: 0x00ff00,
+        emissiveIntensity: 0.3
+      });
+    }
   }
 
   createBuilding(points: Point3D[], config: BuildingConfig): THREE.Mesh {
@@ -153,8 +167,25 @@ export class BuildingService {
     
     const marker = new THREE.Mesh(geometry, material);
     marker.position.set(position.x, position.y, position.z);
+    marker.userData = { isDebugMarker: true, temporary: true };
     this.scene.add(marker);
     
     return marker;
+  }
+
+  clearDebugMarkers(): void {
+    const markersToRemove = this.scene.children.filter(
+      child => child.userData?.isDebugMarker
+    );
+    
+    markersToRemove.forEach(marker => {
+      this.scene.remove(marker);
+      if (marker instanceof THREE.Mesh) {
+        marker.geometry.dispose();
+        if (marker.material !== BuildingService.debugMaterial) {
+          (marker.material as THREE.Material).dispose();
+        }
+      }
+    });
   }
 }
