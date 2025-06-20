@@ -30,27 +30,26 @@ export class ThreeJSCore {
   constructor(config: ThreeJSCoreConfig) {
     this.container = config.container;
     this.config = {
-      performanceMode: false,
       enablePostProcessing: true,
       showGrid: true,
       ...config
     };
 
-    // Initialize managers
+    // Initialize managers with standard settings
     this.sceneManager = new SceneManager();
     
     const rect = this.container.getBoundingClientRect();
     this.cameraManager = new CameraManager(rect.width / rect.height);
     
     this.rendererManager = new RendererManager({
-      antialias: !this.config.performanceMode,
-      shadows: !this.config.performanceMode,
-      pixelRatio: this.config.performanceMode ? 1 : Math.min(window.devicePixelRatio, 2)
+      antialias: true,
+      shadows: true,
+      pixelRatio: Math.min(window.devicePixelRatio, 2)
     });
     
     this.lightingManager = new LightingManager(
       this.sceneManager.getScene(),
-      { enableShadows: !this.config.performanceMode }
+      { enableShadows: true }
     );
     
     this.environmentManager = new EnvironmentManager(
@@ -58,9 +57,7 @@ export class ThreeJSCore {
       { showGrid: this.config.showGrid }
     );
     
-    this.performanceManager = new PerformanceManager({
-      performanceMode: this.config.performanceMode
-    });
+    this.performanceManager = new PerformanceManager();
   }
 
   async initialize(): Promise<void> {
@@ -76,8 +73,8 @@ export class ThreeJSCore {
       this.environmentManager.initialize();
       await this.performanceManager.initialize();
       
-      // Initialize post-processing
-      if (this.config.enablePostProcessing && !this.config.performanceMode) {
+      // Initialize post-processing with standard settings
+      if (this.config.enablePostProcessing) {
         await this.rendererManager.initializeComposer(
           this.sceneManager.getScene(),
           this.cameraManager.getCamera()

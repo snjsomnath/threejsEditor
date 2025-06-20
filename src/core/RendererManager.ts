@@ -2,7 +2,6 @@ import * as THREE from 'three';
 
 export interface RendererConfig {
   antialias?: boolean;
-  powerPreference?: 'default' | 'high-performance' | 'low-power';
   preserveDrawingBuffer?: boolean;
   alpha?: boolean;
   shadows?: boolean;
@@ -20,7 +19,6 @@ export class RendererManager {
   constructor(config: RendererConfig = {}) {
     this.config = {
       antialias: true,
-      powerPreference: 'high-performance',
       preserveDrawingBuffer: true,
       alpha: false,
       shadows: true,
@@ -37,7 +35,6 @@ export class RendererManager {
   private createRenderer(): THREE.WebGLRenderer {
     const renderer = new THREE.WebGLRenderer({
       antialias: this.config.antialias,
-      powerPreference: this.config.powerPreference,
       preserveDrawingBuffer: this.config.preserveDrawingBuffer,
       alpha: this.config.alpha,
       stencil: false

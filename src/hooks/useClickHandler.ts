@@ -29,7 +29,7 @@ export const useClickHandler = (
     };
 
     const handleMouseMove = (event: MouseEvent) => {
-      // Throttle mouse move events to improve performance
+      // Standard mouse move handling for smooth interaction
       if (mouseMoveThrottleRef.current) {
         return;
       }

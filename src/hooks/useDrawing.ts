@@ -9,7 +9,7 @@ import * as THREE from 'three';
 
 const SNAP_DISTANCE = 2.0;
 const GRID_SIZE = 1.0;
-const MOUSE_MOVE_THROTTLE = 8; // Increased frequency for smoother preview (120fps)
+const MOUSE_MOVE_THROTTLE = 8; // Smooth preview updates
 
 // Direct preview state management - bypassing React state for immediate updates
 interface PreviewState {
@@ -28,7 +28,6 @@ export const useDrawing = (
   groundPlane: THREE.Mesh | null,
   snapToGridEnabled: boolean = false,
   buildingConfig: BuildingConfig,
-  performanceMode: boolean = false,
   addBuilding: (mesh: THREE.Mesh, points: Point3D[], floors: number, floorHeight: number) => BuildingData | undefined
 ) => {
   const [drawingState, setDrawingState] = useState<DrawingState>({
@@ -271,7 +270,7 @@ export const useDrawing = (
     }));
   }, [drawingState.points, drawingState.markers, drawingState.lines, drawingState.lengthLabels, clearAllPreviews]); // Update this line
 
-  // Enhanced updatePreview with performance optimizations - MOVED UP to fix hoisting
+  // Enhanced updatePreview with standard performance
   const updatePreview = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
     // Early validation - only proceed if ALL required components are ready
     if (!validateServices()) {
@@ -281,8 +280,8 @@ export const useDrawing = (
     const now = performance.now();
     const preview = previewStateRef.current;
     
-    // Performance mode uses higher throttling
-    const throttleMs = performanceMode ? 16 : MOUSE_MOVE_THROTTLE;
+    // Standard throttling for smooth updates
+    const throttleMs = MOUSE_MOVE_THROTTLE;
     
     // Prevent overlapping updates and throttle for performance
     if (preview.isUpdating || now - preview.lastUpdateTime < throttleMs) {
@@ -412,11 +411,11 @@ export const useDrawing = (
         preview.isUpdating = false;
       }
     });
-  }, [camera, groundPlane, drawingState.isDrawing, drawingState.points, drawingState.snapToStart, buildingConfig, snapToGridEnabled, performanceMode, clearAllPreviews, validateServices]);
+  }, [camera, groundPlane, drawingState.isDrawing, drawingState.points, drawingState.snapToStart, buildingConfig, snapToGridEnabled, clearAllPreviews, validateServices]);
 
-  // Enhanced performance throttling
-  const PERFORMANCE_THROTTLE = performanceMode ? 16 : 8; // Adjust based on performance mode
-  // Throttled update function - NOW REFERENCES updatePreview CORRECTLY
+  // Standard throttling
+  const THROTTLE_MS = 8; // Standard performance for smooth updates
+  // Throttled update function
   const throttledUpdatePreview = useCallback(
     (() => {
       let timeoutId: NodeJS.Timeout | null = null;
@@ -427,10 +426,10 @@ export const useDrawing = (
         timeoutId = setTimeout(() => {
           updatePreview(event, containerElement);
           timeoutId = null;
-        }, PERFORMANCE_THROTTLE);
+        }, THROTTLE_MS);
       };
     })(),
-    [updatePreview, PERFORMANCE_THROTTLE]
+    [updatePreview]
   );
 
   const finishBuilding = useCallback(() => {
@@ -595,7 +594,7 @@ export const useDrawing = (
     stopDrawing,
     addPoint,
     finishBuilding,
-    updatePreview: performanceMode ? throttledUpdatePreview : updatePreview, // Use throttled version in performance mode
+    updatePreview: updatePreview, // Use standard version always
     undoLastPoint,
     clearAllDrawingElements
   };

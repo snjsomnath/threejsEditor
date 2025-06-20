@@ -15,7 +15,6 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [showBuildingConfig, setShowBuildingConfig] = useState(false);
-  const [performanceModeEnabled, setPerformanceModeEnabled] = useState(false);
   const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
     floors: 3,
     floorHeight: 3.5,
@@ -31,10 +30,8 @@ export const SimpleBuildingCreator: React.FC = () => {
     isInitializing,
     initializationError,
     showFPS,
-    performanceMode,
     toggleGrid, 
     toggleFPSCounter,
-    togglePerformanceMode,
     retryInitialization,
     debugHelpers 
   } = useThreeJS(containerRef, showGrid);
@@ -63,7 +60,6 @@ export const SimpleBuildingCreator: React.FC = () => {
     groundPlane,
     snapToGrid,
     buildingConfig,
-    performanceMode,
     addBuilding
   );
 
@@ -142,11 +138,6 @@ export const SimpleBuildingCreator: React.FC = () => {
 
   const handleToggleFPS = () => {
     toggleFPSCounter();
-  };
-
-  const handleTogglePerformanceMode = () => {
-    setPerformanceModeEnabled(!performanceModeEnabled);
-    togglePerformanceMode();
   };
 
   const handleSaveBuilding = (updates: any) => {
@@ -335,18 +326,6 @@ export const SimpleBuildingCreator: React.FC = () => {
               <Activity className="w-4 h-4" />
               <span>FPS</span>
             </button>
-            
-            <button
-              onClick={handleTogglePerformanceMode}
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
-                performanceModeEnabled 
-                  ? 'bg-orange-600 hover:bg-orange-700 text-white' 
-                  : 'bg-gray-600 hover:bg-gray-700 text-gray-300'
-              }`}
-            >
-              <Activity className="w-4 h-4" />
-              <span>Performance</span>
-            </button>
           </div>
 
           {/* Building Stats */}
@@ -525,13 +504,6 @@ export const SimpleBuildingCreator: React.FC = () => {
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 rounded-full bg-gray-400" />
               <span>Hover: {hoveredBuilding.name}</span>
-            </div>
-          )}
-
-          {performanceModeEnabled && (
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 rounded-full bg-orange-500" />
-              <span>Performance mode</span>
             </div>
           )}
         </div>

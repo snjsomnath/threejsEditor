@@ -1,7 +1,6 @@
 export interface PerformanceConfig {
   enableFPSCounter?: boolean;
   enableStats?: boolean;
-  performanceMode?: boolean;
 }
 
 export class PerformanceManager {
@@ -14,7 +13,6 @@ export class PerformanceManager {
     this.config = {
       enableFPSCounter: false,
       enableStats: false,
-      performanceMode: false,
       ...config
     };
   }

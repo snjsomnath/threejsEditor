@@ -27,7 +27,6 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
   const [isInitializing, setIsInitializing] = useState(false);
   const [initializationError, setInitializationError] = useState<string | null>(null);
   const [showFPS, setShowFPS] = useState(false);
-  const [performanceMode, setPerformanceMode] = useState(false);
 
   // Initialize Three.js core
   useEffect(() => {
@@ -44,8 +43,7 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
       try {
         const core = new ThreeJSCore({
           container: containerRef.current,
-          performanceMode,
-          enablePostProcessing: !performanceMode,
+          enablePostProcessing: true,
           showGrid
         });
         
@@ -75,7 +73,7 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
         coreRef.current = null;
       }
     };
-  }, [containerRef, performanceMode, showGrid]);
+  }, [containerRef, showGrid]);
 
   // Update grid visibility
   useEffect(() => {
@@ -101,8 +99,8 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
   }, []);
 
   const togglePerformanceMode = useCallback(() => {
-    setPerformanceMode(prev => !prev);
-    // Note: This would require reinitializing the core for full effect
+    // This function is kept for compatibility but does nothing
+    console.log('Performance mode toggle disabled - single render mode only');
   }, []);
 
   const retryInitialization = useCallback(() => {
@@ -124,7 +122,6 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     isInitializing,
     initializationError,
     showFPS,
-    performanceMode,
     toggleGrid,
     toggleFPSCounter,
     togglePerformanceMode,
