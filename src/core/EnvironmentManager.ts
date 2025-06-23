@@ -31,10 +31,10 @@ export class EnvironmentManager {
       groundSize: 200,
       groundColor: DEFAULT_COLORS.GROUND,
       groundOpacity: 1,
-      gridSize: 50,
-      gridDivisions: 50,
+      gridSize: 500,
+      gridDivisions: 500,
       gridColor: DEFAULT_COLORS.GRID,
-      gridOpacity: 0.8,
+      gridOpacity: 1.0,
       showGrid: true,
       ...config
     };
@@ -55,7 +55,7 @@ export class EnvironmentManager {
       color: this.config.groundColor!,
       transparent: this.config.groundOpacity! < 1,
       opacity: this.config.groundOpacity!,
-      roughness: 1.0, // Increased for better shadow contrast
+      roughness: 0.8, // Increased for better shadow contrast
       metalness: 0.0, // Set to 0 for better shadow visibility
       side: THREE.DoubleSide,
       depthWrite: true,
