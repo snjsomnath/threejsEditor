@@ -1,6 +1,7 @@
 import React from 'react';
-import { Settings, Pencil, Download, Trash2 } from 'lucide-react';
+import { Settings, Pencil, Download, Trash2, Sun, Moon } from 'lucide-react';
 import { ToolbarButton } from './ToolbarButton';
+import { toggleTheme } from '../utils/themeColors';
 
 interface LeftToolbarProps {
   isDrawing: boolean;
@@ -20,7 +21,18 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
   onShowConfig,
   onExport,
   onClearAll
-}) => {
+}) => {  const [isDarkTheme, setIsDarkTheme] = React.useState(
+    () => document.documentElement.classList.contains('dark-theme')
+  );
+  
+  // Access the refreshThemeColors method from the global ThreeJS context
+  // This will be passed through from the App component
+  const handleThemeToggle = () => {
+    const newTheme = toggleTheme();
+    setIsDarkTheme(newTheme === 'dark');
+    // Theme changes will be picked up automatically by the ThreeJS core
+  };
+  
   return (
     <div className="fixed left-4 top-1/2 -translate-y-1/2 z-40 transform-gpu">
       <div className="bg-gray-900/90 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl p-2">
@@ -66,6 +78,16 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
             disabled={!hasBuildings}
             variant="danger"
             keyboardShortcut="Del"
+          />
+          
+          {/* Theme Toggle */}
+          <div className="h-px bg-gray-700/50 mx-2 my-1" />
+          <ToolbarButton
+            icon={isDarkTheme ? Sun : Moon}
+            tooltip={isDarkTheme ? "Light Theme" : "Dark Theme"}
+            onClick={handleThemeToggle}
+            variant="default"
+            keyboardShortcut="T"
           />
         </div>
       </div>

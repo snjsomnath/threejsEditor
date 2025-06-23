@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
 export interface SceneConfig {
   backgroundColor?: number;
@@ -15,9 +16,9 @@ export class SceneManager {
 
   constructor(config: SceneConfig = {}) {
     this.config = {
-      backgroundColor: 0xf2f2f2,
+      backgroundColor: getThemeColorAsHex('--color-scene-background', 0xf2f2f2),
       enableFog: false,
-      fogColor: 0xcccccc,
+      fogColor: getThemeColorAsHex('--color-scene-fog', 0xcccccc),
       fogNear: 1,
       fogFar: 1000,
       ...config
@@ -47,6 +48,17 @@ export class SceneManager {
 
   updateBackgroundColor(color: number): void {
     this.scene.background = new THREE.Color(color);
+  }
+
+  // Update scene colors based on current theme
+  updateThemeColors(): void {
+    const backgroundColor = getThemeColorAsHex('--color-scene-background', 0xf2f2f2);
+    this.scene.background = new THREE.Color(backgroundColor);
+    
+    if (this.scene.fog instanceof THREE.Fog) {
+      const fogColor = getThemeColorAsHex('--color-scene-fog', 0xcccccc);
+      this.scene.fog.color = new THREE.Color(fogColor);
+    }
   }
 
   addObject(object: THREE.Object3D): void {

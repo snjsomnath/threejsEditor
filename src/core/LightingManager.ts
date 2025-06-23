@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Sky } from 'three/examples/jsm/objects/Sky.js';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
 export interface LightingConfig {
   sunLightColor?: number;
@@ -23,8 +24,8 @@ export class LightingManager {
 
   constructor(scene: THREE.Scene, config: LightingConfig = {}) {
     this.scene = scene;
-    this.config = {
-      sunLightColor: 0xfaf6ed,
+    this.config = {      // This will be loaded from CSS variable at runtime
+      sunLightColor: getThemeColorAsHex('--color-sun-light', 0xfaf6ed),
       sunLightIntensity: 1.8, // Slightly reduced intensity
       sunPosition: { x: 110, y: 45, z: 45 },
       enableShadows: true,
@@ -48,16 +49,19 @@ export class LightingManager {
     }
   }
   
-  private createAmbientLight(): void {
-    // Create subtle ambient light for softer shadows
-    this.ambient = new THREE.AmbientLight("#ffffff", 0.25); // Reduced since we're adding hemisphere light
+  private createAmbientLight(): void {    // Create subtle ambient light for softer shadows
+    // Using CSS variable color via our utility function
+    const ambientColor = getThemeColorAsHex('--color-ambient-light', 0xffffff);
+    this.ambient = new THREE.AmbientLight(ambientColor, 0.25); // Reduced since we're adding hemisphere light
     this.scene.add(this.ambient);
   }
   
   private createHemisphereLight(): void {
-    // Create hemisphere light for better ambient illumination
-    // Sky color (blueish), ground color (warm tone), intensity
-    this.hemiLight = new THREE.HemisphereLight(0xd1e5ff, 0xb97a20, 0.25);
+    // Create hemisphere light for better ambient illumination    // Sky color (blueish), ground color (warm tone), intensity
+    // Using CSS variable colors via our utility function
+    const skyColor = getThemeColorAsHex('--color-hemisphere-sky', 0x77a0d5);
+    const groundColor = getThemeColorAsHex('--color-hemisphere-ground', 0xbcaf70);
+    this.hemiLight = new THREE.HemisphereLight(skyColor, groundColor, 0.30);
     this.scene.add(this.hemiLight);
   }
 
@@ -219,6 +223,28 @@ export class LightingManager {
     
     if (this.shadowHelper) {
       this.shadowHelper.update();
+    }
+  }
+
+  updateThemeColors(): void {
+    // Update sunlight color
+    if (this.sun) {
+      const sunColor = getThemeColorAsHex('--color-sun-light', 0xfaf6ed);
+      this.sun.color.setHex(sunColor);
+    }
+    
+    // Update ambient light color
+    if (this.ambient) {
+      const ambientColor = getThemeColorAsHex('--color-ambient-light', 0xffffff);
+      this.ambient.color.setHex(ambientColor);
+    }
+    
+    // Update hemisphere light colors
+    if (this.hemiLight) {
+      const skyColor = getThemeColorAsHex('--color-hemisphere-sky', 0xd1e5ff);
+      const groundColor = getThemeColorAsHex('--color-hemisphere-ground', 0xb97a20);
+      this.hemiLight.color.setHex(skyColor);
+      this.hemiLight.groundColor.setHex(groundColor);
     }
   }
 

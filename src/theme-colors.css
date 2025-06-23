@@ -1,0 +1,37 @@
+/* 
+  Theme Colors CSS for threejsEditor
+  This file contains all colors used across the application,
+  organized as CSS variables for easier management and theming
+*/
+
+:root {
+  /* Core UI Colors */
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-text: #ffffff;
+  --color-background: #1f2937;
+  
+  /* 3D Scene Colors */
+  --color-ground: #ffffff;
+  --color-grid: #999999;
+  --color-sun-light: #faf6ed;
+  --color-ambient-light: #ffffff;
+  --color-hemisphere-sky: #77a0d5;
+  --color-hemisphere-ground: #bcaf70;
+  --color-scene-background: #f2f2f2;
+  --color-scene-fog: #cccccc;
+  
+  /* Performance Indicator Colors */
+  --color-performance-good: #00ff00;
+  --color-performance-medium: #ffaa00;
+  --color-performance-poor: #ff4444;
+}
+
+/* Optional Dark Mode Theme */
+.dark-theme {
+  --color-ground: #333333;
+  --color-grid: #666666;
+  --color-sun-light: #e6dfd1;
+  --color-scene-background: #252525;
+  --color-scene-fog: #1a1a1a;
+}

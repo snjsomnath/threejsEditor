@@ -7,6 +7,7 @@ import { LightingManager } from './LightingManager';
 import { EnvironmentManager } from './EnvironmentManager';
 import { PerformanceManager } from './PerformanceManager';
 import { ContextModelLoader } from '../services/ContextModelLoader';
+import { addThemeChangeListener } from '../utils/themeColors';
 
 export interface ThreeJSCoreConfig {
   container: HTMLElement;
@@ -42,6 +43,7 @@ export class ThreeJSCore {
   private isInitialized = false;
   private isDisposed = false;
   private resizeObserver: ResizeObserver;
+  private themeChangeCleanup: (() => void) | null = null;
 
   constructor(config: ThreeJSCoreConfig) {
     this.container = config.container;
@@ -133,6 +135,9 @@ export class ThreeJSCore {
         }
       }
       
+      // Set up theme change listener
+      this.setupThemeChangeListener();
+      
       // Start animation loop
       this.startAnimationLoop();
       
@@ -145,6 +150,27 @@ export class ThreeJSCore {
       this.emit('error', errorObj);
       throw errorObj;
     }
+  }
+
+  private setupThemeChangeListener(): void {
+    // Clean up any existing listener
+    if (this.themeChangeCleanup) {
+      this.themeChangeCleanup();
+      this.themeChangeCleanup = null;
+    }
+    
+    // Add new listener
+    this.themeChangeCleanup = addThemeChangeListener(() => {
+      this.updateThemeColors();
+    });
+  }
+  
+  private updateThemeColors(): void {
+    // Update colors in all managers
+    this.sceneManager.updateThemeColors();
+    this.lightingManager.updateThemeColors();
+    this.environmentManager.updateThemeColors();
+    this.performanceManager.updateThemeColors();
   }
 
   private startAnimationLoop(): void {
@@ -279,6 +305,12 @@ export class ThreeJSCore {
     }
     
     this.resizeObserver.disconnect();
+    
+    // Clean up theme change listener
+    if (this.themeChangeCleanup) {
+      this.themeChangeCleanup();
+      this.themeChangeCleanup = null;
+    }
     
     // Dispose in reverse order of creation
     this.performanceManager.dispose();
@@ -458,6 +490,15 @@ export class ThreeJSCore {
       this.updateShadowBounds(bounds, bounds * 2);
       console.log('Auto-adjusted shadow bounds to:', bounds);
     }
+  }
+
+  // New method to manually update theme colors
+  refreshThemeColors(): void {
+    this.updateThemeColors();
+  }
+
+  getCurrentCameraType(): CameraType {
+    return this.cameraManager.getCurrentCameraType();
   }
 }
 

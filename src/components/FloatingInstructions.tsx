@@ -93,9 +93,9 @@ export const FloatingInstructions: React.FC<FloatingInstructionsProps> = ({
             </svg>
           </button>
           <div className="text-4xl mb-4">🏗️</div>
-          <h3 className="text-white text-xl font-bold mb-4">Building Creator</h3>
+          <h3 className="text-white text-xl font-bold mb-4">HEATH</h3>
           <p className="text-gray-300 mb-6 text-sm">
-            Create detailed 3D buildings with precision and ease. Start by configuring your building or jump right into drawing.
+            Start by configuring your building or jump right into analysis.
           </p>
           <div className="text-xs text-gray-400 space-y-2 text-left">
             <div className="flex items-center space-x-2">

@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
-// Color constants for easy editing
+// Use CSS variables for theme colors via our utility function
 const DEFAULT_COLORS = {
-  GROUND: 0xffffff,
-  GRID: 0x999999,
+  get GROUND(): number { return getThemeColorAsHex('--color-ground', 0xffffff); },
+  get GRID(): number { return getThemeColorAsHex('--color-grid', 0x999999); },
 } as const;
 
 export interface EnvironmentConfig {
@@ -160,6 +161,20 @@ export class EnvironmentManager {
         this.gridHelper.material[0].color = newColor;
         this.gridHelper.material[1].color = newColorDark;
       }
+    }
+  }
+
+  updateThemeColors(): void {
+    // Update ground plane color
+    if (this.groundPlane && this.groundPlane.material) {
+      const material = this.groundPlane.material as THREE.MeshStandardMaterial;
+      const groundColor = getThemeColorAsHex('--color-ground', 0xffffff);
+      material.color.setHex(groundColor);
+    }
+    
+    // Update grid color
+    if (this.gridHelper) {
+      this.updateGridColor(getThemeColorAsHex('--color-grid', 0x999999));
     }
   }
 

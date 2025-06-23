@@ -25,14 +25,14 @@ export class ContextModelLoader {
             object.traverse((child) => {
               // Set all objects to receive shadows but not cast them
               child.receiveShadow = true;
-              child.castShadow = false;
+              child.castShadow = true;
               
               if (child instanceof THREE.Mesh) {
                 // Apply a light grey matte material
                 child.material = new THREE.MeshStandardMaterial({
-                  color: 0xffffff, 
+                  color: "#ffffff", // Model Colour White
                   roughness: 0.8,
-                  metalness: 0.1,
+                  metalness: 0.0,
                 });
                 
                 // Make the mesh not clickable or interactive
@@ -41,7 +41,7 @@ export class ContextModelLoader {
                 
                 // Ensure it receives shadows but doesn't cast them (already set above, but being explicit)
                 child.receiveShadow = true;
-                child.castShadow = false;
+                child.castShadow = true;
                 
                 // Swap Y and Z coordinates to convert from Rhino's Z-up to Three.js Y-up
                 child.traverse((subChild) => {

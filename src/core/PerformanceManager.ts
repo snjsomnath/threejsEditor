@@ -1,4 +1,5 @@
 import type Stats from 'three/examples/jsm/libs/stats.module.js';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
 export interface PerformanceConfig {
   enableFPSCounter?: boolean;
@@ -60,7 +61,7 @@ export class PerformanceManager {
         top: 10px;
         right: 10px;
         background: rgba(0, 0, 0, 0.8);
-        color: #00ff00;
+        color: var(--color-performance-good);
         padding: 8px 12px;
         font-family: 'Courier New', monospace;
         font-size: 14px;
@@ -86,16 +87,27 @@ export class PerformanceManager {
       this.fpsData.frames = 0;
       this.fpsData.lastTime = now;
       
-      this.fpsCounter.textContent = `FPS: ${this.fpsData.fps}`;
-      
-      // Color coding for performance indication
+      this.fpsCounter.textContent = `FPS: ${this.fpsData.fps}`;      // Color coding for performance indication using CSS variables
       if (this.fpsData.fps < 30) {
-        this.fpsCounter.style.color = '#ff4444';
+        this.fpsCounter.style.color = `#${getThemeColorAsHex('--color-performance-poor', 0xff4444).toString(16).padStart(6, '0')}`;
       } else if (this.fpsData.fps < 50) {
-        this.fpsCounter.style.color = '#ffaa00';
+        this.fpsCounter.style.color = `#${getThemeColorAsHex('--color-performance-medium', 0xffaa00).toString(16).padStart(6, '0')}`;
       } else {
-        this.fpsCounter.style.color = '#00ff00';
+        this.fpsCounter.style.color = `#${getThemeColorAsHex('--color-performance-good', 0x00ff00).toString(16).padStart(6, '0')}`;
       }
+    }
+  }
+
+  updateThemeColors(): void {
+    if (!this.fpsCounter) return;
+    
+    // Update FPS counter colors based on current performance
+    if (this.fpsData.fps < 30) {
+      this.fpsCounter.style.color = `#${getThemeColorAsHex('--color-performance-poor', 0xff4444).toString(16).padStart(6, '0')}`;
+    } else if (this.fpsData.fps < 50) {
+      this.fpsCounter.style.color = `#${getThemeColorAsHex('--color-performance-medium', 0xffaa00).toString(16).padStart(6, '0')}`;
+    } else {
+      this.fpsCounter.style.color = `#${getThemeColorAsHex('--color-performance-good', 0x00ff00).toString(16).padStart(6, '0')}`;
     }
   }
 

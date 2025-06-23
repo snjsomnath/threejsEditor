@@ -18,7 +18,7 @@
  * @param showGrid - Boolean to control grid visibility (default: true)
  */
 import { useRef, useEffect, useState, useCallback } from 'react';
-import * as THREE from 'three';
+// No need to import THREE directly in this hook
 import { ThreeJSCore } from '../core/ThreeJSCore';
 import type { CameraType, CameraView, ViewTransitionOptions } from '../core/ThreeJSCore';
 
@@ -179,6 +179,12 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     return undefined;
   }, []);
 
+  const refreshThemeColors = useCallback(() => {
+    if (coreRef.current) {
+      coreRef.current.refreshThemeColors();
+    }
+  }, []);
+
   return {
     scene: coreRef.current?.getScene() || null,
     camera: coreRef.current?.getCamera() || null,
@@ -195,6 +201,7 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     switchCameraType,
     getCurrentCameraType,
     setCameraView,
+    refreshThemeColors,
     debugHelpers: {
       toggleShadowHelper: () => {},
       toggleShadowQuality: () => {},

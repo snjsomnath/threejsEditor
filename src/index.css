@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import theme colors */
+@import './theme-colors.css';
+
 /* Custom slider styles for better visibility */
 .slider::-webkit-slider-thumb {
   appearance: none;

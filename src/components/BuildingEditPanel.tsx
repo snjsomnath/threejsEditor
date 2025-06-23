@@ -99,7 +99,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
       description: building.description || '',
       floors: building.floors,
       floorHeight: building.floorHeight,
-      color: building.color || 0x3b82f6,
+      color: building.color || "#ffffff",
       window_to_wall_ratio: building.window_to_wall_ratio ?? 0.4,
       window_overhang: building.window_overhang ?? false,
       window_overhang_depth: building.window_overhang_depth ?? 0.0,
