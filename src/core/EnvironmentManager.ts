@@ -49,19 +49,19 @@ export class EnvironmentManager {
     const groundGeometry = new THREE.PlaneGeometry(
       this.config.groundSize!,
       this.config.groundSize!
-    );
-    
-    const groundMaterial = new THREE.MeshStandardMaterial({
+    );    const groundMaterial = new THREE.MeshStandardMaterial({
       color: this.config.groundColor!,
       transparent: this.config.groundOpacity! < 1,
       opacity: this.config.groundOpacity!,
-      roughness: 0.8, // Increased for better shadow contrast
-      metalness: 0.0, // Set to 0 for better shadow visibility
+      roughness: 0.9, // Increased for better shadow contrast and softer appearance
+      metalness: 0.05, // Slight metalness for better reflection of ambient light
       side: THREE.DoubleSide,
       depthWrite: true,
       alphaTest: this.config.groundOpacity! < 1 ? 0.1 : 0,
       // Add these properties for better shadow reception
-      shadowSide: THREE.FrontSide
+      shadowSide: THREE.FrontSide,
+      // Control environment map intensity
+      envMapIntensity: 0.2
     });
     
     this.materials.push(groundMaterial);
@@ -94,8 +94,7 @@ export class EnvironmentManager {
     
     this.gridHelper.position.y = 0.001;
     this.gridHelper.visible = this.config.showGrid!;
-    
-    // Fix material conflicts by properly configuring grid materials
+      // Fix material conflicts by properly configuring grid materials
     if (this.gridHelper.material instanceof THREE.LineBasicMaterial) {
       this.gridHelper.material.transparent = true;
       this.gridHelper.material.opacity = this.config.gridOpacity!;
@@ -103,15 +102,24 @@ export class EnvironmentManager {
       this.gridHelper.material.depthTest = true;
       this.gridHelper.material.fog = false;
       this.materials.push(this.gridHelper.material);
-    } else if (Array.isArray(this.gridHelper.material)) {
-      this.gridHelper.material.forEach((material, index) => {
-        material.transparent = true;
-        material.opacity = index === 0 ? this.config.gridOpacity! * 1.2 : this.config.gridOpacity!;
-        material.depthWrite = false;
-        material.depthTest = true;
-        material.fog = false;
-        this.materials.push(material);
-      });
+    } else {
+      // Handle case when material is an array
+      const materials = this.gridHelper.material as THREE.Material[];
+      if (Array.isArray(materials)) {
+        materials.forEach((material, index) => {
+          if (material instanceof THREE.Material) {            material.transparent = true;
+            material.opacity = index === 0 ? this.config.gridOpacity! * 1.2 : this.config.gridOpacity!;
+            material.depthWrite = false;
+            material.depthTest = true;
+            // Only set fog property if it's a material that has this property
+            if (material instanceof THREE.LineBasicMaterial || 
+                material instanceof THREE.MeshBasicMaterial) {
+              material.fog = false;
+            }
+            this.materials.push(material);
+          }
+        });
+      }
     }
     
     this.scene.add(this.gridHelper);

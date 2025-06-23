@@ -28,13 +28,12 @@ export class RendererManager {
       shadowType: THREE.PCFSoftShadowMap,
       pixelRatio: Math.min(window.devicePixelRatio, 2),
       toneMapping: THREE.ACESFilmicToneMapping,
-      toneMappingExposure: 1.2,
+      toneMappingExposure: 1.0, // Slightly reduced from 1.2 for better shadow balance
       ...config
     };
     
     this.renderer = this.createRenderer();
   }
-
   private createRenderer(): THREE.WebGLRenderer {
     const renderer = new THREE.WebGLRenderer({
       antialias: this.config.antialias,
@@ -43,9 +42,9 @@ export class RendererManager {
       stencil: false
     });
     
-    // Shadow configuration
+    // Shadow configuration - use PCFSoftShadowMap for softer shadows
     renderer.shadowMap.enabled = this.config.shadows!;
-    renderer.shadowMap.type = this.config.shadowType!;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Force soft shadows
     renderer.shadowMap.autoUpdate = true;
     
     // Color space and tone mapping
@@ -82,18 +81,16 @@ export class RendererManager {
       
       const renderPass = new RenderPass(scene, camera);
       this.composer.addPass(renderPass);
-      this.passes.push(renderPass);
-
-      const saoPass = new SAOPass(scene, camera, false, true);
-      saoPass.params.saoBias = 0.5;
-      saoPass.params.saoIntensity = 0.01;
-      saoPass.params.saoScale = 5;
-      saoPass.params.saoKernelRadius = 10;
-      saoPass.params.saoMinResolution = 0.01;
-      saoPass.params.saoBlur = true;
-      saoPass.params.saoBlurRadius = 2;
-      saoPass.params.saoBlurStdDev = 1;
-      saoPass.params.saoBlurDepthCutoff = 0.01;
+      this.passes.push(renderPass);      const saoPass = new SAOPass(scene, camera);
+      saoPass.params.saoBias = 0.2;            // Lower bias for more subtle effect
+      saoPass.params.saoIntensity = 0.015;      // Slightly increased intensity
+      saoPass.params.saoScale = 10;            // Increased scale for broader effect
+      saoPass.params.saoKernelRadius = 25;     // Increased radius for softer shadows
+      saoPass.params.saoMinResolution = 0.0075; // Smaller value for finer details
+      saoPass.params.saoBlur = true;           // Keep blur enabled
+      saoPass.params.saoBlurRadius = 4;        // Increased blur radius
+      saoPass.params.saoBlurStdDev = 2;        // Increased standard deviation for softer blur
+      saoPass.params.saoBlurDepthCutoff = 0.0075; // Adjusted depth cutoff
       this.composer.addPass(saoPass);
       this.passes.push(saoPass);
 

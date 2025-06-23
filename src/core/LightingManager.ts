@@ -15,6 +15,8 @@ export class LightingManager {
   private scene: THREE.Scene;
   private config: LightingConfig;
   private sun: THREE.DirectionalLight | null = null;
+  private ambient: THREE.AmbientLight | null = null; // Add ambient light
+  private hemiLight: THREE.HemisphereLight | null = null; // Add hemisphere light for better ambient light
   private shadowHelper: THREE.CameraHelper | null = null;
   private sky: Sky | null = null;
   private needsShadowUpdate = false;
@@ -23,19 +25,19 @@ export class LightingManager {
     this.scene = scene;
     this.config = {
       sunLightColor: 0xfaf6ed,
-      sunLightIntensity: 2,
+      sunLightIntensity: 1.8, // Slightly reduced intensity
       sunPosition: { x: 110, y: 45, z: 45 },
       enableShadows: true,
-      shadowMapSize: 1024,
+      shadowMapSize: 2048, // Increased for better shadow quality
       shadowCameraBounds: 30,
       enableSky: true,
       ...config
     };
-  }
-
-  async initialize(): Promise<void> {
+  }  async initialize(): Promise<void> {
     try {
       this.createSunLight();
+      this.createAmbientLight();
+      this.createHemisphereLight();
       
       if (this.config.enableSky) {
         await this.createSky();
@@ -44,6 +46,19 @@ export class LightingManager {
       console.error('Failed to initialize lighting:', error);
       throw error;
     }
+  }
+  
+  private createAmbientLight(): void {
+    // Create subtle ambient light for softer shadows
+    this.ambient = new THREE.AmbientLight("#ffffff", 0.25); // Reduced since we're adding hemisphere light
+    this.scene.add(this.ambient);
+  }
+  
+  private createHemisphereLight(): void {
+    // Create hemisphere light for better ambient illumination
+    // Sky color (blueish), ground color (warm tone), intensity
+    this.hemiLight = new THREE.HemisphereLight(0xd1e5ff, 0xb97a20, 0.25);
+    this.scene.add(this.hemiLight);
   }
 
   private createSunLight(): void {
@@ -72,12 +87,11 @@ export class LightingManager {
       this.sun.shadow.camera.right = bounds;
       this.sun.shadow.camera.top = bounds;
       this.sun.shadow.camera.bottom = -bounds;
-      
-      // Better shadow quality settings
-      this.sun.shadow.radius = 4;
-      this.sun.shadow.blurSamples = 25;
-      this.sun.shadow.bias = -0.0001;
-      this.sun.shadow.normalBias = 0.02;
+        // Better shadow quality settings - adjusted for softer shadows
+      this.sun.shadow.radius = 8; // Increased radius for softer shadow edges
+      this.sun.shadow.blurSamples = 30; // More samples for smoother blur
+      this.sun.shadow.bias = -0.00005; // Less negative bias to reduce artifacts
+      this.sun.shadow.normalBias = 0.05; // Increased to prevent shadow acne
       
       // Position the shadow camera target at the scene center
       this.sun.target.position.set(0, 0, 0);

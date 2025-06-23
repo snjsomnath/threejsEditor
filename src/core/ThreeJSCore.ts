@@ -58,16 +58,21 @@ export class ThreeJSCore {
       
       const rect = this.container.getBoundingClientRect();
       this.cameraManager = new CameraManager(rect.width / rect.height);
-      
-      this.rendererManager = new RendererManager({
+        this.rendererManager = new RendererManager({
         antialias: true,
         shadows: true,
-        pixelRatio: Math.min(window.devicePixelRatio, 2)
+        pixelRatio: Math.min(window.devicePixelRatio, 2),
+        toneMapping: THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 1.0 // Adjusted for better balance
       });
       
       this.lightingManager = new LightingManager(
         this.sceneManager.getScene(),
-        { enableShadows: true }
+        { 
+          enableShadows: true,
+          shadowMapSize: 2048, // Higher resolution shadows
+          sunLightIntensity: 1.5 // Softer light
+        }
       );
       
       this.environmentManager = new EnvironmentManager(
