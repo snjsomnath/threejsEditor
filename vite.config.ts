@@ -7,4 +7,6 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  // Configure static asset handling
+  assetsInclude: ['**/*.3dm'],
 });

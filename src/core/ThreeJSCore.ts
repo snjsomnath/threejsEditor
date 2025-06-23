@@ -6,6 +6,7 @@ import { RendererManager } from './RendererManager';
 import { LightingManager } from './LightingManager';
 import { EnvironmentManager } from './EnvironmentManager';
 import { PerformanceManager } from './PerformanceManager';
+import { ContextModelLoader } from '../services/ContextModelLoader';
 
 export interface ThreeJSCoreConfig {
   container: HTMLElement;
@@ -35,6 +36,7 @@ export class ThreeJSCore {
   private lightingManager: LightingManager;
   private environmentManager: EnvironmentManager;
   private performanceManager: PerformanceManager;
+  private contextModelLoader: ContextModelLoader;
   
   private animationId: number | null = null;
   private isInitialized = false;
@@ -74,6 +76,9 @@ export class ThreeJSCore {
       );
       
       this.performanceManager = new PerformanceManager();
+      
+      // Initialize context model loader
+      this.contextModelLoader = new ContextModelLoader(this.sceneManager);
 
       // Setup resize observer instead of window listener
       this.resizeObserver = new ResizeObserver(this.handleResize.bind(this));
@@ -104,7 +109,8 @@ export class ThreeJSCore {
       await Promise.all([
         this.cameraManager.initializeControls(this.rendererManager.getRenderer()),
         this.lightingManager.initialize(),
-        this.performanceManager.initialize()
+        this.performanceManager.initialize(),
+        this.contextModelLoader.loadContextModel() // Load the context model
       ]);
       
       this.environmentManager.initialize();
@@ -273,6 +279,7 @@ export class ThreeJSCore {
     this.performanceManager.dispose();
     this.environmentManager.dispose();
     this.lightingManager.dispose();
+    this.contextModelLoader.dispose(); // Dispose the context model loader
     this.cameraManager.dispose();
     this.rendererManager.dispose();
     this.sceneManager.dispose();
