@@ -1,5 +1,11 @@
 import * as THREE from 'three';
 
+// Color constants for easy editing
+const DEFAULT_COLORS = {
+  GROUND: 0xffffff,
+  GRID: 0x999999,
+} as const;
+
 export interface EnvironmentConfig {
   groundSize?: number;
   groundColor?: number;
@@ -7,6 +13,8 @@ export interface EnvironmentConfig {
   gridSize?: number;
   gridDivisions?: number;
   gridColor?: number;
+  gridOpacity?: number; // Add this
+
   showGrid?: boolean;
 }
 
@@ -20,11 +28,12 @@ export class EnvironmentManager {
     this.scene = scene;
     this.config = {
       groundSize: 200,
-      groundColor: 0xffffff,
+      groundColor: DEFAULT_COLORS.GROUND,
       groundOpacity: 1,
       gridSize: 50,
       gridDivisions: 50,
-      gridColor: 0x999999,
+      gridColor: DEFAULT_COLORS.GRID,
+      gridOpacity: 0.8,
       showGrid: true,
       ...config
     };
@@ -62,7 +71,7 @@ export class EnvironmentManager {
 
   private createGrid(): void {
     const gridColorCenter = new THREE.Color(this.config.gridColor!);
-    const gridColorGrid = new THREE.Color(this.config.gridColor!).multiplyScalar(0.7);
+    const gridColorGrid = new THREE.Color(this.config.gridColor!).multiplyScalar(0.9);
     
     this.gridHelper = new THREE.GridHelper(
       this.config.gridSize!,
@@ -77,13 +86,13 @@ export class EnvironmentManager {
     // Improve grid material properties
     if (this.gridHelper.material instanceof THREE.Material) {
       this.gridHelper.material.transparent = true;
-      this.gridHelper.material.opacity = 0.6;
+      this.gridHelper.material.opacity = 0.8;
       this.gridHelper.material.depthWrite = false;
       this.gridHelper.material.depthTest = true;
     } else if (Array.isArray(this.gridHelper.material)) {
       this.gridHelper.material.forEach(material => {
         material.transparent = true;
-        material.opacity = 0.6;
+        material.opacity = 0.9;
         material.depthWrite = false;
         material.depthTest = true;
       });
@@ -94,6 +103,10 @@ export class EnvironmentManager {
 
   getGroundPlane(): THREE.Mesh | null {
     return this.groundPlane;
+  }
+
+  getGridVisibility(): boolean {
+    return this.gridHelper?.visible ?? false;
   }
 
   toggleGrid(): void {

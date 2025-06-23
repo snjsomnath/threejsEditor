@@ -44,13 +44,17 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
         const core = new ThreeJSCore({
           container: containerRef.current,
           enablePostProcessing: true,
-          showGrid
+          showGrid: true // Always initialize with grid, then toggle it
         });
         
         await core.initialize();
         
         if (isMounted) {
           coreRef.current = core;
+          // Set initial grid visibility after initialization
+          if (!showGrid) {
+            core.toggleGrid();
+          }
           setIsInitialized(true);
         }
       } catch (error) {
@@ -73,14 +77,18 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
         coreRef.current = null;
       }
     };
-  }, [containerRef, showGrid]);
+  }, [containerRef]); // Remove showGrid from dependencies
 
-  // Update grid visibility
+  // Update grid visibility when showGrid changes
   useEffect(() => {
-    if (coreRef.current) {
-      coreRef.current.toggleGrid();
+    if (coreRef.current && isInitialized) {
+      // Get current grid visibility and only toggle if different
+      const currentVisibility = coreRef.current.getGridVisibility();
+      if (currentVisibility !== showGrid) {
+        coreRef.current.toggleGrid();
+      }
     }
-  }, [showGrid]);
+  }, [showGrid, isInitialized]);
 
   const toggleGrid = useCallback(() => {
     if (coreRef.current) {

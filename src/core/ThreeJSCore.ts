@@ -142,6 +142,10 @@ export class ThreeJSCore {
     this.environmentManager.toggleGrid();
   }
 
+  getGridVisibility(): boolean {
+    return this.environmentManager.getGridVisibility();
+  }
+
   toggleFPSCounter(): void {
     this.performanceManager.toggleFPSCounter();
   }
