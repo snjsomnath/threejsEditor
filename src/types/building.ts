@@ -23,6 +23,9 @@ export interface BuildingConfig {
   floor_construction?: string; // From pre-selected dropdown
   roof_construction?: string; // From pre-selected dropdown
   window_construction?: string; // From pre-selected dropdown
+  
+  // Structural system
+  structural_system?: string; // Concrete, Timber, Masonry
 
   // Program properties
   building_program?: string; // From pre-selected dropdown
@@ -69,6 +72,9 @@ export interface BuildingData {
   floor_construction?: string;
   roof_construction?: string;
   window_construction?: string;
+  
+  // Structural system
+  structural_system?: string;
 
   // Program properties
   building_program?: string;
