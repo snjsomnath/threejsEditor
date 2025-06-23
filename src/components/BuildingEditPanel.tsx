@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as THREE from 'three'; // Add this import
 import { X, Save, RotateCcw, Layers, Palette } from 'lucide-react';
 import { BuildingData, BuildingConfig } from '../types/building';
 
@@ -48,8 +49,11 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
   const updateField = (field: string, value: any) => {
     setEditedBuilding(prev => ({ ...prev, [field]: value }));
     
-    // Apply color changes immediately for responsive feedback
-    if (field === 'color' && building.mesh && building.mesh.material) {
+    // Apply color changes immediately for responsive feedback (but only for actual building meshes)
+    if (field === 'color' && building.mesh && building.mesh.material && 
+        building.mesh.userData.buildingId && // Must have building ID
+        !building.mesh.userData.isPreview && 
+        !building.mesh.userData.isDrawingElement) {
       const material = building.mesh.material as THREE.MeshLambertMaterial;
       material.color.setHex(value);
     }
@@ -64,7 +68,9 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
       config: {
         floors: editedBuilding.floors,
         floorHeight: editedBuilding.floorHeight,
-        color: editedBuilding.color
+        color: editedBuilding.color,
+        name: editedBuilding.name,
+        description: building.description
       }
     };
     
@@ -81,8 +87,11 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
     
     setEditedBuilding(resetData);
     
-    // Reset color in 3D view immediately
-    if (building.mesh && building.mesh.material) {
+    // Reset color in 3D view immediately (but only for actual building meshes)
+    if (building.mesh && building.mesh.material && 
+        building.mesh.userData.buildingId && // Must have building ID
+        !building.mesh.userData.isPreview && 
+        !building.mesh.userData.isDrawingElement) {
       const material = building.mesh.material as THREE.MeshLambertMaterial;
       material.color.setHex(resetData.color);
     }

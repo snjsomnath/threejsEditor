@@ -16,6 +16,13 @@ export class DrawingService {
   private static lineMaterial: THREE.LineBasicMaterial | null = null;
   private static previewLineMaterial: THREE.LineBasicMaterial | null = null;
   
+  // Add preview state tracking
+  private previewState = {
+    hasActivePreview: false,
+    isClearing: false,
+    sessionId: 0 // Add session tracking
+  };
+  
   constructor(scene: THREE.Scene) {
     this.scene = scene;
     this.initializeSharedResources();
@@ -51,16 +58,16 @@ export class DrawingService {
       
       DrawingService.lineMaterial = new THREE.LineBasicMaterial({ 
         color: 0x00ff88,
-        linewidth: 2,
+        linewidth: 3, // Increase line width for better visibility
         transparent: true,
-        opacity: 0.8
+        opacity: 1.0 // Make lines fully opaque
       });
       
       DrawingService.previewLineMaterial = new THREE.LineBasicMaterial({ 
-        color: 0x88ff88,
-        linewidth: 1,
+        color: 0x88ff00, // Brighter green for preview lines
+        linewidth: 2,
         transparent: true,
-        opacity: 0.5
+        opacity: 0.8 // Increase opacity for better visibility
       });
     }
   }
@@ -69,7 +76,14 @@ export class DrawingService {
     const marker = new THREE.Mesh(DrawingService.pointGeometry!, DrawingService.pointMaterial!);
     marker.position.set(position.x, position.y + 0.25, position.z);
     marker.castShadow = true;
-    marker.receiveShadow = false; // Markers don't need to receive shadows
+    marker.receiveShadow = false;
+    
+    // CRITICAL: Configure for proper interaction detection
+    marker.visible = true;
+    marker.frustumCulled = false;
+    marker.matrixAutoUpdate = true;
+    marker.updateMatrix();
+    marker.updateMatrixWorld(true);
     
     // Add userData for identification and cleanup
     marker.userData = {
@@ -85,15 +99,20 @@ export class DrawingService {
 
   createPreviewMarker(position: Point3D): THREE.Mesh {
     const marker = new THREE.Mesh(DrawingService.previewGeometry!, DrawingService.previewMaterial!);
-    marker.position.set(position.x, position.y + 0.2, position.z);
+    marker.position.set(position.x, position.y + 0.3, position.z); // Increase height for better visibility
     
     // Add userData for identification and cleanup
     marker.userData = {
       isDrawingElement: true,
       isPreviewPoint: true,
       type: 'footprint',
-      isFootprintPreview: true
+      isFootprintPreview: true,
+      zOrder: 100 // Higher z-order for visibility
     };
+    
+    // Ensure it renders on top
+    marker.renderOrder = 100;
+    marker.frustumCulled = false; // Prevent culling issues
     
     this.scene.add(marker);
     return marker;
@@ -110,15 +129,20 @@ export class DrawingService {
     });
     
     const marker = new THREE.Mesh(DrawingService.snapGeometry!, material);
-    marker.position.set(position.x, position.y + 0.3, position.z);
+    marker.position.set(position.x, position.y + 0.4, position.z); // Even higher for snap markers
     
     // Add userData for identification and cleanup
     marker.userData = {
       isDrawingElement: true,
       isSnapPoint: true,
       type: 'footprint',
-      isFootprintPreview: true
+      isFootprintPreview: true,
+      zOrder: 200 // Highest z-order
     };
+    
+    // Ensure it renders on top of everything
+    marker.renderOrder = 200;
+    marker.frustumCulled = false;
     
     this.scene.add(marker);
     
@@ -147,8 +171,8 @@ export class DrawingService {
 
   createLine(from: Point3D, to: Point3D): THREE.Line {
     const points = [
-      new THREE.Vector3(from.x, 0.3, from.z),
-      new THREE.Vector3(to.x, 0.3, to.z)
+      new THREE.Vector3(from.x, 0.1, from.z), // Lower the line slightly
+      new THREE.Vector3(to.x, 0.1, to.z)
     ];
     
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
@@ -168,7 +192,7 @@ export class DrawingService {
 
   createPreviewLine(from: Point3D, to: Point3D): THREE.Line {
     const points = [
-      new THREE.Vector3(from.x, 0.2, from.z),
+      new THREE.Vector3(from.x, 0.2, from.z), // Higher than regular lines for visibility
       new THREE.Vector3(to.x, 0.2, to.z)
     ];
     
@@ -180,8 +204,13 @@ export class DrawingService {
       isDrawingElement: true,
       isPreviewLine: true,
       type: 'footprint',
-      isFootprintPreview: true
+      isFootprintPreview: true,
+      zOrder: 50
     };
+    
+    // Ensure proper rendering order
+    line.renderOrder = 50;
+    line.frustumCulled = false;
     
     this.scene.add(line);
     return line;
@@ -204,6 +233,9 @@ export class DrawingService {
   }
 
   clearPreviewMarker(marker: THREE.Mesh): void {
+    // Prevent double-clearing during cleanup
+    if (this.previewState.isClearing) return;
+    
     // Stop any ongoing animations
     if (this.animationFrameIds.has(marker)) {
       const frameId = this.animationFrameIds.get(marker)!;
@@ -237,22 +269,29 @@ export class DrawingService {
   }
 
   clearAllDrawingElements(): void {
+    this.previewState.isClearing = true;
+    
     // Clear all animation frames
     this.animationFrameIds.forEach(frameId => {
       cancelAnimationFrame(frameId);
     });
     this.animationFrameIds.clear();
     
-    // Find and remove all drawing-related objects from scene
+    // Find and remove all drawing-related objects from scene (but preserve shared resources)
     const objectsToRemove: THREE.Object3D[] = [];
     this.scene.traverse((child) => {
       if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
-        // Check if it's a drawing element (markers, lines, footprints)
-        if (child.userData.isDrawingElement || 
-            child.userData.isFootprint ||
-            child.geometry === DrawingService.pointGeometry ||
-            child.geometry === DrawingService.previewGeometry ||
-            child.geometry === DrawingService.snapGeometry) {
+        // Check if it's a drawing element (markers, lines, footprints) but NOT a building mesh
+        if ((child.userData.isDrawingElement || 
+             child.userData.isFootprint ||
+             child.userData.isFootprintPoint ||
+             child.userData.isFootprintLine ||
+             child.userData.isFootprintPreview ||
+             child.userData.isPreviewPoint ||
+             child.userData.isPreviewLine ||
+             child.userData.isSnapPoint) &&
+            !child.userData.isBuilding && // Don't remove actual building meshes
+            !child.userData.buildingId) { // Don't remove objects that belong to completed buildings
           objectsToRemove.push(child);
         }
       }
@@ -261,7 +300,14 @@ export class DrawingService {
     objectsToRemove.forEach(obj => {
       this.scene.remove(obj);
       if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
-        obj.geometry.dispose();
+        // Only dispose geometry if it's NOT a shared resource
+        if (obj.geometry !== DrawingService.pointGeometry && 
+            obj.geometry !== DrawingService.previewGeometry &&
+            obj.geometry !== DrawingService.snapGeometry) {
+          obj.geometry.dispose();
+        }
+        
+        // Only dispose material if it's NOT a shared resource
         if (obj.material !== DrawingService.pointMaterial && 
             obj.material !== DrawingService.previewMaterial &&
             obj.material !== DrawingService.snapMaterial &&
@@ -271,15 +317,33 @@ export class DrawingService {
         }
       }
     });
+    
+    // Reset preview state
+    this.previewState.isClearing = false;
+    this.previewState.hasActivePreview = false;
+    this.previewState.sessionId++; // Increment session ID
+  }
+
+  // Add method to reset preview state
+  resetPreviewState(): void {
+    this.previewState.hasActivePreview = false;
+    this.previewState.isClearing = false;
+    this.previewState.sessionId++; // Increment session ID for new drawing session
+    
+    // Clear any remaining animation frames
+    this.animationFrameIds.forEach(frameId => {
+      cancelAnimationFrame(frameId);
+    });
+    this.animationFrameIds.clear();
   }
 
   updatePreviewMarker(marker: THREE.Mesh, position: Point3D): void {
-    marker.position.set(position.x, position.y + 0.2, position.z);
+    marker.position.set(position.x, position.y + 0.3, position.z); // Maintain consistent height
   }
 
   updatePreviewLine(line: THREE.Line, from: Point3D, to: Point3D): void {
     const points = [
-      new THREE.Vector3(from.x, 0.2, from.z),
+      new THREE.Vector3(from.x, 0.2, from.z), // Keep consistent height
       new THREE.Vector3(to.x, 0.2, to.z)
     ];
     

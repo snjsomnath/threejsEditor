@@ -53,7 +53,8 @@ export const useClickHandler = (
       console.log('Mouse click event:', { 
         clientX: event.clientX, 
         clientY: event.clientY,
-        isDrawing: isDrawing?.current 
+        isDrawing: isDrawing?.current,
+        timestamp: Date.now()
       });
 
       if (!mouseDownPosRef.current) {
@@ -76,7 +77,7 @@ export const useClickHandler = (
       const timeDiff = now - lastClickTimeRef.current;
 
       if (timeDiff < 300) { // Double click detected
-        console.log('Double click detected');
+        console.log('Double click detected, finishing building');
         isDoubleClickRef.current = true;
         
         if (clickTimeoutRef.current) {
@@ -88,8 +89,8 @@ export const useClickHandler = (
           onDoubleClick();
         }
       } else {
-        // Single click - immediate processing
-        console.log('Single click detected');
+        // Single click - immediate processing for drawing mode
+        console.log('Single click detected, processing immediately');
         isDoubleClickRef.current = false;
         
         if (clickTimeoutRef.current) {
@@ -98,12 +99,12 @@ export const useClickHandler = (
         
         // Handle single clicks appropriately
         if (isDrawing?.current) {
+          console.log('Calling onSingleClick for drawing mode');
           onSingleClick(event, container);
         } else if (typeof onBuildingInteraction === 'function') {
           // For building interaction, call immediately but only for selection/tooltip
           console.log('Calling building interaction for click (selection only)');
-          const result = onBuildingInteraction(event, container);
-          // Don't trigger any additional actions - just selection and tooltip
+          onBuildingInteraction(event, container);
         }
       }
 

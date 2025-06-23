@@ -7,6 +7,13 @@ export class BuildingService {
   
   // Reusable geometries and materials for better performance
   private static debugMaterial: THREE.MeshLambertMaterial | null = null;
+  private static previewMaterial: THREE.MeshLambertMaterial | null = null;
+  
+  // Add building state tracking
+  private buildingState = {
+    isCreatingPreview: false,
+    sessionId: 0 // Add session tracking
+  };
   
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -19,6 +26,15 @@ export class BuildingService {
         color: 0x00ff00,
         emissive: 0x00ff00,
         emissiveIntensity: 0.3
+      });
+      
+      // Add shared preview material
+      BuildingService.previewMaterial = new THREE.MeshLambertMaterial({
+        color: 0x3b82f6,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.5,
+        wireframe: false
       });
     }
   }
@@ -46,6 +62,11 @@ export class BuildingService {
     // Rotate geometry so it extrudes upward (Y-axis)
     geometry.rotateX(-Math.PI / 2);
     
+    // CRITICAL: Compute geometry attributes for proper raycasting
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    geometry.computeVertexNormals();
+    
     // Create material with proper shadow settings
     const material = new THREE.MeshLambertMaterial({
       color: config.color,
@@ -61,7 +82,14 @@ export class BuildingService {
     building.castShadow = true;
     building.receiveShadow = true;
     
-    // Ensure proper userData for interaction
+    // CRITICAL: Configure for proper raycasting
+    building.visible = true;
+    building.frustumCulled = false;
+    building.matrixAutoUpdate = true;
+    building.updateMatrix();
+    building.updateMatrixWorld(true);
+    
+    // Ensure proper userData for interaction (will be overridden by BuildingManager)
     building.userData = { 
       type: 'building',
       interactive: true,
@@ -69,14 +97,19 @@ export class BuildingService {
       castsShadows: true
     };
     
-    // Add to scene (don't use this.scene.add directly)
+    // Add to scene
     this.scene.add(building);
     
-    console.log('Building created with shadows enabled:', {
+    console.log('Building created with proper configuration:', {
       castShadow: building.castShadow,
       receiveShadow: building.receiveShadow,
+      visible: building.visible,
+      frustumCulled: building.frustumCulled,
       position: building.position,
-      height: height
+      height: height,
+      geometryBoundingBox: building.geometry.boundingBox,
+      geometryBoundingSphere: building.geometry.boundingSphere,
+      matrixWorldNeedsUpdate: building.matrixWorldNeedsUpdate
     });
     
     return building;
@@ -86,6 +119,8 @@ export class BuildingService {
     if (points.length < 3) {
       throw new Error('Need at least 3 points to create a preview building');
     }
+
+    this.buildingState.isCreatingPreview = true;
 
     const centroid = calculateCentroid(points);
     const shape = createShapeFromPoints(points, centroid);
@@ -105,7 +140,7 @@ export class BuildingService {
     // Rotate geometry so it extrudes upward (Y-axis)
     geometry.rotateX(-Math.PI / 2);
     
-    // Create semi-transparent preview material
+    // Create a NEW material instance for each preview (don't share animated/changing materials)
     const material = new THREE.MeshLambertMaterial({
       color: config.color,
       side: THREE.DoubleSide,
@@ -129,16 +164,21 @@ export class BuildingService {
       isPreview: true,
       type: 'footprint',
       isFootprintPreview: true,
-      castsShadows: true
+      castsShadows: true,
+      createdAt: Date.now() // Add timestamp for debugging
     };
     
     this.scene.add(previewBuilding);
+    this.buildingState.isCreatingPreview = false;
     return previewBuilding;
   }
 
   clearPreviewBuilding(building: THREE.Mesh): void {
+    if (!building || this.buildingState.isCreatingPreview) return;
+    
     this.scene.remove(building);
     building.geometry.dispose();
+    // Always dispose material for preview buildings since they're unique instances
     (building.material as THREE.Material).dispose();
   }
 
@@ -201,5 +241,11 @@ export class BuildingService {
         }
       }
     });
+  }
+
+  // Add method to reset preview state
+  resetPreviewState(): void {
+    this.buildingState.isCreatingPreview = false;
+    this.buildingState.sessionId++; // Increment session ID for new drawing session
   }
 }

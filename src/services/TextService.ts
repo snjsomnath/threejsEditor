@@ -4,6 +4,11 @@ export class TextService {
   private scene: THREE.Scene;
   private canvas: HTMLCanvasElement;
   private context: CanvasRenderingContext2D;
+  
+  // Add a state tracking object to match other services
+  private labelState = {
+    sessionId: 0
+  };
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -11,6 +16,12 @@ export class TextService {
     this.context = this.canvas.getContext('2d')!;
     this.canvas.width = 512;
     this.canvas.height = 256;
+  }
+
+  resetPreviewState(): void {
+    // Increment session ID to mark a fresh drawing session
+    this.labelState.sessionId++;
+    console.log('TextService preview state reset for new session:', this.labelState.sessionId);
   }
 
   createLengthLabel(text: string, position: THREE.Vector3): THREE.Sprite {
@@ -29,7 +40,7 @@ export class TextService {
     // Create sprite
     const sprite = new THREE.Sprite(material);
     sprite.position.copy(position);
-    sprite.scale.set(10, 5, 5); // Adjust scale as needed
+    sprite.scale.set(8, 4, 4); // Reduce scale slightly for better readability
     sprite.userData.isLengthLabel = true;
     
     this.scene.add(sprite);
@@ -54,24 +65,24 @@ export class TextService {
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     
     // Set font and style
-    this.context.font = '48px Arial, sans-serif';
+    this.context.font = '32px Arial, sans-serif'; // Smaller font for better readability
     this.context.textAlign = 'center';
     this.context.textBaseline = 'middle';
     
     // Draw background
     const textMetrics = this.context.measureText(text);
-    const padding = 20;
+    const padding = 12;
     const bgWidth = textMetrics.width + padding * 2;
-    const bgHeight = 60;
+    const bgHeight = 40; // Smaller height
     const bgX = (this.canvas.width - bgWidth) / 2;
     const bgY = (this.canvas.height - bgHeight) / 2;
     
     // Background with rounded corners
-    this.context.fillStyle = 'rgba(0, 0, 0, 0.8)';
-    this.context.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    this.context.fillStyle = 'rgba(0, 0, 0, 0.9)'; // More opaque background
+    this.context.strokeStyle = 'rgba(255, 255, 255, 0.8)'; // More visible border
     this.context.lineWidth = 2;
     
-    this.roundRect(bgX, bgY, bgWidth, bgHeight, 10);
+    this.roundRect(bgX, bgY, bgWidth, bgHeight, 8);
     this.context.fill();
     this.context.stroke();
     

@@ -50,8 +50,28 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
         
         await core.initialize();
         
+        // Add a small delay to ensure everything is properly initialized
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         if (isMounted) {
           coreRef.current = core;
+          
+          // Validate core is ready
+          const scene = core.getScene();
+          const camera = core.getCamera();
+          const groundPlane = core.getGroundPlane();
+          
+          if (!scene || !camera || !groundPlane) {
+            throw new Error('Core components not properly initialized');
+          }
+          
+          console.log('ThreeJS Core fully initialized:', {
+            scene: !!scene,
+            camera: !!camera,
+            groundPlane: !!groundPlane,
+            sceneChildren: scene.children.length
+          });
+          
           // Set initial grid visibility after initialization
           if (!showGrid) {
             core.toggleGrid();

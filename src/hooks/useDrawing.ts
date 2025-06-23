@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Point3D, DrawingState, BuildingConfig, BuildingData } from '../types/building';
 import { DrawingService } from '../services/DrawingService';
 import { BuildingService } from '../services/BuildingService';
-import { TextService } from '../services/TextService'; // Add this import
+import { TextService } from '../services/TextService';
 import { getGroundIntersection, calculateDistance, snapToGrid } from '../utils/geometry';
 import { useBuildingManager } from './useBuildingManager';
 import * as THREE from 'three';
@@ -45,7 +45,7 @@ export const useDrawing = (
 
   const drawingServiceRef = useRef<DrawingService | null>(null);
   const buildingServiceRef = useRef<BuildingService | null>(null);
-  const textServiceRef = useRef<TextService | null>(null); // Add this line
+  const textServiceRef = useRef<TextService | null>(null);
   const mouseRef = useRef(new THREE.Vector2());
   const { addBuilding: buildingManagerAddBuilding } = useBuildingManager(scene);
   
@@ -54,7 +54,7 @@ export const useDrawing = (
     marker: null,
     line: null,
     building: null,
-    lengthLabel: null, // Add this line
+    lengthLabel: null,
     lastPosition: null,
     lastUpdateTime: 0,
     isUpdating: false
@@ -67,14 +67,19 @@ export const useDrawing = (
       try {
         drawingServiceRef.current = new DrawingService(scene);
         buildingServiceRef.current = new BuildingService(scene);
-        textServiceRef.current = new TextService(scene); // Add this line
+        textServiceRef.current = new TextService(scene);
         console.log('Drawing services initialized successfully');
+        
+        // Validate services immediately after creation
+        if (!drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current) {
+          throw new Error('Service initialization failed - one or more services are null');
+        }
       } catch (error) {
         console.error('Failed to initialize drawing services:', error);
         // Clear refs if initialization failed
         drawingServiceRef.current = null;
         buildingServiceRef.current = null;
-        textServiceRef.current = null; // Add this line
+        textServiceRef.current = null;
       }
     }
   }, [scene]);
@@ -86,7 +91,7 @@ export const useDrawing = (
     }
   }, [groundPlane]);
 
-  // Add a validation function to ensure services are ready
+  // Enhanced validation function with detailed logging
   const validateServices = useCallback(() => {
     if (!scene) {
       console.warn('Scene not available for drawing');
@@ -100,8 +105,16 @@ export const useDrawing = (
       console.warn('Ground plane not available for drawing');
       return false;
     }
-    if (!drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current) { // Update this line
-      console.warn('Drawing services not initialized');
+    if (!drawingServiceRef.current) {
+      console.warn('DrawingService not initialized');
+      return false;
+    }
+    if (!buildingServiceRef.current) {
+      console.warn('BuildingService not initialized');
+      return false;
+    }
+    if (!textServiceRef.current) {
+      console.warn('TextService not initialized');
       return false;
     }
     return true;
@@ -110,26 +123,50 @@ export const useDrawing = (
   // Enhanced preview clearing with validation
   const clearAllPreviews = useCallback(() => {
     // Only validate scene and services for clearing - groundPlane not required for cleanup
-    if (!scene || !drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current) return; // Update this line
+    if (!scene || !drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current) return;
 
     const preview = previewStateRef.current;
     
-    // Only clear if objects exist
-    if (preview.marker) {
-      drawingServiceRef.current.clearPreviewMarker(preview.marker);
-      preview.marker = null;
-    }
-    if (preview.line) {
-      drawingServiceRef.current.clearPreviewLine(preview.line);
-      preview.line = null;
-    }
+    // Clear in reverse order to avoid dependencies
     if (preview.building) {
-      buildingServiceRef.current.clearPreviewBuilding(preview.building);
+      try {
+        buildingServiceRef.current.clearPreviewBuilding(preview.building);
+      } catch (error) {
+        console.warn('Error clearing preview building:', error);
+        // Force remove from scene even if disposal fails
+        scene.remove(preview.building);
+      }
       preview.building = null;
     }
-    if (preview.lengthLabel) { // Add this block
-      textServiceRef.current.clearLengthLabel(preview.lengthLabel);
+    
+    if (preview.lengthLabel) {
+      try {
+        textServiceRef.current.clearLengthLabel(preview.lengthLabel);
+      } catch (error) {
+        console.warn('Error clearing length label:', error);
+        scene.remove(preview.lengthLabel);
+      }
       preview.lengthLabel = null;
+    }
+    
+    if (preview.line) {
+      try {
+        drawingServiceRef.current.clearPreviewLine(preview.line);
+      } catch (error) {
+        console.warn('Error clearing preview line:', error);
+        scene.remove(preview.line);
+      }
+      preview.line = null;
+    }
+    
+    if (preview.marker) {
+      try {
+        drawingServiceRef.current.clearPreviewMarker(preview.marker);
+      } catch (error) {
+        console.warn('Error clearing preview marker:', error);
+        scene.remove(preview.marker);
+      }
+      preview.marker = null;
     }
 
     // Reset position tracking
@@ -137,18 +174,18 @@ export const useDrawing = (
     preview.isUpdating = false;
 
     // Minimal React state update - only when actually clearing
-    setDrawingState(prev => prev.previewMarker || prev.previewLine || prev.previewBuilding || prev.previewLengthLabel ? ({ // Update this line
+    setDrawingState(prev => prev.previewMarker || prev.previewLine || prev.previewBuilding || prev.previewLengthLabel ? ({
       ...prev,
       previewMarker: null,
       previewLine: null,
       previewBuilding: null,
-      previewLengthLabel: null, // Add this line
+      previewLengthLabel: null,
       snapToStart: false
     }) : prev);
   }, [scene]);
 
   const clearAllDrawingElements = useCallback(() => {
-    if (!drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current) return; // Update this line
+    if (!drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current) return;
 
     // Clear all previews first
     clearAllPreviews();
@@ -164,278 +201,91 @@ export const useDrawing = (
       return prev;
     });
 
+    // Reset all service states
+    if (drawingServiceRef.current.resetPreviewState) {
+      drawingServiceRef.current.resetPreviewState();
+    }
+    if (buildingServiceRef.current.resetPreviewState) {
+      buildingServiceRef.current.resetPreviewState();
+    }
+    if (textServiceRef.current.resetPreviewState) {
+      textServiceRef.current.resetPreviewState();
+    }
+
     // Reset drawing state completely
     setDrawingState({
       isDrawing: false,
       points: [],
       markers: [],
       lines: [],
-      lengthLabels: [], // Add this line
+      lengthLabels: [],
       previewMarker: null,
       previewLine: null,
       previewBuilding: null,
-      previewLengthLabel: null, // Add this line
+      previewLengthLabel: null,
       snapToStart: false
     });
   }, [clearAllPreviews]);
 
   const startDrawing = useCallback(() => {
-    // Clear all previews immediately
+    // If already drawing, first clean up the current drawing session
+    if (drawingState.isDrawing) {
+      // Force complete cleanup before starting new drawing session
+      clearAllDrawingElements();
+    }
+    
+    // Force complete cleanup before starting new drawing session
     clearAllPreviews();
+    
+    // Reset service states to ensure clean preview creation
+    try {
+      if (drawingServiceRef.current?.resetPreviewState) {
+        drawingServiceRef.current.resetPreviewState();
+      }
+      if (buildingServiceRef.current?.resetPreviewState) {
+        buildingServiceRef.current.resetPreviewState();
+      }
+      if (textServiceRef.current?.resetPreviewState) {
+        textServiceRef.current.resetPreviewState();
+      }
+    } catch (error) {
+      console.warn('Error resetting service states on start:', error);
+    }
+
+    // Ensure preview state is completely fresh
+    previewStateRef.current = {
+      marker: null,
+      line: null,
+      building: null,
+      lengthLabel: null,
+      lastPosition: null,
+      lastUpdateTime: 0,
+      isUpdating: false
+    };
     
     setDrawingState({
       isDrawing: true,
       points: [],
       markers: [],
       lines: [],
-      lengthLabels: [], // Add this line
+      lengthLabels: [],
       previewMarker: null,
       previewLine: null,
       previewBuilding: null,
-      previewLengthLabel: null, // Add this line
+      previewLengthLabel: null,
       snapToStart: false
     });
-  }, [clearAllPreviews]);
 
-  const stopDrawing = useCallback(() => {
-    if (!drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current) return; // Update this line
+    console.log('Drawing started with fresh service states');
+  }, [clearAllPreviews, clearAllDrawingElements]);
 
-    // Clear all previews first
-    clearAllPreviews();
-
-    setDrawingState(prev => {
-      // Clear all existing elements from scene
-      drawingServiceRef.current?.clearMarkers(prev.markers);
-      drawingServiceRef.current?.clearLines(prev.lines);
-      textServiceRef.current?.clearAllLabels(prev.lengthLabels); // Add this line
-
-      return {
-        isDrawing: false,
-        points: [],
-        markers: [],
-        lines: [],
-        lengthLabels: [], // Add this line
-        previewMarker: null,
-        previewLine: null,
-        previewBuilding: null,
-        previewLengthLabel: null, // Add this line
-        snapToStart: false
-      };
-    });
-  }, [clearAllPreviews]);
-
-  const undoLastPoint = useCallback(() => {
-    if (!drawingServiceRef.current || !textServiceRef.current || drawingState.points.length === 0) return; // Update this line
-
-    // Clear previews immediately first
-    clearAllPreviews();
-
-    const newPoints = [...drawingState.points];
-    const newMarkers = [...drawingState.markers];
-    const newLines = [...drawingState.lines];
-    const newLengthLabels = [...drawingState.lengthLabels]; // Add this line
-
-    // Remove last point
-    newPoints.pop();
-    
-    // Remove last marker
-    const lastMarker = newMarkers.pop();
-    if (lastMarker) {
-      drawingServiceRef.current.clearMarkers([lastMarker]);
-    }
-
-    // Remove last line
-    const lastLine = newLines.pop();
-    if (lastLine) {
-      drawingServiceRef.current.clearLines([lastLine]);
-    }
-
-    // Remove last length label
-    const lastLengthLabel = newLengthLabels.pop(); // Add this block
-    if (lastLengthLabel) {
-      textServiceRef.current.clearLengthLabel(lastLengthLabel);
-    }
-
-    setDrawingState(prev => ({
-      ...prev,
-      points: newPoints,
-      markers: newMarkers,
-      lines: newLines,
-      lengthLabels: newLengthLabels, // Add this line
-      previewMarker: null,
-      previewLine: null,
-      previewBuilding: null,
-      previewLengthLabel: null, // Add this line
-      snapToStart: false
-    }));
-  }, [drawingState.points, drawingState.markers, drawingState.lines, drawingState.lengthLabels, clearAllPreviews]); // Update this line
-
-  // Enhanced updatePreview with standard performance
-  const updatePreview = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
-    // Early validation - only proceed if ALL required components are ready
-    if (!validateServices()) {
-      return;
-    }
-
-    const now = performance.now();
-    const preview = previewStateRef.current;
-    
-    // Standard throttling for smooth updates
-    const throttleMs = MOUSE_MOVE_THROTTLE;
-    
-    // Prevent overlapping updates and throttle for performance
-    if (preview.isUpdating || now - preview.lastUpdateTime < throttleMs) {
-      return;
-    }
-    
-    preview.isUpdating = true;
-    preview.lastUpdateTime = now;
-
-    // Use direct animation frame for immediate response
-    requestAnimationFrame(() => {
-      if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current) { // Update this line
-        preview.isUpdating = false;
-        if (preview.marker || preview.line || preview.building || preview.lengthLabel) { // Update this line
-          clearAllPreviews();
-        }
-        return;
-      }
-
-      try {
-        // Calculate mouse coordinates
-        const rect = containerElement.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) {
-          preview.isUpdating = false;
-          return;
-        }
-
-        mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-        // Get ground intersection
-        const intersection = getGroundIntersection(mouseRef.current, camera, groundPlane);
-        if (!intersection) {
-          preview.isUpdating = false;
-          return;
-        }
-
-        // Apply snap to grid if enabled
-        const snappedPosition = snapToGridEnabled ? snapToGrid(intersection, GRID_SIZE) : intersection;
-
-        // Check for snap to start point
-        const points = drawingState.points;
-        let snapToStart = false;
-        let snapActive = false;
-        if (points.length > 2) {
-          const startPoint = points[0];
-          const distance = calculateDistance(snappedPosition, startPoint);
-          if (distance < SNAP_DISTANCE) {
-            snappedPosition.x = startPoint.x;
-            snappedPosition.z = startPoint.z;
-            snapToStart = true;
-            snapActive = true;
-          }
-        }
-
-        // Highlight first marker if snapping to start
-        if (points.length > 0 && drawingState.markers.length > 0) {
-          const firstMarker = drawingState.markers[0];
-          const mat = firstMarker.material as THREE.MeshLambertMaterial;
-          if (snapActive) {
-            mat.color.setHex(0xffff00);
-            mat.emissive.setHex(0xffff00);
-            mat.emissiveIntensity = 0.7;
-            mat.opacity = 1.0;
-            mat.transparent = false;
-          } else {
-            // Restore to default (red)
-            mat.color.setHex(0xff4444);
-            mat.emissive.setHex(0xff0000);
-            mat.emissiveIntensity = 0.2;
-            mat.opacity = 1.0;
-            mat.transparent = false;
-          }
-        }
-
-        // Update preview marker
-        if (!preview.marker) {
-          preview.marker = drawingServiceRef.current.createPreviewMarker(snappedPosition);
-        } else {
-          drawingServiceRef.current.updatePreviewMarker(preview.marker, snappedPosition);
-        }
-
-        // Update preview line if we have points
-        if (points.length > 0) {
-          const lastPoint = points[points.length - 1];
-          if (!preview.line) {
-            preview.line = drawingServiceRef.current.createPreviewLine(lastPoint, snappedPosition);
-          } else {
-            drawingServiceRef.current.updatePreviewLine(preview.line, lastPoint, snappedPosition);
-          }
-
-          // Update preview length label
-          const distance = calculateDistance(lastPoint, snappedPosition);
-          const midPoint = new THREE.Vector3(
-            (lastPoint.x + snappedPosition.x) / 2,
-            Math.max(lastPoint.y, snappedPosition.y) + 1.5, // Slightly above the line
-            (lastPoint.z + snappedPosition.z) / 2
-          );
-          const distanceText = textServiceRef.current.formatDistance(distance);
-
-          if (!preview.lengthLabel) {
-            preview.lengthLabel = textServiceRef.current.createLengthLabel(distanceText, midPoint);
-          } else {
-            textServiceRef.current.updateLengthLabel(preview.lengthLabel, distanceText, midPoint);
-          }
-        }
-
-        // Update preview building
-        if (points.length >= 2) {
-          const buildingPoints = [...points, snappedPosition];
-          if (!preview.building) {
-            preview.building = buildingServiceRef.current.createPreviewBuilding(buildingPoints, buildingConfig);
-          } else {
-            buildingServiceRef.current.updatePreviewBuilding(preview.building, buildingPoints, buildingConfig);
-          }
-        }
-
-        // Update React state for snap to start
-        if (drawingState.snapToStart !== snapToStart) {
-          setDrawingState(prev => ({ ...prev, snapToStart }));
-        }
-
-        preview.lastPosition = snappedPosition;
-      } catch (error) {
-        console.error('Error updating preview:', error);
-      } finally {
-        preview.isUpdating = false;
-      }
-    });
-  }, [camera, groundPlane, drawingState.isDrawing, drawingState.points, drawingState.snapToStart, buildingConfig, snapToGridEnabled, clearAllPreviews, validateServices]);
-
-  // Standard throttling
-  const THROTTLE_MS = 8; // Standard performance for smooth updates
-  // Throttled update function
-  const throttledUpdatePreview = useCallback(
-    (() => {
-      let timeoutId: NodeJS.Timeout | null = null;
-      
-      return (event: MouseEvent, containerElement: HTMLElement) => {
-        if (timeoutId) return; // Skip if already scheduled
-        
-        timeoutId = setTimeout(() => {
-          updatePreview(event, containerElement);
-          timeoutId = null;
-        }, THROTTLE_MS);
-      };
-    })(),
-    [updatePreview]
-  );
-
+  // Declare finishBuilding BEFORE addPoint to avoid circular dependency
   const finishBuilding = useCallback(() => {
     if (!drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current || !scene) return;
 
-    // Clear all previews first
+    console.log('finishBuilding called with points:', drawingState.points.length);
+
+    // Clear all previews FIRST before any other operations
     clearAllPreviews();
 
     // Only create building if we have enough points
@@ -473,7 +323,6 @@ export const useDrawing = (
         console.log('Building created and added:', building.id);
 
         // IMPORTANT: Associate all current drawing elements with this building ID
-        // This ensures they get cleaned up when the building is deleted
         const drawingElements = [...drawingState.markers, ...drawingState.lines, ...drawingState.lengthLabels];
         drawingElements.forEach(element => {
           if (element.userData) {
@@ -492,7 +341,33 @@ export const useDrawing = (
     drawingServiceRef.current.clearLines(drawingState.lines);
     textServiceRef.current.clearAllLabels(drawingState.lengthLabels);
 
-    // Reset drawing state
+    // CRITICAL: Reset all service internal states to ensure clean slate for next building
+    try {
+      if (drawingServiceRef.current.resetPreviewState) {
+        drawingServiceRef.current.resetPreviewState();
+      }
+      if (buildingServiceRef.current.resetPreviewState) {
+        buildingServiceRef.current.resetPreviewState();
+      }
+      if (textServiceRef.current.resetPreviewState) {
+        textServiceRef.current.resetPreviewState();
+      }
+    } catch (error) {
+      console.warn('Error resetting service states:', error);
+    }
+
+    // Force complete reset of preview state reference - ensure no stale objects
+    previewStateRef.current = {
+      marker: null,
+      line: null,
+      building: null,
+      lengthLabel: null,
+      lastPosition: null,
+      lastUpdateTime: 0,
+      isUpdating: false
+    };
+
+    // Reset drawing state but keep services ready
     setDrawingState({
       isDrawing: false,
       points: [],
@@ -505,6 +380,8 @@ export const useDrawing = (
       previewLengthLabel: null,
       snapToStart: false
     });
+
+    console.log('finishBuilding completed, services reset for next drawing session');
   }, [drawingState.points, drawingState.markers, drawingState.lines, drawingState.lengthLabels, buildingConfig, scene, clearAllPreviews, addBuilding]);
 
   const addPoint = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
@@ -513,7 +390,7 @@ export const useDrawing = (
       return;
     }
 
-    if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current || !textServiceRef.current) { // Update this line
+    if (!drawingState.isDrawing || !camera || !groundPlane || !drawingServiceRef.current || !textServiceRef.current) {
       return;
     }
 
@@ -555,7 +432,7 @@ export const useDrawing = (
 
     // Create line to previous point if exists
     let line: THREE.Line | null = null;
-    let lengthLabel: THREE.Sprite | null = null; // Add this line
+    let lengthLabel: THREE.Sprite | null = null;
     if (drawingState.points.length > 0) {
       try {
         const previousPoint = drawingState.points[drawingState.points.length - 1];
@@ -580,14 +457,312 @@ export const useDrawing = (
       points: [...prev.points, intersection],
       markers: marker ? [...prev.markers, marker] : prev.markers,
       lines: line ? [...prev.lines, line] : prev.lines,
-      lengthLabels: lengthLabel ? [...prev.lengthLabels, lengthLabel] : prev.lengthLabels, // Add this line
+      lengthLabels: lengthLabel ? [...prev.lengthLabels, lengthLabel] : prev.lengthLabels,
       previewMarker: null,
       previewLine: null,
       previewBuilding: null,
-      previewLengthLabel: null, // Add this line
+      previewLengthLabel: null,
       snapToStart: false
     }));
   }, [drawingState.isDrawing, drawingState.points, drawingState.snapToStart, camera, groundPlane, snapToGridEnabled, finishBuilding, clearAllPreviews, validateServices]);
+
+  const stopDrawing = useCallback(() => {
+    if (!drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current) return;
+
+    // Clear all previews first
+    clearAllPreviews();
+
+    setDrawingState(prev => {
+      // Clear all existing elements from scene
+      drawingServiceRef.current?.clearMarkers(prev.markers);
+      drawingServiceRef.current?.clearLines(prev.lines);
+      textServiceRef.current?.clearAllLabels(prev.lengthLabels);
+
+      return {
+        isDrawing: false,
+        points: [],
+        markers: [],
+        lines: [],
+        lengthLabels: [],
+        previewMarker: null,
+        previewLine: null,
+        previewBuilding: null,
+        previewLengthLabel: null,
+        snapToStart: false
+      };
+    });
+  }, [clearAllPreviews]);
+
+  const undoLastPoint = useCallback(() => {
+    if (!drawingServiceRef.current || !textServiceRef.current || drawingState.points.length === 0) return;
+
+    // Clear previews immediately first
+    clearAllPreviews();
+
+    const newPoints = [...drawingState.points];
+    const newMarkers = [...drawingState.markers];
+    const newLines = [...drawingState.lines];
+    const newLengthLabels = [...drawingState.lengthLabels];
+
+    // Remove last point
+    newPoints.pop();
+    
+    // Remove last marker
+    const lastMarker = newMarkers.pop();
+    if (lastMarker) {
+      drawingServiceRef.current.clearMarkers([lastMarker]);
+    }
+
+    // Remove last line
+    const lastLine = newLines.pop();
+    if (lastLine) {
+      drawingServiceRef.current.clearLines([lastLine]);
+    }
+
+    // Remove last length label
+    const lastLengthLabel = newLengthLabels.pop();
+    if (lastLengthLabel) {
+      textServiceRef.current.clearLengthLabel(lastLengthLabel);
+    }
+
+    setDrawingState(prev => ({
+      ...prev,
+      points: newPoints,
+      markers: newMarkers,
+      lines: newLines,
+      lengthLabels: newLengthLabels,
+      previewMarker: null,
+      previewLine: null,
+      previewBuilding: null,
+      previewLengthLabel: null,
+      snapToStart: false
+    }));
+  }, [drawingState.points, drawingState.markers, drawingState.lines, drawingState.lengthLabels, clearAllPreviews]);
+
+  // Enhanced updatePreview with better service validation and error recovery
+  const updatePreview = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
+    // Early validation with detailed logging
+    if (!validateServices()) {
+      console.debug('updatePreview: Services not ready, skipping preview update');
+      return;
+    }
+
+    // Additional check for drawing state
+    if (!drawingState.isDrawing) {
+      console.debug('updatePreview: Not in drawing mode, skipping');
+      return;
+    }
+
+    const now = performance.now();
+    const preview = previewStateRef.current;
+    
+    // Standard throttling for smooth updates
+    const throttleMs = MOUSE_MOVE_THROTTLE;
+    
+    // Prevent overlapping updates and throttle for performance
+    if (preview.isUpdating || now - preview.lastUpdateTime < throttleMs) {
+      return;
+    }
+    
+    preview.isUpdating = true;
+    preview.lastUpdateTime = now;
+
+    // Use direct animation frame for immediate response
+    requestAnimationFrame(() => {
+      // Re-validate services inside the animation frame
+      if (!drawingState.isDrawing || !camera || !groundPlane || 
+          !drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current) {
+        preview.isUpdating = false;
+        console.debug('updatePreview: Services became unavailable during execution');
+        return;
+      }
+
+      try {
+        // Calculate mouse coordinates
+        const rect = containerElement.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+          preview.isUpdating = false;
+          return;
+        }
+
+        mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        // Get ground intersection
+        const intersection = getGroundIntersection(mouseRef.current, camera, groundPlane);
+        if (!intersection) {
+          preview.isUpdating = false;
+          return;
+        }
+
+        // Apply snap to grid if enabled
+        const snappedPosition = snapToGridEnabled ? snapToGrid(intersection, GRID_SIZE) : intersection;
+
+        // Check for snap to start point
+        const points = drawingState.points;
+        let snapToStart = false;
+        let snapActive = false;
+        if (points.length > 2) {
+          const startPoint = points[0];
+          const distance = calculateDistance(snappedPosition, startPoint);
+          if (distance < SNAP_DISTANCE) {
+            snappedPosition.x = startPoint.x;
+            snappedPosition.z = startPoint.z;
+            snapToStart = true;
+            snapActive = true;
+          }
+        }
+
+        // Update preview marker with forced recreation if needed
+        try {
+          if (snapActive && points.length > 2) {
+            // Show yellow snap marker instead of regular preview marker
+            if (preview.marker && !preview.marker.userData.isSnapPoint) {
+              // Replace regular preview marker with snap marker
+              drawingServiceRef.current.clearPreviewMarker(preview.marker);
+              preview.marker = null;
+            }
+            
+            // Force recreation if marker is null or invalid
+            if (!preview.marker || !preview.marker.parent) {
+              preview.marker = drawingServiceRef.current.createSnapPreviewMarker(snappedPosition);
+              console.debug('Created/recreated snap preview marker');
+            } else {
+              drawingServiceRef.current.updatePreviewMarker(preview.marker, snappedPosition);
+            }
+          } else {
+            // Show regular green preview marker
+            if (preview.marker && preview.marker.userData.isSnapPoint) {
+              // Replace snap marker with regular preview marker
+              drawingServiceRef.current.clearPreviewMarker(preview.marker);
+              preview.marker = null;
+            }
+            
+            // Force recreation if marker is null or invalid
+            if (!preview.marker || !preview.marker.parent) {
+              preview.marker = drawingServiceRef.current.createPreviewMarker(snappedPosition);
+              console.debug('Created/recreated regular preview marker');
+            } else {
+              drawingServiceRef.current.updatePreviewMarker(preview.marker, snappedPosition);
+            }
+          }
+        } catch (markerError) {
+          console.error('Error updating preview marker:', markerError);
+          preview.marker = null; // Reset marker on error
+          // Try to recreate on next frame
+          try {
+            preview.marker = drawingServiceRef.current.createPreviewMarker(snappedPosition);
+            console.debug('Recovered by recreating preview marker');
+          } catch (recoveryError) {
+            console.error('Failed to recover preview marker:', recoveryError);
+          }
+        }
+
+        // Update preview line and label with error handling
+        try {
+          if (points.length > 0) {
+            const lastPoint = points[points.length - 1];
+            
+            // Update preview line with forced recreation if needed
+            if (!preview.line || !preview.line.parent) {
+              if (preview.line) {
+                drawingServiceRef.current.clearPreviewLine(preview.line);
+              }
+              preview.line = drawingServiceRef.current.createPreviewLine(lastPoint, snappedPosition);
+              console.debug('Created/recreated preview line');
+            } else {
+              drawingServiceRef.current.updatePreviewLine(preview.line, lastPoint, snappedPosition);
+            }
+
+            // Update preview length label with forced recreation if needed
+            const distance = calculateDistance(lastPoint, snappedPosition);
+            const midPoint = new THREE.Vector3(
+              (lastPoint.x + snappedPosition.x) / 2,
+              Math.max(lastPoint.y, snappedPosition.y) + 2.5,
+              (lastPoint.z + snappedPosition.z) / 2
+            );
+            const distanceText = textServiceRef.current.formatDistance(distance);
+
+            if (!preview.lengthLabel || !preview.lengthLabel.parent) {
+              if (preview.lengthLabel) {
+                textServiceRef.current.clearLengthLabel(preview.lengthLabel);
+              }
+              preview.lengthLabel = textServiceRef.current.createLengthLabel(distanceText, midPoint);
+              console.debug('Created/recreated preview length label');
+            } else {
+              textServiceRef.current.updateLengthLabel(preview.lengthLabel, distanceText, midPoint);
+            }
+          } else {
+            // Clear preview line and label if no points
+            if (preview.line) {
+              drawingServiceRef.current.clearPreviewLine(preview.line);
+              preview.line = null;
+            }
+            if (preview.lengthLabel) {
+              textServiceRef.current.clearLengthLabel(preview.lengthLabel);
+              preview.lengthLabel = null;
+            }
+          }
+        } catch (lineError) {
+          console.error('Error updating preview line/label:', lineError);
+          // Reset on error and try to recreate
+          preview.line = null;
+          preview.lengthLabel = null;
+        }
+
+        // Update preview building with error handling
+        try {
+          if (points.length >= 2) {
+            const buildingPoints = [...points, snappedPosition];
+            if (!preview.building || !preview.building.parent) {
+              if (preview.building) {
+                buildingServiceRef.current.clearPreviewBuilding(preview.building);
+              }
+              preview.building = buildingServiceRef.current.createPreviewBuilding(buildingPoints, buildingConfig);
+              console.debug('Created/recreated preview building');
+            } else {
+              buildingServiceRef.current.updatePreviewBuilding(preview.building, buildingPoints, buildingConfig);
+            }
+          }
+        } catch (buildingError) {
+          console.error('Error updating preview building:', buildingError);
+          preview.building = null; // Reset on error
+        }
+
+        // Update React state for snap to start
+        if (drawingState.snapToStart !== snapToStart) {
+          setDrawingState(prev => ({ ...prev, snapToStart }));
+        }
+
+        preview.lastPosition = snappedPosition;
+      } catch (error) {
+        console.error('Error in updatePreview:', error);
+        // Clear all previews on error to prevent corruption
+        clearAllPreviews();
+      } finally {
+        preview.isUpdating = false;
+      }
+    });
+  }, [camera, groundPlane, drawingState.isDrawing, drawingState.points, drawingState.snapToStart, buildingConfig, snapToGridEnabled, clearAllPreviews, validateServices]);
+
+  // Standard throttling
+  const THROTTLE_MS = 8; // Standard performance for smooth updates
+  // Throttled update function
+  const throttledUpdatePreview = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout | null = null;
+      
+      return (event: MouseEvent, containerElement: HTMLElement) => {
+        if (timeoutId) return; // Skip if already scheduled
+        
+        timeoutId = setTimeout(() => {
+          updatePreview(event, containerElement);
+          timeoutId = null;
+        }, THROTTLE_MS);
+      };
+    })(),
+    [updatePreview]
+  );
 
   // Cleanup on unmount - ensure no orphaned objects
   useEffect(() => {

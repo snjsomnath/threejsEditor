@@ -97,10 +97,21 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     const area = calculatePolygonArea(points);
     const buildingId = `building_${++buildingIdCounter.current}`;
     
-    // Add click handler to mesh for selection
-    mesh.userData = { buildingId };
+    // CRITICAL: Ensure proper userData configuration for raycasting
+    mesh.userData = { 
+      buildingId, 
+      interactive: true, 
+      clickable: true, 
+      type: 'building',
+      isBuilding: true // Add this flag
+    };
+    
+    // Ensure mesh is properly configured for raycasting
     mesh.visible = true;
     mesh.frustumCulled = false;
+    mesh.matrixAutoUpdate = true;
+    mesh.updateMatrix();
+    mesh.updateMatrixWorld(true);
     
     // Ensure material is properly set up for interaction
     if (mesh.material) {
@@ -108,6 +119,7 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
       material.depthTest = true;
       material.transparent = false;
       material.side = THREE.FrontSide;
+      material.needsUpdate = true;
     }
 
     const building: BuildingData = {
@@ -118,39 +130,54 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
       floors,
       floorHeight,
       createdAt: new Date(),
-      name: `Building`,
+      name: `Building ${buildingIdCounter.current}`, // Give unique default names
       description: '',
       color: (mesh.material as THREE.MeshLambertMaterial).color.getHex(),
       footprintOutline: null,
       floorLines: null
     };
 
-    // Create footprint outline for selection
+    // Create footprint outline for selection with proper userData
     building.footprintOutline = createFootprintOutline(points, scene);
-    building.footprintOutline.userData = { buildingId, isFootprint: true };
+    building.footprintOutline.userData = { 
+      buildingId, 
+      isFootprint: true, 
+      interactive: true,
+      parentBuildingId: buildingId // Add parent reference
+    };
     building.footprintOutline.visible = true;
     building.footprintOutline.frustumCulled = false;
+    building.footprintOutline.matrixAutoUpdate = true;
+    building.footprintOutline.updateMatrix();
+    building.footprintOutline.updateMatrixWorld(true);
 
     // Create floor lines if building has more than 1 floor
     if (floors > 1) {
       building.floorLines = createFloorLines(points, floors, floorHeight, scene, buildingId);
     }
 
-    // Ensure mesh is added to the scene
+    // Ensure mesh is added to the scene and properly positioned
     if (!scene.children.includes(mesh)) {
       scene.add(mesh);
     }
+    
+    // Force scene update to ensure all matrices are current
+    scene.updateMatrixWorld(true);
 
-    // Debug: confirm mesh is in scene
+    // Debug: confirm mesh is in scene with proper configuration
     console.log('Adding building to scene:', {
       id: building.id,
-      mesh: mesh.uuid,
-      footprint: building.footprintOutline.uuid,
+      meshUuid: mesh.uuid,
+      meshVisible: mesh.visible,
+      meshPosition: mesh.position,
+      meshUserData: mesh.userData,
+      footprintUuid: building.footprintOutline.uuid,
+      footprintVisible: building.footprintOutline.visible,
+      footprintUserData: building.footprintOutline.userData,
+      floorLines: building.floorLines?.uuid,
       sceneChildren: scene.children.length,
-      userData: {
-        mesh: mesh.userData,
-        footprint: building.footprintOutline.userData
-      }
+      meshInScene: scene.children.includes(mesh),
+      footprintInScene: scene.children.includes(building.footprintOutline)
     });
 
     // Update both state and ref synchronously
@@ -158,14 +185,14 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     buildingsRef.current = newBuildings;
     setBuildings(newBuildings);
 
-    // Debug: verify building was added
-    console.log('Building added:', {
+    // Verify building was added
+    console.log('Building added successfully:', {
       id: building.id,
-      buildingsCount: newBuildings.length,
-      buildingsIds: newBuildings.map(b => b.id)
+      totalBuildings: newBuildings.length,
+      buildingIds: newBuildings.map(b => b.id)
     });
 
-    return building; // Return the building for immediate use
+    return building;
   }, [scene]);
 
   const updateBuilding = useCallback((id: string, updates: Partial<BuildingData> & { config?: BuildingConfig }) => {
@@ -270,8 +297,8 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
       material.opacity = 1.0;
     }
 
-    // Apply selection to new building
-    if (building) {
+    // Apply selection to new building (but only if it's not a preview)
+    if (building && !building.mesh.userData.isPreview && !building.mesh.userData.isDrawingElement) {
       const material = building.mesh.material as THREE.MeshLambertMaterial;
       // Set selection color (orange with transparency)
       material.color.setHex(0xffa500); // orange
@@ -288,14 +315,16 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     if (hoveredBuilding && hoveredBuilding !== selectedBuilding) {
       const material = hoveredBuilding.mesh.material as THREE.MeshLambertMaterial;
       material.emissive.setHex(0x000000);
-      // Restore original color
+      // Restore original color properly
       if (typeof hoveredBuilding.color === 'number') {
         material.color.setHex(hoveredBuilding.color);
       }
+      material.transparent = false;
+      material.opacity = 1.0;
     }
 
     // Apply hover to new building (only if not selected)
-    if (building && building !== selectedBuilding) {
+    if (building && building !== selectedBuilding && !building.mesh.userData.isPreview) {
       const material = building.mesh.material as THREE.MeshLambertMaterial;
       material.emissive.setHex(0x444444); // Gray highlight for hover
       console.log('Hovering building:', building.id, building.name);
@@ -607,41 +636,59 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     // Update raycaster
     raycaster.current.setFromCamera(mouse.current, camera);
 
-    // Get all meshes in the scene (including building meshes and footprints)
-    const allMeshes = scene.children.filter(child => child instanceof THREE.Mesh) as THREE.Mesh[];
-    console.log('Total meshes in scene:', allMeshes.length);
+    // Get ALL meshes in the scene that could be interactive
+    const interactiveMeshes: THREE.Mesh[] = [];
     
-    // Filter for building-related meshes only
-    const buildingMeshes = allMeshes.filter(mesh => 
-      mesh.userData.buildingId || mesh.userData.isFootprint
-    );
-    console.log('Building meshes found:', buildingMeshes.length);
+    scene.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        // Include building meshes and footprints
+        if (child.userData.buildingId || 
+            child.userData.isFootprint || 
+            child.userData.isBuilding ||
+            child.userData.interactive) {
+          interactiveMeshes.push(child);
+        }
+      }
+    });
+    
+    console.log('Interactive meshes found:', interactiveMeshes.length, 
+      interactiveMeshes.map(m => ({ 
+        uuid: m.uuid, 
+        userData: m.userData,
+        visible: m.visible,
+        position: m.position
+      })));
 
-    // Get intersections
-    const intersects = raycaster.current.intersectObjects(buildingMeshes);
+    // Get intersections with ALL interactive meshes
+    const intersects = raycaster.current.intersectObjects(interactiveMeshes, false);
     console.log('Intersections found:', intersects.length);
 
     if (intersects.length > 0) {
+      // Sort by distance to get the closest intersection
+      intersects.sort((a, b) => a.distance - b.distance);
+      
       const intersectedMesh = intersects[0].object as THREE.Mesh;
       const intersectionPoint = intersects[0].point;
 
-      console.log('Intersected mesh:', {
+      console.log('Closest intersected mesh:', {
         uuid: intersectedMesh.uuid,
         userData: intersectedMesh.userData,
-        position: intersectionPoint
+        position: intersectionPoint,
+        distance: intersects[0].distance
       });
 
-      // Get building ID from userData
-      const buildingId = intersectedMesh.userData.buildingId;
+      // Get building ID from userData - handle both direct building meshes and footprints
+      const buildingId = intersectedMesh.userData.buildingId || intersectedMesh.userData.parentBuildingId;
+      
       if (buildingId) {
         // Find building in current state
         const building = buildingsRef.current.find(b => b.id === buildingId);
-        console.log('Found building:', building?.id);
+        console.log('Found building for ID:', buildingId, !!building);
 
         if (building) {
           if (event.type === 'click' || event.type === 'mouseup') {
-            // Handle click - ONLY show tooltip, do NOT select building
-            console.log('Showing tooltip for building click');
+            // Handle click - show tooltip
+            console.log('Showing tooltip for building click:', building.id);
             const screenPos = worldToScreen(intersectionPoint, camera);
             showBuildingTooltip(building, screenPos);
             
@@ -653,21 +700,32 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
           } else if (event.type === 'mousemove') {
             // Handle hover - only if not already hovered
             if (building !== hoveredBuilding) {
+              console.log('Hovering building:', building.id);
               hoverBuilding(building);
             }
+            return {
+              type: intersectedMesh.userData.isFootprint ? 'footprint' : 'building',
+              building,
+              action: 'hover'
+            };
           }
+        } else {
+          console.warn('Building not found for ID:', buildingId);
         }
       } else {
-        console.log('Intersected mesh has no buildingId');
+        console.log('Intersected mesh has no buildingId or parentBuildingId');
       }
     } else {
       console.log('No intersections found');
       // No intersections - handle accordingly
       if (event.type === 'mousemove') {
         // Clear hover when not over any building
-        hoverBuilding(null);
+        if (hoveredBuilding) {
+          console.log('Clearing hover');
+          hoverBuilding(null);
+        }
       } else if (event.type === 'click' || event.type === 'mouseup') {
-        // Click on empty space - clear tooltip only (don't change selection)
+        // Click on empty space - clear tooltip only
         setBuildingTooltip(null);
       }
     }

@@ -98,7 +98,7 @@ export const SimpleBuildingCreator: React.FC = () => {
       } else if (isInitialized && camera && scene) {
         const result = handleBuildingInteraction(event, container);
         
-        if (result?.type === 'footprint') {
+        if (result?.type === 'footprint' && result.building && !result.building.mesh.userData.isPreview) {
           setBuildingConfig({
             floors: result.building.floors,
             floorHeight: result.building.floorHeight,
@@ -153,6 +153,7 @@ export const SimpleBuildingCreator: React.FC = () => {
         setShowBuildingConfig(false);
       }
     },
+    onUndoLastPoint: undoLastPoint,
     isDrawing: drawingState.isDrawing,
     isInitialized
   });
@@ -160,6 +161,32 @@ export const SimpleBuildingCreator: React.FC = () => {
   // Event handlers
   const handleStartDrawing = () => {
     if (!hasInteracted) setHasInteracted(true);
+    
+    // If already drawing, first stop any current drawing session
+    if (drawingState.isDrawing) {
+      stopDrawing();
+      
+      // Small delay to ensure cleanup completes before restarting
+      setTimeout(() => {
+        selectBuilding(null);
+        startDrawing();
+        
+        // Force immediate preview update if mouse is over the container
+        if (containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          const lastMouseEvent = document.createEvent('MouseEvents');
+          lastMouseEvent.initMouseEvent(
+            'mousemove', true, true, window, 0,
+            0, 0, rect.left + rect.width/2, rect.top + rect.height/2,
+            false, false, false, false, 0, null
+          );
+          containerRef.current.dispatchEvent(lastMouseEvent);
+        }
+      }, 10);
+      return;
+    }
+    
+    // Normal start drawing flow
     selectBuilding(null);
     startDrawing();
   };
@@ -177,13 +204,21 @@ export const SimpleBuildingCreator: React.FC = () => {
   };
 
   const handleEditBuilding = (building: any) => {
-    selectBuilding(building);
+    // Only select non-preview buildings
+    if (!building.mesh.userData.isPreview && !building.mesh.userData.isDrawingElement) {
+      selectBuilding(building);
+    }
   };
 
   const handleClearAll = () => {
     clearAllBuildings();
     if (clearAllDrawingElements) clearAllDrawingElements();
     selectBuilding(null);
+    
+    // Force service state reset
+    setTimeout(() => {
+      if (showBuildingConfig) setShowBuildingConfig(false);
+    }, 100);
   };
 
   const handleSwitchCameraType = (type: CameraType) => {
@@ -238,6 +273,17 @@ export const SimpleBuildingCreator: React.FC = () => {
     }
     return null;
   };
+
+  // Add debugging for drawing state changes
+  React.useEffect(() => {
+    console.log('Drawing state changed:', {
+      isDrawing: drawingState.isDrawing,
+      pointsCount: drawingState.points.length,
+      hasPreviewMarker: !!drawingState.previewMarker,
+      hasPreviewLine: !!drawingState.previewLine,
+      hasPreviewBuilding: !!drawingState.previewBuilding
+    });
+  }, [drawingState]);
 
   return (
     <div className="relative w-full h-screen bg-gray-950">

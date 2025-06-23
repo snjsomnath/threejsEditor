@@ -94,8 +94,21 @@ export const getGroundIntersection = (
     return result;
   }
   
-  // Fallback: calculate intersection with y=0 plane manually
+  // IMPROVED FALLBACK: Use a more reliable plane intersection method
+  // Create a mathematical plane at y=0 regardless of the mesh
+  const groundMathPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const planeIntersectPoint = new THREE.Vector3();
   const ray = raycaster.ray;
+  
+  const didIntersect = ray.intersectPlane(groundMathPlane, planeIntersectPoint);
+  
+  if (didIntersect) {
+    const result = { x: planeIntersectPoint.x, y: 0, z: planeIntersectPoint.z };
+    console.log('Mathematical plane intersection found:', result);
+    return result;
+  }
+  
+  // Original fallback method as last resort
   if (Math.abs(ray.direction.y) > 0.0001) { // Avoid division by zero
     const t = -ray.origin.y / ray.direction.y;
     if (t > 0) { // Only intersections in front of camera

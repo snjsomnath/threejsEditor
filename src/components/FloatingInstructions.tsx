@@ -35,6 +35,10 @@ export const FloatingInstructions: React.FC<FloatingInstructionsProps> = ({
               <div className="w-2 h-2 rounded-full bg-gray-400"></div>
               <span>ESC to cancel</span>
             </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 rounded-full bg-red-400"></div>
+              <span>Backspace to undo</span>
+            </div>
             
             <div className="pt-2 mt-2 border-t border-blue-700/50">
               <div className="text-blue-200 text-xs">

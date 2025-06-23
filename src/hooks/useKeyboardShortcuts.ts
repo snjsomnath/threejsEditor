@@ -9,6 +9,7 @@ interface KeyboardShortcutsProps {
   onExport: () => void;
   onClearAll: () => void;
   onEscape: () => void;
+  onUndoLastPoint: () => void;
   isDrawing: boolean;
   isInitialized: boolean;
 }
@@ -22,6 +23,7 @@ export const useKeyboardShortcuts = ({
   onExport,
   onClearAll,
   onEscape,
+  onUndoLastPoint,
   isDrawing,
   isInitialized
 }: KeyboardShortcutsProps) => {
@@ -36,7 +38,8 @@ export const useKeyboardShortcuts = ({
       // Handle shortcuts
       switch (event.key.toLowerCase()) {
         case 'd':
-          if (!isDrawing && isInitialized) {
+          // Allow 'D' to work even if already drawing - it will restart the drawing mode
+          if (isInitialized) {
             event.preventDefault();
             onDrawBuilding();
           }
@@ -78,6 +81,10 @@ export const useKeyboardShortcuts = ({
           event.preventDefault();
           onEscape();
           break;
+        case 'u':
+          event.preventDefault();
+          onUndoLastPoint();
+          break;
       }
     };
 
@@ -92,6 +99,7 @@ export const useKeyboardShortcuts = ({
     onExport,
     onClearAll,
     onEscape,
+    onUndoLastPoint,
     isDrawing,
     isInitialized
   ]);
