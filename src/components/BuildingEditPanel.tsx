@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import * as THREE from 'three';
 import { X, Save, RotateCcw, Layers, ChevronDown, Home, Wrench, Users, Wind, Info } from 'lucide-react';
 import { BuildingData, BuildingConfig } from '../types/building';
 import { Tooltip } from './ui/Tooltip';
 import { MaterialCompareDialog } from './dialogs/MaterialCompareDialog';
+import { calculateCentroid, createShapeFromPoints } from '../utils/geometry';
 
 const colorOptions = [
   { name: 'Blue', value: 0x3b82f6 },
@@ -112,33 +113,109 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
       natural_ventilation: building.natural_ventilation ?? false
     };
     setHasChanges(JSON.stringify(orig) !== JSON.stringify(edited));
-  }, [edited, building]);
-
-  // Live update for floors and floorHeight
-  useEffect(() => {
-    if (building.mesh && !building.mesh.userData.isPreview) {
-      // Update building in 3D view with new form values
+  }, [edited, building]);  // Helper function to update building geometry directly
+  const updateBuildingGeometry = useCallback(() => {
+    if (building.mesh && !building.mesh.userData.isPreview) {      // Only update if there are actual changes
       if (edited.floors !== building.floors || edited.floorHeight !== building.floorHeight) {
-        // Create a temp object to pass to onSave for live update
-        const updates: Partial<BuildingData> = {
-          floors: edited.floors,
-          floorHeight: edited.floorHeight
-        };
-        
-        // Call onSave with just the form updates
-        onSave(updates);
+        if (building.mesh.geometry) {
+          // Create new extruded geometry with updated height
+          const newHeight = edited.floors * edited.floorHeight;
+          
+          // Store the original position before updating
+          const originalPosition = building.mesh.position.clone();
+          
+          // Create shape properly using the centroid
+          const centroid = calculateCentroid(building.points);
+          const shape = createShapeFromPoints(building.points, centroid);
+          
+          const extrudeSettings = {
+            depth: newHeight,
+            bevelEnabled: false,
+            steps: 1
+          };
+          
+          const newGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+          newGeometry.rotateX(-Math.PI / 2);
+          
+          // Update mesh with new geometry
+          building.mesh.geometry.dispose();
+          building.mesh.geometry = newGeometry;
+          
+          // Restore the original position
+          building.mesh.position.copy(originalPosition);
+          
+          // Update floor lines if they exist
+          if (building.floorLines) {
+            // Remove old floor lines
+            building.floorLines.children.forEach((child: THREE.Object3D) => {
+              if ('geometry' in child && child.geometry) {
+                (child.geometry as THREE.BufferGeometry).dispose();
+              }
+              if ('material' in child && child.material) {
+                if (Array.isArray(child.material)) {
+                  child.material.forEach(mat => mat.dispose());
+                } else {
+                  (child.material as THREE.Material).dispose();
+                }
+              }
+            });
+            
+            // Clear children
+            while (building.floorLines.children.length > 0) {
+              building.floorLines.remove(building.floorLines.children[0]);
+            }
+            
+            // Create new floor lines
+            for (let floor = 1; floor < edited.floors; floor++) {
+              const yPosition = floor * edited.floorHeight;
+              
+              // Create line geometry from building footprint points
+              const linePoints: THREE.Vector3[] = [];
+              building.points.forEach(point => {
+                linePoints.push(new THREE.Vector3(point.x, yPosition, point.z));
+              });
+              // Close the line
+              linePoints.push(new THREE.Vector3(building.points[0].x, yPosition, building.points[0].z));
+              
+              const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+              const lineMaterial = new THREE.LineBasicMaterial({ 
+                color: 0x888888,
+                transparent: false,
+                opacity: 1,
+                linewidth: 5
+              });
+              
+              const floorLine = new THREE.Line(lineGeometry, lineMaterial);
+              floorLine.userData = { buildingId: building.id, isFloorLine: true, floor };
+              building.floorLines.add(floorLine);
+            }
+          }
+        }
       }
     }
-  }, [edited.floors, edited.floorHeight]);
-
+  }, [building, edited.floors, edited.floorHeight]);
+    // Live update for floors and floorHeight
+  useEffect(() => {
+    updateBuildingGeometry();
+    
+    // Just to provide feedback in the UI that geometry is updating
+    console.log('Live updating building geometry:', {
+      floors: edited.floors,
+      floorHeight: edited.floorHeight,
+      newHeight: edited.floors * edited.floorHeight
+    });
+  }, [edited.floors, edited.floorHeight, updateBuildingGeometry]);
   const updateField = (field: keyof typeof edited, value: any) => {
     setEdited(prev => ({ ...prev, [field]: value }));
     if (field === 'color' && building.mesh && building.mesh.material && building.mesh.userData.buildingId && !building.mesh.userData.isPreview && !building.mesh.userData.isDrawingElement) {
       const material = building.mesh.material as THREE.MeshLambertMaterial;
       material.color.setHex(value);
     }
-  };
-  const handleSave = () => {
+    
+    // If floors or floorHeight was updated directly via the UI controls,
+    // we don't need to call updateBuildingGeometry here as the useEffect will handle it
+  };  const handleSave = () => {
+    // Apply the changes to the building object permanently
     const updates: Partial<BuildingData> & { config: BuildingConfig } = {
       name: edited.name,
       description: edited.description,
@@ -231,10 +308,99 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
     });
   };
 
+  // Restore original geometry when panel is closed without saving
+  const handleClose = useCallback(() => {
+    // Only restore if there are unsaved changes
+    if (hasChanges) {
+      // Restore original geometry if needed
+      if (edited.floors !== building.floors || edited.floorHeight !== building.floorHeight) {        if (building.mesh && building.mesh.geometry) {          // Recreate original geometry
+          const originalHeight = building.floors * building.floorHeight;
+          
+          // Store the original position before updating
+          const originalPosition = building.mesh.position.clone();
+          
+          // Create shape properly using the centroid
+          const centroid = calculateCentroid(building.points);
+          const shape = createShapeFromPoints(building.points, centroid);
+          
+          const extrudeSettings = {
+            depth: originalHeight,
+            bevelEnabled: false,
+            steps: 1
+          };
+          
+          const newGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+          newGeometry.rotateX(-Math.PI / 2);
+          
+          // Update mesh with original geometry
+          building.mesh.geometry.dispose();
+          building.mesh.geometry = newGeometry;
+            // Restore the original position
+          building.mesh.position.copy(originalPosition);
+          
+          // Restore floor lines if they exist
+          if (building.floorLines) {
+            // Remove temporary floor lines
+            building.floorLines.children.forEach((child: THREE.Object3D) => {
+              if ('geometry' in child && child.geometry) {
+                (child.geometry as THREE.BufferGeometry).dispose();
+              }
+              if ('material' in child && child.material) {
+                if (Array.isArray(child.material)) {
+                  child.material.forEach(mat => mat.dispose());
+                } else {
+                  (child.material as THREE.Material).dispose();
+                }
+              }
+            });
+            
+            // Clear children
+            while (building.floorLines.children.length > 0) {
+              building.floorLines.remove(building.floorLines.children[0]);
+            }
+            
+            // Recreate original floor lines
+            for (let floor = 1; floor < building.floors; floor++) {
+              const yPosition = floor * building.floorHeight;
+              
+              // Create line geometry from building footprint points
+              const linePoints: THREE.Vector3[] = [];
+              building.points.forEach(point => {
+                linePoints.push(new THREE.Vector3(point.x, yPosition, point.z));
+              });
+              // Close the line
+              linePoints.push(new THREE.Vector3(building.points[0].x, yPosition, building.points[0].z));
+              
+              const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+              const lineMaterial = new THREE.LineBasicMaterial({ 
+                color: 0x888888,
+                transparent: false,
+                opacity: 1,
+                linewidth: 5
+              });
+              
+              const floorLine = new THREE.Line(lineGeometry, lineMaterial);
+              floorLine.userData = { buildingId: building.id, isFloorLine: true, floor };
+              building.floorLines.add(floorLine);
+            }
+          }
+        }
+      }
+      
+      // Restore original color if changed
+      if (edited.color !== building.color && building.mesh && building.mesh.material) {
+        const material = building.mesh.material as THREE.MeshLambertMaterial;
+        material.color.setHex(building.color || 0x3b82f6);
+      }
+    }
+    
+    // Call the original onClose handler
+    onClose();
+  }, [building, edited, hasChanges, onClose]);
+
   return (
     <div className="fixed inset-0 z-50 pointer-events-none">
-      {/* Drawer backdrop */}
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
+      {/* Drawer backdrop */}      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto" onClick={handleClose} />
       {/* Drawer */}
       <div className="fixed top-0 right-0 h-full w-full max-w-md bg-gray-900/98 shadow-2xl border-l border-gray-700/50 z-50 flex flex-col pointer-events-auto">
         {/* Header */}
@@ -244,7 +410,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
             <p className="text-sm text-gray-400 mt-1">{building.name || 'Unnamed Building'}</p>
           </div>
           <button 
-            onClick={onClose} 
+            onClick={handleClose} 
             className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-700/50"
           >
             <X className="w-5 h-5" />
