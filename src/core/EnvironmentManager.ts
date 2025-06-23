@@ -55,11 +55,13 @@ export class EnvironmentManager {
       color: this.config.groundColor!,
       transparent: this.config.groundOpacity! < 1,
       opacity: this.config.groundOpacity!,
-      roughness: 0.9,
-      metalness: 0.2,
+      roughness: 1.0, // Increased for better shadow contrast
+      metalness: 0.0, // Set to 0 for better shadow visibility
       side: THREE.DoubleSide,
       depthWrite: true,
-      alphaTest: this.config.groundOpacity! < 1 ? 0.1 : 0
+      alphaTest: this.config.groundOpacity! < 1 ? 0.1 : 0,
+      // Add these properties for better shadow reception
+      shadowSide: THREE.FrontSide
     });
     
     this.materials.push(groundMaterial);
@@ -67,10 +69,16 @@ export class EnvironmentManager {
     this.groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
     this.groundPlane.rotation.x = -Math.PI / 2;
     this.groundPlane.position.y = -0.01;
-    this.groundPlane.receiveShadow = true;
+    this.groundPlane.receiveShadow = true; // This is crucial for shadows
+    this.groundPlane.castShadow = false; // Ground shouldn't cast shadows
     this.groundPlane.userData = { isGround: true };
     
+    // Ensure the ground plane has proper normals for shadow reception
+    groundGeometry.computeVertexNormals();
+    
     this.scene.add(this.groundPlane);
+    
+    console.log('Ground plane created with shadow reception enabled');
   }
 
   private createGrid(): void {

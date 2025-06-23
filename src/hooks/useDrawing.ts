@@ -433,7 +433,7 @@ export const useDrawing = (
   );
 
   const finishBuilding = useCallback(() => {
-    if (!drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current || !scene) return; // Update this line
+    if (!drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current || !scene) return;
 
     // Clear all previews first
     clearAllPreviews();
@@ -441,12 +441,21 @@ export const useDrawing = (
     // Only create building if we have enough points
     if (drawingState.points.length >= 3) {
       try {
-        // Create the building mesh
+        // Create the building mesh with proper shadow configuration
         const buildingMesh = buildingServiceRef.current.createBuilding(drawingState.points, buildingConfig);
         
-        // Ensure the mesh is properly configured for interaction
+        // Ensure the mesh is properly configured for interaction AND shadows
         buildingMesh.userData.interactive = true;
         buildingMesh.userData.clickable = true;
+        buildingMesh.castShadow = true;
+        buildingMesh.receiveShadow = true;
+        
+        console.log('Building mesh created with shadow settings:', {
+          castShadow: buildingMesh.castShadow,
+          receiveShadow: buildingMesh.receiveShadow,
+          material: buildingMesh.material.constructor.name,
+          position: buildingMesh.position
+        });
         
         // Add the building to the building manager
         const building = addBuilding(
@@ -465,7 +474,7 @@ export const useDrawing = (
 
         // IMPORTANT: Associate all current drawing elements with this building ID
         // This ensures they get cleaned up when the building is deleted
-        const drawingElements = [...drawingState.markers, ...drawingState.lines, ...drawingState.lengthLabels]; // Update this line
+        const drawingElements = [...drawingState.markers, ...drawingState.lines, ...drawingState.lengthLabels];
         drawingElements.forEach(element => {
           if (element.userData) {
             element.userData.buildingId = building.id;
@@ -481,7 +490,7 @@ export const useDrawing = (
     // Clear all existing drawing elements from scene before resetting state
     drawingServiceRef.current.clearMarkers(drawingState.markers);
     drawingServiceRef.current.clearLines(drawingState.lines);
-    textServiceRef.current.clearAllLabels(drawingState.lengthLabels); // Add this line
+    textServiceRef.current.clearAllLabels(drawingState.lengthLabels);
 
     // Reset drawing state
     setDrawingState({
@@ -489,14 +498,14 @@ export const useDrawing = (
       points: [],
       markers: [],
       lines: [],
-      lengthLabels: [], // Add this line
+      lengthLabels: [],
       previewMarker: null,
       previewLine: null,
       previewBuilding: null,
-      previewLengthLabel: null, // Add this line
+      previewLengthLabel: null,
       snapToStart: false
     });
-  }, [drawingState.points, drawingState.markers, drawingState.lines, drawingState.lengthLabels, buildingConfig, scene, clearAllPreviews, addBuilding]); // Update this line
+  }, [drawingState.points, drawingState.markers, drawingState.lines, drawingState.lengthLabels, buildingConfig, scene, clearAllPreviews, addBuilding]);
 
   const addPoint = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
     if (!validateServices()) {

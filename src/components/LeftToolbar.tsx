@@ -10,6 +10,7 @@ interface LeftToolbarProps {
   onShowConfig: () => void;
   onExport: () => void;
   onClearAll: () => void;
+  onDebugShadows?: () => void; // Add this
 }
 
 export const LeftToolbar: React.FC<LeftToolbarProps> = ({
@@ -19,7 +20,8 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
   onStartDrawing,
   onShowConfig,
   onExport,
-  onClearAll
+  onClearAll,
+  onDebugShadows // Add this
 }) => {
   return (
     <div className="fixed left-4 top-1/2 -translate-y-1/2 z-40 transform-gpu">
@@ -67,6 +69,19 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
             variant="danger"
             keyboardShortcut="Del"
           />
+
+          {/* Debug Shadows Button - only show in development */}
+          {process.env.NODE_ENV === 'development' && onDebugShadows && (
+            <button
+              onClick={onDebugShadows}
+              className="p-3 bg-yellow-600/80 hover:bg-yellow-600 text-white rounded-lg
+                       transition-all duration-200 shadow-lg hover:shadow-xl
+                       disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Debug Shadows (Dev)"
+            >
+              🔍
+            </button>
+          )}
         </div>
       </div>
     </div>

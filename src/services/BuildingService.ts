@@ -46,7 +46,7 @@ export class BuildingService {
     // Rotate geometry so it extrudes upward (Y-axis)
     geometry.rotateX(-Math.PI / 2);
     
-    // Create material
+    // Create material with proper shadow settings
     const material = new THREE.MeshLambertMaterial({
       color: config.color,
       side: THREE.DoubleSide
@@ -57,19 +57,28 @@ export class BuildingService {
     // Position at centroid
     building.position.set(centroid.x, 0, centroid.z);
     
+    // IMPORTANT: Enable shadows explicitly
+    building.castShadow = true;
+    building.receiveShadow = true;
+    
     // Ensure proper userData for interaction
     building.userData = { 
       type: 'building',
       interactive: true,
-      clickable: true
+      clickable: true,
+      castsShadows: true
     };
     
-    if (config.enableShadows) {
-      building.castShadow = true;
-      building.receiveShadow = true;
-    }
-    
+    // Add to scene (don't use this.scene.add directly)
     this.scene.add(building);
+    
+    console.log('Building created with shadows enabled:', {
+      castShadow: building.castShadow,
+      receiveShadow: building.receiveShadow,
+      position: building.position,
+      height: height
+    });
+    
     return building;
   }
 
@@ -110,12 +119,17 @@ export class BuildingService {
     // Position at centroid
     previewBuilding.position.set(centroid.x, 0, centroid.z);
     
+    // Enable shadows for preview too (helps with visualization)
+    previewBuilding.castShadow = true;
+    previewBuilding.receiveShadow = true;
+    
     // Add userData for identification and cleanup
     previewBuilding.userData = {
       isDrawingElement: true,
       isPreview: true,
       type: 'footprint',
-      isFootprintPreview: true
+      isFootprintPreview: true,
+      castsShadows: true
     };
     
     this.scene.add(previewBuilding);

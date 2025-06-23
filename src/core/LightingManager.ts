@@ -62,15 +62,26 @@ export class LightingManager {
       this.sun.castShadow = true;
       this.sun.shadow.mapSize.width = this.config.shadowMapSize!;
       this.sun.shadow.mapSize.height = this.config.shadowMapSize!;
-      this.sun.shadow.camera.near = 1;
-      this.sun.shadow.camera.far = 200;
+      
+      // Improved shadow camera configuration
+      this.sun.shadow.camera.near = 0.5;
+      this.sun.shadow.camera.far = 500;
       
       const bounds = this.config.shadowCameraBounds!;
       this.sun.shadow.camera.left = -bounds;
       this.sun.shadow.camera.right = bounds;
       this.sun.shadow.camera.top = bounds;
       this.sun.shadow.camera.bottom = -bounds;
-      this.sun.shadow.radius = 1;
+      
+      // Better shadow quality settings
+      this.sun.shadow.radius = 4;
+      this.sun.shadow.blurSamples = 25;
+      this.sun.shadow.bias = -0.0001;
+      this.sun.shadow.normalBias = 0.02;
+      
+      // Position the shadow camera target at the scene center
+      this.sun.target.position.set(0, 0, 0);
+      this.scene.add(this.sun.target);
       
       this.shadowHelper = new THREE.CameraHelper(this.sun.shadow.camera);
       this.shadowHelper.visible = false;
@@ -144,6 +155,14 @@ export class LightingManager {
   updateSunPosition(x: number, y: number, z: number): void {
     if (this.sun) {
       this.sun.position.set(x, y, z);
+      
+      // Update shadow camera position to follow the light
+      if (this.sun.shadow && this.sun.target) {
+        // Ensure the shadow camera is looking at the scene center
+        this.sun.target.position.set(0, 0, 0);
+        this.sun.target.updateMatrixWorld();
+      }
+      
       this.updateSkyUniforms();
       
       if (this.shadowHelper) {
@@ -152,7 +171,49 @@ export class LightingManager {
     }
   }
 
+  // Add method to get shadow information for debugging
+  getShadowInfo(): { enabled: boolean; mapSize: number; bounds: number; position: THREE.Vector3 | null } {
+    if (!this.sun) {
+      return { enabled: false, mapSize: 0, bounds: 0, position: null };
+    }
+    
+    return {
+      enabled: this.sun.castShadow,
+      mapSize: this.sun.shadow?.mapSize.width || 0,
+      bounds: this.config.shadowCameraBounds!,
+      position: this.sun.position.clone()
+    };
+  }
+
+  // Expose the updateShadowBounds method
+  updateShadowBounds(minBounds: number = 30, maxBounds: number = 100): void {
+    if (!this.sun || !this.sun.shadow) return;
+    
+    // Calculate appropriate bounds based on scene size
+    const bounds = Math.max(minBounds, Math.min(maxBounds, this.config.shadowCameraBounds!));
+    
+    this.sun.shadow.camera.left = -bounds;
+    this.sun.shadow.camera.right = bounds;
+    this.sun.shadow.camera.top = bounds;
+    this.sun.shadow.camera.bottom = -bounds;
+    this.sun.shadow.camera.updateProjectionMatrix();
+    
+    // Update config for future reference
+    this.config.shadowCameraBounds = bounds;
+    
+    console.log(`Shadow bounds updated to: ${bounds}`);
+    
+    if (this.shadowHelper) {
+      this.shadowHelper.update();
+    }
+  }
+
   dispose(): void {
+    // Dispose sun target
+    if (this.sun && this.sun.target) {
+      this.scene.remove(this.sun.target);
+    }
+    
     // Dispose shadow helper
     if (this.shadowHelper) {
       this.scene.remove(this.shadowHelper);

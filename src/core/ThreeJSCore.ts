@@ -361,6 +361,91 @@ export class ThreeJSCore {
       console.error('Failed to fit camera to scene:', error);
       this.emit('error', error instanceof Error ? error : new Error(String(error)));
     }
+ }
+
+  // Add object with proper shadow configuration
+  addObject(object: THREE.Object3D, options: { castShadow?: boolean; receiveShadow?: boolean } = {}): void {
+    const { castShadow = true, receiveShadow = true } = options;
+    
+    // Recursively configure shadows for all meshes in the object
+    object.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = castShadow;
+        child.receiveShadow = receiveShadow;
+      }
+    });
+    
+    this.sceneManager.addObject(object);
+  }
+
+  // Shadow debugging methods
+  toggleShadowHelper(): void {
+    this.lightingManager.toggleShadowHelper();
+  }
+
+  updateShadowQuality(quality: 'low' | 'medium' | 'high' | 'ultra'): void {
+    this.lightingManager.updateShadowQuality(quality);
+  }
+
+  updateSunPosition(x: number, y: number, z: number): void {
+    this.lightingManager.updateSunPosition(x, y, z);
+  }
+
+  // Add new shadow debugging methods
+  updateShadowBounds(minBounds?: number, maxBounds?: number): void {
+    this.lightingManager.updateShadowBounds(minBounds, maxBounds);
+  }
+
+  getShadowInfo(): { enabled: boolean; mapSize: number; bounds: number; position: THREE.Vector3 | null } {
+    return this.lightingManager.getShadowInfo();
+  }
+
+  debugShadows(): void {
+    const info = this.getShadowInfo();
+    console.log('=== Shadow Debug Info ===');
+    console.log('Shadows enabled:', info.enabled);
+    console.log('Shadow map size:', info.mapSize);
+    console.log('Shadow camera bounds:', info.bounds);
+    console.log('Sun position:', info.position);
+    
+    // Check ground plane shadow settings
+    const ground = this.getGroundPlane();
+    if (ground) {
+      console.log('Ground receiveShadow:', ground.receiveShadow);
+      console.log('Ground castShadow:', ground.castShadow);
+      console.log('Ground material type:', ground.material.constructor.name);
+    }
+    
+    // Show shadow helper for visual debugging
+    this.toggleShadowHelper();
+    
+    // Adjust shadow bounds based on scene
+    this.autoAdjustShadowBounds();
+  }
+
+  private autoAdjustShadowBounds(): void {
+    // Calculate scene bounds to adjust shadow camera
+    const box = new THREE.Box3();
+    this.getScene().traverse((object) => {
+      if (object !== this.getScene() && 
+          !object.userData.isGround && 
+          object.type !== 'GridHelper' &&
+          object.type !== 'DirectionalLight' &&
+          object.type !== 'CameraHelper') {
+        const objBox = new THREE.Box3().setFromObject(object);
+        if (!objBox.isEmpty()) {
+          box.union(objBox);
+        }
+      }
+    });
+    
+    if (!box.isEmpty()) {
+      const size = box.getSize(new THREE.Vector3());
+      const maxDimension = Math.max(size.x, size.y, size.z);
+      const bounds = Math.max(30, maxDimension * 1.5);
+      this.updateShadowBounds(bounds, bounds * 2);
+      console.log('Auto-adjusted shadow bounds to:', bounds);
+    }
   }
 }
 

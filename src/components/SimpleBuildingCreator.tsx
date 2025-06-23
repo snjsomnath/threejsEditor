@@ -40,7 +40,10 @@ export const SimpleBuildingCreator: React.FC = () => {
     retryInitialization,
     switchCameraType,
     getCurrentCameraType,
-    setCameraView
+    setCameraView,
+    debugShadows, // Add this
+    updateShadowBounds, // Add this
+    getShadowInfo // Add this
   } = useThreeJS(containerRef, showGrid);
   
   // Initialize building management
@@ -196,6 +199,32 @@ export const SimpleBuildingCreator: React.FC = () => {
     }
   };
 
+  // Add shadow debugging function
+  const handleDebugShadows = () => {
+    if (debugShadows) {
+      console.log('=== Shadow Debug Report ===');
+      debugShadows();
+      
+      // Check all buildings for shadow settings
+      buildings.forEach(building => {
+        console.log(`Building ${building.id}:`, {
+          castShadow: building.mesh.castShadow,
+          receiveShadow: building.mesh.receiveShadow,
+          position: building.mesh.position,
+          material: building.mesh.material.constructor.name
+        });
+      });
+      
+      // Auto-adjust shadow bounds based on buildings
+      if (updateShadowBounds && buildings.length > 0) {
+        const maxDistance = Math.max(...buildings.map(b => 
+          Math.max(Math.abs(b.mesh.position.x), Math.abs(b.mesh.position.z))
+        ));
+        updateShadowBounds(Math.max(50, maxDistance + 20));
+      }
+    }
+  };
+
   // Determine instruction mode
   const getInstructionMode = () => {
     if (!hasInteracted && !drawingState.isDrawing && buildings.length === 0 && isInitialized) {
@@ -252,6 +281,7 @@ export const SimpleBuildingCreator: React.FC = () => {
         onShowConfig={() => setShowBuildingConfig(!showBuildingConfig)}
         onExport={exportBuildings}
         onClearAll={handleClearAll}
+        onDebugShadows={handleDebugShadows} // Add this prop
       />
 
       {/* Bottom Toolbar */}

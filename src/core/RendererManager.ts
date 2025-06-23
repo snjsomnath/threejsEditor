@@ -43,11 +43,18 @@ export class RendererManager {
       stencil: false
     });
     
+    // Shadow configuration
     renderer.shadowMap.enabled = this.config.shadows!;
     renderer.shadowMap.type = this.config.shadowType!;
+    renderer.shadowMap.autoUpdate = true;
+    
+    // Color space and tone mapping
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = this.config.toneMapping!;
     renderer.toneMappingExposure = this.config.toneMappingExposure!;
+    
+    // Performance optimizations
+    renderer.setPixelRatio(this.config.pixelRatio!);
     
     return renderer;
   }

@@ -69,6 +69,7 @@ export class DrawingService {
     const marker = new THREE.Mesh(DrawingService.pointGeometry!, DrawingService.pointMaterial!);
     marker.position.set(position.x, position.y + 0.25, position.z);
     marker.castShadow = true;
+    marker.receiveShadow = false; // Markers don't need to receive shadows
     
     // Add userData for identification and cleanup
     marker.userData = {
