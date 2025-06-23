@@ -20,6 +20,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { ThreeJSCore } from '../core/ThreeJSCore';
+import type { CameraType, CameraView, ViewTransitionOptions } from '../core/ThreeJSCore';
 
 export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGrid: boolean = true) => {
   const coreRef = useRef<ThreeJSCore | null>(null);
@@ -121,6 +122,43 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     // The useEffect will reinitialize automatically
   }, []);
 
+  const switchCameraType = useCallback((type: CameraType) => {
+    if (coreRef.current) {
+      try {
+        coreRef.current.switchCameraType(type);
+        console.log(`Camera type switched to: ${type}`);
+      } catch (error) {
+        console.error('Failed to switch camera type:', error);
+      }
+    } else {
+      console.warn('Cannot switch camera type - core not initialized');
+    }
+  }, []);
+
+  const setCameraView = useCallback((view: CameraView, options?: ViewTransitionOptions) => {
+    if (coreRef.current) {
+      try {
+        coreRef.current.setCameraView(view, options);
+        console.log(`Camera view set to: ${view}`);
+      } catch (error) {
+        console.error('Failed to set camera view:', error);
+      }
+    } else {
+      console.warn('Cannot set camera view - core not initialized');
+    }
+  }, []);
+
+  const getCurrentCameraType = useCallback((): CameraType | undefined => {
+    if (coreRef.current) {
+      try {
+        return coreRef.current.getCurrentCameraType();
+      } catch (error) {
+        console.error('Failed to get current camera type:', error);
+      }
+    }
+    return undefined;
+  }, []);
+
   return {
     scene: coreRef.current?.getScene() || null,
     camera: coreRef.current?.getCamera() || null,
@@ -134,6 +172,9 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     toggleFPSCounter,
     togglePerformanceMode,
     retryInitialization,
+    switchCameraType,
+    getCurrentCameraType,
+    setCameraView,
     debugHelpers: {
       toggleShadowHelper: () => {},
       toggleShadowQuality: () => {},

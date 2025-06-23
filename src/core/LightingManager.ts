@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { Sky } from 'three/examples/jsm/objects/Sky.js';
 
 export interface LightingConfig {
   sunLightColor?: number;
@@ -15,6 +16,8 @@ export class LightingManager {
   private config: LightingConfig;
   private sun: THREE.DirectionalLight | null = null;
   private shadowHelper: THREE.CameraHelper | null = null;
+  private sky: Sky | null = null;
+  private needsShadowUpdate = false;
 
   constructor(scene: THREE.Scene, config: LightingConfig = {}) {
     this.scene = scene;
@@ -31,10 +34,15 @@ export class LightingManager {
   }
 
   async initialize(): Promise<void> {
-    this.createSunLight();
-    
-    if (this.config.enableSky) {
-      await this.createSky();
+    try {
+      this.createSunLight();
+      
+      if (this.config.enableSky) {
+        await this.createSky();
+      }
+    } catch (error) {
+      console.error('Failed to initialize lighting:', error);
+      throw error;
     }
   }
 
@@ -73,15 +81,24 @@ export class LightingManager {
   }
 
   private async createSky(): Promise<void> {
-    const { Sky } = await import('three/examples/jsm/objects/Sky.js');
-    const sky = new Sky();
-    sky.scale.setScalar(10000);
-    this.scene.add(sky);
-    
-    if (this.sun) {
+    try {
+      const { Sky } = await import('three/examples/jsm/objects/Sky.js');
+      this.sky = new Sky();
+      this.sky.scale.setScalar(10000);
+      this.scene.add(this.sky);
+      
+      this.updateSkyUniforms();
+    } catch (error) {
+      console.error('Failed to create sky:', error);
+      throw error;
+    }
+  }
+
+  private updateSkyUniforms(): void {
+    if (this.sky && this.sun) {
       const sunPosition = new THREE.Vector3();
       sunPosition.copy(this.sun.position).normalize();
-      sky.material.uniforms['sunPosition'].value.copy(sunPosition);
+      this.sky.material.uniforms['sunPosition'].value.copy(sunPosition);
     }
   }
 
@@ -92,7 +109,7 @@ export class LightingManager {
   }
 
   updateShadowQuality(quality: 'low' | 'medium' | 'high' | 'ultra'): void {
-    if (!this.sun) return;
+    if (!this.sun || !this.sun.shadow) return;
     
     const settings = {
       'low': { size: 1024, radius: 2.5 },
@@ -101,12 +118,66 @@ export class LightingManager {
       'ultra': { size: 8192, radius: 0.5 }
     }[quality];
     
-    this.sun.shadow.mapSize.width = settings.size;
-    this.sun.shadow.mapSize.height = settings.size;
-    this.sun.shadow.radius = settings.radius;
+    // Properly update shadow map size
+    const currentSize = this.sun.shadow.mapSize;
+    if (currentSize.width !== settings.size || currentSize.height !== settings.size) {
+      // Dispose old shadow map
+      if (this.sun.shadow.map) {
+        this.sun.shadow.map.dispose();
+        this.sun.shadow.map = null;
+      }
+      
+      // Update size
+      this.sun.shadow.mapSize.setScalar(settings.size);
+      this.sun.shadow.radius = settings.radius;
+      
+      // Mark for shadow camera update
+      this.needsShadowUpdate = true;
+    }
     
-    if (this.shadowHelper) {
+    if (this.shadowHelper && this.needsShadowUpdate) {
       this.shadowHelper.update();
+      this.needsShadowUpdate = false;
+    }
+  }
+
+  updateSunPosition(x: number, y: number, z: number): void {
+    if (this.sun) {
+      this.sun.position.set(x, y, z);
+      this.updateSkyUniforms();
+      
+      if (this.shadowHelper) {
+        this.shadowHelper.update();
+      }
+    }
+  }
+
+  dispose(): void {
+    // Dispose shadow helper
+    if (this.shadowHelper) {
+      this.scene.remove(this.shadowHelper);
+      this.shadowHelper = null;
+    }
+    
+    // Dispose sun light and shadow map
+    if (this.sun) {
+      if (this.sun.shadow?.map) {
+        this.sun.shadow.map.dispose();
+      }
+      this.scene.remove(this.sun);
+      this.sun = null;
+    }
+    
+    // Dispose sky
+    if (this.sky) {
+      if (this.sky.material) {
+        this.sky.material.dispose();
+      }
+      if (this.sky.geometry) {
+        this.sky.geometry.dispose();
+      }
+      this.scene.remove(this.sky);
+      this.sky = null;
     }
   }
 }

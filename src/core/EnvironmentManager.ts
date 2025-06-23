@@ -23,6 +23,7 @@ export class EnvironmentManager {
   private config: EnvironmentConfig;
   private groundPlane: THREE.Mesh | null = null;
   private gridHelper: THREE.GridHelper | null = null;
+  private materials: THREE.Material[] = [];
 
   constructor(scene: THREE.Scene, config: EnvironmentConfig = {}) {
     this.scene = scene;
@@ -52,13 +53,16 @@ export class EnvironmentManager {
     
     const groundMaterial = new THREE.MeshStandardMaterial({
       color: this.config.groundColor!,
-      transparent: true,
+      transparent: this.config.groundOpacity! < 1,
       opacity: this.config.groundOpacity!,
       roughness: 0.9,
       metalness: 0.2,
       side: THREE.DoubleSide,
-      depthWrite: true
+      depthWrite: true,
+      alphaTest: this.config.groundOpacity! < 1 ? 0.1 : 0
     });
+    
+    this.materials.push(groundMaterial);
     
     this.groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
     this.groundPlane.rotation.x = -Math.PI / 2;
@@ -83,18 +87,22 @@ export class EnvironmentManager {
     this.gridHelper.position.y = 0.001;
     this.gridHelper.visible = this.config.showGrid!;
     
-    // Improve grid material properties
-    if (this.gridHelper.material instanceof THREE.Material) {
+    // Fix material conflicts by properly configuring grid materials
+    if (this.gridHelper.material instanceof THREE.LineBasicMaterial) {
       this.gridHelper.material.transparent = true;
-      this.gridHelper.material.opacity = 0.8;
+      this.gridHelper.material.opacity = this.config.gridOpacity!;
       this.gridHelper.material.depthWrite = false;
       this.gridHelper.material.depthTest = true;
+      this.gridHelper.material.fog = false;
+      this.materials.push(this.gridHelper.material);
     } else if (Array.isArray(this.gridHelper.material)) {
-      this.gridHelper.material.forEach(material => {
+      this.gridHelper.material.forEach((material, index) => {
         material.transparent = true;
-        material.opacity = 0.9;
+        material.opacity = index === 0 ? this.config.gridOpacity! * 1.2 : this.config.gridOpacity!;
         material.depthWrite = false;
         material.depthTest = true;
+        material.fog = false;
+        this.materials.push(material);
       });
     }
     
@@ -118,6 +126,50 @@ export class EnvironmentManager {
   setGridVisibility(visible: boolean): void {
     if (this.gridHelper) {
       this.gridHelper.visible = visible;
+    }
+  }
+
+  updateGroundColor(color: number): void {
+    if (this.groundPlane && this.groundPlane.material instanceof THREE.MeshStandardMaterial) {
+      this.groundPlane.material.color.setHex(color);
+    }
+  }
+
+  updateGridColor(color: number): void {
+    if (this.gridHelper) {
+      const newColor = new THREE.Color(color);
+      const newColorDark = new THREE.Color(color).multiplyScalar(0.9);
+      
+      if (Array.isArray(this.gridHelper.material)) {
+        this.gridHelper.material[0].color = newColor;
+        this.gridHelper.material[1].color = newColorDark;
+      }
+    }
+  }
+
+  dispose(): void {
+    // Dispose materials
+    this.materials.forEach(material => {
+      material.dispose();
+    });
+    this.materials.length = 0;
+    
+    // Dispose ground plane
+    if (this.groundPlane) {
+      if (this.groundPlane.geometry) {
+        this.groundPlane.geometry.dispose();
+      }
+      this.scene.remove(this.groundPlane);
+      this.groundPlane = null;
+    }
+    
+    // Dispose grid helper
+    if (this.gridHelper) {
+      if (this.gridHelper.geometry) {
+        this.gridHelper.geometry.dispose();
+      }
+      this.scene.remove(this.gridHelper);
+      this.gridHelper = null;
     }
   }
 }

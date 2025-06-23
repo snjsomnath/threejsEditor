@@ -11,6 +11,7 @@ import { BuildingConfigPanel } from './BuildingConfigPanel';
 import { BuildingEditPanel } from './BuildingEditPanel';
 import { BuildingTooltip } from './BuildingTooltip';
 import { BuildingConfig } from '../types/building';
+import type { CameraType, CameraView } from '../core/ThreeJSCore';
 
 export const SimpleBuildingCreator: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -23,6 +24,7 @@ export const SimpleBuildingCreator: React.FC = () => {
     floorHeight: 3.5,
     color: 0x6366f1
   });
+  const [currentCameraType, setCurrentCameraType] = useState<CameraType>('perspective');
   
   // Initialize Three.js scene
   const { 
@@ -35,7 +37,10 @@ export const SimpleBuildingCreator: React.FC = () => {
     showFPS,
     toggleGrid, 
     toggleFPSCounter,
-    retryInitialization
+    retryInitialization,
+    switchCameraType,
+    getCurrentCameraType,
+    setCameraView
   } = useThreeJS(containerRef, showGrid);
   
   // Initialize building management
@@ -178,6 +183,19 @@ export const SimpleBuildingCreator: React.FC = () => {
     selectBuilding(null);
   };
 
+  const handleSwitchCameraType = (type: CameraType) => {
+    if (switchCameraType) {
+      switchCameraType(type);
+      setCurrentCameraType(type);
+    }
+  };
+
+  const handleSetCameraView = (view: CameraView) => {
+    if (setCameraView) {
+      setCameraView(view, { duration: 1000 });
+    }
+  };
+
   // Determine instruction mode
   const getInstructionMode = () => {
     if (!hasInteracted && !drawingState.isDrawing && buildings.length === 0 && isInitialized) {
@@ -242,9 +260,12 @@ export const SimpleBuildingCreator: React.FC = () => {
         snapToGrid={snapToGrid}
         showFPS={showFPS}
         buildingStats={buildingStats}
+        currentCameraType={currentCameraType}
         onToggleGrid={handleToggleGrid}
         onToggleSnap={() => setSnapToGrid(!snapToGrid)}
         onToggleFPS={toggleFPSCounter}
+        onSwitchCameraType={handleSwitchCameraType}
+        onSetCameraView={handleSetCameraView}
       />
 
       {/* Floating Instructions */}

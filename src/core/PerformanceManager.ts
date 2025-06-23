@@ -1,25 +1,33 @@
+import type Stats from 'three/examples/jsm/libs/stats.module.js';
+
 export interface PerformanceConfig {
   enableFPSCounter?: boolean;
   enableStats?: boolean;
+  fpsUpdateInterval?: number;
 }
 
 export class PerformanceManager {
   private config: PerformanceConfig;
   private fpsCounter: HTMLDivElement | null = null;
-  private stats: any = null;
+  private stats: Stats | null = null;
   private fpsData = { frames: 0, lastTime: performance.now(), fps: 0 };
 
   constructor(config: PerformanceConfig = {}) {
     this.config = {
       enableFPSCounter: false,
       enableStats: false,
+      fpsUpdateInterval: 1000,
       ...config
     };
   }
 
   async initialize(): Promise<void> {
     if (this.config.enableStats) {
-      await this.initializeStats();
+      try {
+        await this.initializeStats();
+      } catch (error) {
+        console.warn('Failed to initialize performance stats:', error);
+      }
     }
   }
 
@@ -34,8 +42,10 @@ export class PerformanceManager {
       this.stats.dom.style.top = '0px';
       this.stats.dom.style.right = '0px';
       this.stats.dom.style.left = 'auto';
+      this.stats.dom.style.zIndex = '1001';
     } catch (error) {
       console.warn('Failed to load Stats.js:', error);
+      throw error;
     }
   }
 
@@ -71,12 +81,21 @@ export class PerformanceManager {
     const now = performance.now();
     this.fpsData.frames++;
     
-    if (now >= this.fpsData.lastTime + 1000) {
+    if (now >= this.fpsData.lastTime + this.config.fpsUpdateInterval!) {
       this.fpsData.fps = Math.round((this.fpsData.frames * 1000) / (now - this.fpsData.lastTime));
       this.fpsData.frames = 0;
       this.fpsData.lastTime = now;
       
       this.fpsCounter.textContent = `FPS: ${this.fpsData.fps}`;
+      
+      // Color coding for performance indication
+      if (this.fpsData.fps < 30) {
+        this.fpsCounter.style.color = '#ff4444';
+      } else if (this.fpsData.fps < 50) {
+        this.fpsCounter.style.color = '#ffaa00';
+      } else {
+        this.fpsCounter.style.color = '#00ff00';
+      }
     }
   }
 
@@ -93,13 +112,13 @@ export class PerformanceManager {
   }
 
   dispose(): void {
-    if (this.fpsCounter) {
-      document.body.removeChild(this.fpsCounter);
+    if (this.fpsCounter?.parentNode) {
+      this.fpsCounter.parentNode.removeChild(this.fpsCounter);
       this.fpsCounter = null;
     }
     
-    if (this.stats && this.stats.dom) {
-      document.body.removeChild(this.stats.dom);
+    if (this.stats?.dom?.parentNode) {
+      this.stats.dom.parentNode.removeChild(this.stats.dom);
       this.stats = null;
     }
   }
