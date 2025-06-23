@@ -595,7 +595,25 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
         floorHeight: building.floorHeight,
         color: building.color,
         totalHeight: building.floors * building.floorHeight,
-        createdAt: building.createdAt.toISOString()
+        createdAt: building.createdAt.toISOString(),
+        
+        // Form properties
+        window_to_wall_ratio: building.window_to_wall_ratio || 0.4,
+        window_overhang: building.window_overhang || false,
+        window_overhang_depth: building.window_overhang_depth || 0.0,
+        
+        // Construction properties
+        wall_construction: building.wall_construction || 'Default Wall',
+        floor_construction: building.floor_construction || 'Default Floor',
+        roof_construction: building.roof_construction || 'Default Roof',
+        window_construction: building.window_construction || 'Default Window',
+        
+        // Program properties
+        building_program: building.building_program || 'Office',
+        
+        // HVAC properties
+        hvac_system: building.hvac_system || 'Default HVAC',
+        natural_ventilation: building.natural_ventilation || false
       }))
     };
 
