@@ -1,5 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import * as THREE from 'three';
+import { Line2 } from 'three/examples/jsm/lines/Line2.js';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
+import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { Point3D, BuildingData, BuildingConfig, BuildingTooltipData } from '../types/building';
 import { createShapeFromPoints, calculateCentroid } from '../utils/geometry';
 import { getThemeColorAsHex } from '../utils/themeColors';
@@ -19,12 +22,29 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
   const buildingsRef = useRef<BuildingData[]>([]);
-
   // Keep buildingsRef in sync with buildings state
   useEffect(() => {
     buildingsRef.current = buildings;
     console.log('Buildings updated:', buildings.map(b => b.id));
   }, [buildings]);
+
+  // Handle window resize for Line2 materials
+  useEffect(() => {
+    const handleResize = () => {
+      if (!scene) return;
+      
+      // Update resolution for all Line2 materials in floor lines
+      scene.traverse((child) => {
+        if (child instanceof Line2 && child.userData.isFloorLine) {
+          const material = child.material as LineMaterial;
+          material.resolution.set(window.innerWidth, window.innerHeight);
+        }
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [scene]);
 
   const createFootprintOutline = (points: Point3D[], scene: THREE.Scene): THREE.Mesh => {
     // Create a thin plane geometry that follows the building footprint
@@ -60,29 +80,71 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
 
   const createFloorLines = (points: Point3D[], floors: number, floorHeight: number, scene: THREE.Scene, buildingId: string): THREE.Group => {
     const floorGroup = new THREE.Group();
-    floorGroup.userData = { buildingId, isFloorLines: true };
-
-    // Create lines for each floor level (starting from floor 1, not ground level)
+    floorGroup.userData = { buildingId, isFloorLines: true };    // Create lines for each floor level (starting from floor 1, not ground level)
     for (let floor = 1; floor < floors; floor++) {
-      const yPosition = floor * floorHeight;
-      
-      // Create line geometry from building footprint points
+      const yPosition = floor * floorHeight; // Floor lines at exact floor height
+        // Create line geometry from building footprint points with slight inset to avoid z-fighting with facades
       const linePoints: THREE.Vector3[] = [];
+      const insetDistance = -0.05; // Small inset to move lines away from building walls
+      
+      // Calculate centroid to determine inset direction
+      const centroid = { x: 0, z: 0 };
       points.forEach(point => {
-        linePoints.push(new THREE.Vector3(point.x, yPosition, point.z));
+        centroid.x += point.x;
+        centroid.z += point.z;
       });
-      // Close the line by adding the first point again
-      linePoints.push(new THREE.Vector3(points[0].x, yPosition, points[0].z));
-
-      const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
-      const lineMaterial = new THREE.LineBasicMaterial({ 
-        color: getThemeColorAsHex('--color-floor-lines', 0x888888), // Gray color for floor lines
-        transparent: false,
-        opacity: 1,
-        linewidth: 5
+      centroid.x /= points.length;
+      centroid.z /= points.length;
+      
+      points.forEach(point => {
+        // Calculate direction from point to centroid (inward direction)
+        const dirX = centroid.x - point.x;
+        const dirZ = centroid.z - point.z;
+        const length = Math.sqrt(dirX * dirX + dirZ * dirZ);
+        
+        // Normalize and apply inset
+        const normalizedX = length > 0 ? dirX / length : 0;
+        const normalizedZ = length > 0 ? dirZ / length : 0;
+        
+        const insetX = point.x + normalizedX * insetDistance;
+        const insetZ = point.z + normalizedZ * insetDistance;
+        
+        linePoints.push(new THREE.Vector3(insetX, yPosition, insetZ));
       });
+      // Close the line by adding the first point again (with same inset calculation)
+      const firstPoint = points[0];
+      const dirX = centroid.x - firstPoint.x;
+      const dirZ = centroid.z - firstPoint.z;
+      const length = Math.sqrt(dirX * dirX + dirZ * dirZ);
+      const normalizedX = length > 0 ? dirX / length : 0;
+      const normalizedZ = length > 0 ? dirZ / length : 0;
+      const insetX = firstPoint.x + normalizedX * insetDistance;
+      const insetZ = firstPoint.z + normalizedZ * insetDistance;      linePoints.push(new THREE.Vector3(insetX, yPosition, insetZ));
 
-      const floorLine = new THREE.Line(lineGeometry, lineMaterial);
+      // Create thick line using Line2 for guaranteed width support
+      const lineGeometry = new LineGeometry();
+      const positions: number[] = [];
+      
+      // Convert Vector3 points to flat array of numbers
+      linePoints.forEach(point => {
+        positions.push(point.x, point.y, point.z);
+      });
+      
+      lineGeometry.setPositions(positions);
+      
+      const lineMaterial = new LineMaterial({
+        color: getThemeColorAsHex('--color-floor-lines', 0x888888),
+        linewidth: 4, // This works reliably with Line2
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: true,
+        depthTest: true
+      });
+      
+      // Set resolution for the material (required for Line2)
+      lineMaterial.resolution.set(window.innerWidth, window.innerHeight);
+
+      const floorLine = new Line2(lineGeometry, lineMaterial);
       floorLine.userData = { buildingId, isFloorLine: true, floor };
       floorGroup.add(floorLine);
     }

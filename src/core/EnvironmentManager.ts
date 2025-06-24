@@ -90,10 +90,9 @@ export class EnvironmentManager {
       this.config.gridSize!,
       this.config.gridDivisions!,
       gridColorCenter,
-      gridColorGrid
-    );
+      gridColorGrid    );
     
-    this.gridHelper.position.y = 0.001;
+    this.gridHelper.position.y = 0.005; // Slightly higher to avoid z-fighting with ground
     this.gridHelper.visible = this.config.showGrid!;
       // Fix material conflicts by properly configuring grid materials
     if (this.gridHelper.material instanceof THREE.LineBasicMaterial) {
