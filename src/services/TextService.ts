@@ -44,13 +44,25 @@ export class TextService {
     sprite.scale.set(8, 4, 4); // Reduce scale slightly for better readability
     sprite.userData.isLengthLabel = true;
     
+    // Ensure it renders on top of other objects
+    sprite.renderOrder = 150; // Higher than marker's renderOrder (100)
+    sprite.frustumCulled = false; // Prevent culling issues
+    
+    // Position the label slightly higher to be more visible
+    sprite.position.y += 0.5; // Lift it above the grid
+    
     this.scene.add(sprite);
     return sprite;
   }
 
   updateLengthLabel(sprite: THREE.Sprite, text: string, position: THREE.Vector3): void {
-    // Update position
-    sprite.position.copy(position);
+    // Update position (maintain the height adjustment)
+    const newPosition = position.clone(); // Clone to avoid modifying the original
+    newPosition.y += 0.5; // Keep consistent with createLengthLabel
+    sprite.position.copy(newPosition);
+    
+    // Ensure render order is maintained
+    sprite.renderOrder = 150;
     
     // Update texture with new text
     const texture = this.createTextTexture(text);
@@ -73,21 +85,29 @@ export class TextService {
     // Draw background
     const textMetrics = this.context.measureText(text);
     const padding = 12;
-    const bgWidth = textMetrics.width + padding * 2;
-    const bgHeight = 40; // Smaller height
+    const bgWidth = textMetrics.width + padding * 2;    const bgHeight = 40; // Smaller height
     const bgX = (this.canvas.width - bgWidth) / 2;
     const bgY = (this.canvas.height - bgHeight) / 2;
-      // Background with rounded corners
-    this.context.fillStyle = `var(--color-text-label-bg, rgba(0, 0, 0, 0.9))`; // Use CSS variable
-    this.context.strokeStyle = `var(--color-text-label-border, rgba(255, 255, 255, 0.8))`; // Use CSS variable
+    
+    // Background with rounded corners
+    const bgColor = getThemeColorAsHex('--color-text-label-bg', 0x000000);
+    const borderColor = getThemeColorAsHex('--color-text-label-border', 0xFFFFFF);
+    
+    // Convert hex colors to rgba for canvas
+    const bgColorObj = new THREE.Color(bgColor);
+    const borderColorObj = new THREE.Color(borderColor);
+    
+    this.context.fillStyle = `rgba(${Math.floor(bgColorObj.r * 255)}, ${Math.floor(bgColorObj.g * 255)}, ${Math.floor(bgColorObj.b * 255)}, 0.9)`;
+    this.context.strokeStyle = `rgba(${Math.floor(borderColorObj.r * 255)}, ${Math.floor(borderColorObj.g * 255)}, ${Math.floor(borderColorObj.b * 255)}, 0.8)`;
     this.context.lineWidth = 2;
     
-    this.roundRect(bgX, bgY, bgWidth, bgHeight, 8);
-    this.context.fill();
+    this.roundRect(bgX, bgY, bgWidth, bgHeight, 8);    this.context.fill();
     this.context.stroke();
     
     // Draw text
-    this.context.fillStyle = `var(--color-text-label, #ffffff)`; // Use CSS variable
+    const textColor = getThemeColorAsHex('--color-text-label', 0xffffff);
+    const textColorObj = new THREE.Color(textColor);
+    this.context.fillStyle = `rgb(${Math.floor(textColorObj.r * 255)}, ${Math.floor(textColorObj.g * 255)}, ${Math.floor(textColorObj.b * 255)})`;
     this.context.fillText(text, this.canvas.width / 2, this.canvas.height / 2);
     
     // Create texture

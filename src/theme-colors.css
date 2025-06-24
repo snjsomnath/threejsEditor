@@ -46,6 +46,11 @@
   --color-performance-medium: #ffaa00;
   --color-performance-poor: #ff4444;
   
+  /* Text Label Colors */
+  --color-text-label: #ffffff;
+  --color-text-label-bg: rgba(0, 0, 0, 0.9);
+  --color-text-label-border: rgba(255, 255, 255, 0.8);
+  
   /* UI Element Colors */
   --color-slider-thumb: #3b82f6;
   --color-slider-thumb-hover: #2563eb;
@@ -58,11 +63,6 @@
   --color-fps-counter-shadow: rgba(0, 0, 0, 0.5);
   --color-box-shadow: rgba(0, 0, 0, 0.3);
   --color-active-glow: rgba(59, 130, 246, 0.3);
-  
-  /* Text and Labels */
-  --color-text-label-bg: rgba(0, 0, 0, 0.9);
-  --color-text-label-border: rgba(255, 255, 255, 0.8);
-  --color-text-label: #ffffff;
   
   /* Context Model */
   --color-context-model: #ffffff;
@@ -187,19 +187,6 @@
   --color-performance-good: #22c55e;
   --color-performance-medium: #f59e0b;
   --color-performance-poor: #ef4444;
-  
-  /* UI Element Colors - Dark Theme */
-  --color-slider-thumb: #60a5fa;
-  --color-slider-thumb-hover: #3b82f6;
-  --color-slider-thumb-border: #e5e7eb;
-  --color-scrollbar-track: rgba(30, 35, 45, 0.6);
-  --color-scrollbar-thumb: rgba(120, 130, 150, 0.7);
-  --color-scrollbar-thumb-hover: rgba(120, 130, 150, 0.9);
-  --color-fps-counter-bg: rgba(10, 10, 10, 0.8);
-  --color-fps-counter-border: rgba(0, 200, 0, 0.3);
-  --color-fps-counter-shadow: rgba(0, 0, 0, 0.6);
-  --color-box-shadow: rgba(0, 0, 0, 0.4);
-  --color-active-glow: rgba(59, 130, 246, 0.4);
   
   /* Text and Labels - Dark Theme */
   --color-text-label-bg: rgba(20, 20, 20, 0.95);
