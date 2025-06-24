@@ -163,14 +163,18 @@ export class WindowService {
             marginStart: (edgeLength - (calculatedWindowWidth * numWindows + minSpacing * (numWindows - 1))) / 2
           };
         }
-      }
-      
+      }      
       if (!bestConfig || bestConfig.numWindows < 1) continue;
 
       // Calculate vertical distribution
       const verticalSpacing = windowSpacing;
       const availableVerticalSpace = floorHeight - 2 * verticalSpacing;
       const windowRows = Math.max(1, Math.floor(availableVerticalSpace / (windowHeight + verticalSpacing)));
+      
+      // Warn if vertical space is very constrained
+      if (windowRows === 1 && availableVerticalSpace < windowHeight * 1.2) {
+        console.warn(`Very constrained vertical space for building ${building.id}: ${availableVerticalSpace.toFixed(2)}m available, ${windowHeight}m needed`);
+      }
 
       // Place windows with the optimized configuration
       for (let floor = 0; floor < numFloors; floor++) {
@@ -226,11 +230,12 @@ export class WindowService {
           }
         }
       }
-    }
-
-    // Store indices for this building
+    }    // Store indices for this building
     this.buildingWindows.set(building.id, buildingIndices);
     this.updateInstanceCounts();
+    
+    // Debug logging
+    console.log(`Added ${buildingIndices.length} windows for building ${building.id}. Total windows: ${this.currentIndex}`);
   }
 
   removeBuildingWindows(buildingId: string): void {
@@ -278,11 +283,12 @@ export class WindowService {
           .filter(idx => idx !== undefined) as number[];
         this.buildingWindows.set(id, updatedIndices);
       }
-    }
-
-    // Remove the building from the map
+    }    // Remove the building from the map
     this.buildingWindows.delete(buildingId);
     this.updateInstanceCounts();
+    
+    // Debug logging
+    console.log(`Removed windows for building ${buildingId}. Total windows: ${this.currentIndex}`);
   }
 
   private updateInstanceCounts(): void {
@@ -309,8 +315,7 @@ export class WindowService {
 
     // Calculate new window configuration
     const newWindowData = this.calculateWindowMatrices(building, config);
-    
-    if (newWindowData.length === existingIndices.length) {
+      if (newWindowData.length === existingIndices.length) {
       // Same number of windows - just update matrices
       for (let i = 0; i < newWindowData.length; i++) {
         const index = existingIndices[i];
@@ -321,15 +326,38 @@ export class WindowService {
       // Mark for update
       this.glassInstancedMesh.instanceMatrix.needsUpdate = true;
       this.frameInstancedMesh.instanceMatrix.needsUpdate = true;
+    } else if (newWindowData.length < existingIndices.length) {
+      // Fewer windows - update existing and clear unused indices
+      for (let i = 0; i < newWindowData.length; i++) {
+        const index = existingIndices[i];
+        this.glassInstancedMesh.setMatrixAt(index, newWindowData[i].glassMatrix);
+        this.frameInstancedMesh.setMatrixAt(index, newWindowData[i].frameMatrix);
+      }
+      
+      // Clear leftover matrices to prevent ghost windows
+      const identity = new THREE.Matrix4().makeScale(0, 0, 0); // Make invisible
+      for (let i = newWindowData.length; i < existingIndices.length; i++) {
+        const index = existingIndices[i];
+        this.glassInstancedMesh.setMatrixAt(index, identity);
+        this.frameInstancedMesh.setMatrixAt(index, identity);
+      }
+      
+      // Update building indices to reflect new count
+      this.buildingWindows.set(building.id, existingIndices.slice(0, newWindowData.length));
+      
+      // Mark for update
+      this.glassInstancedMesh.instanceMatrix.needsUpdate = true;
+      this.frameInstancedMesh.instanceMatrix.needsUpdate = true;
     } else {
-      // Different number of windows - use full rebuild
+      // More windows needed - use full rebuild
       this.addBuildingWindows(building, config);
     }
-  }
-
-  // Method to animate window updates for smoother transitions
+  }  // Method to animate window updates for smoother transitions
   updateBuildingWindowsSmooth(building: BuildingData, config: WindowConfig, duration: number = 300): void {
     if (!building.points || building.points.length < 3) return;
+
+    // Cancel existing animation for this building to prevent stacking
+    this.cancelBuildingAnimation(building.id);
 
     const existingIndices = this.buildingWindows.get(building.id);
     if (!existingIndices) {
@@ -345,7 +373,7 @@ export class WindowService {
       // Same number of windows - animate the transition
       this.animateWindowTransition(building.id, existingIndices, newWindowData, duration);
     } else {
-      // Different number of windows - use regular update
+      // Different number of windows - use regular efficient update
       this.updateBuildingWindowsEfficient(building, config);
     }
   }
@@ -509,13 +537,17 @@ export class WindowService {
           };
         }
       }
-      
-      if (!bestConfig || bestConfig.numWindows < 1) continue;
+        if (!bestConfig || bestConfig.numWindows < 1) continue;
 
       // Calculate vertical distribution
       const verticalSpacing = windowSpacing;
       const availableVerticalSpace = floorHeight - 2 * verticalSpacing;
       const windowRows = Math.max(1, Math.floor(availableVerticalSpace / (windowHeight + verticalSpacing)));
+      
+      // Warn if vertical space is very constrained
+      if (windowRows === 1 && availableVerticalSpace < windowHeight * 1.2) {
+        console.warn(`Very constrained vertical space for building ${building.id}: ${availableVerticalSpace.toFixed(2)}m available, ${windowHeight}m needed`);
+      }
 
       // Place windows with the optimized configuration
       for (let floor = 0; floor < numFloors; floor++) {
@@ -574,8 +606,7 @@ export class WindowService {
     // Update frame material
     const frameMaterial = this.materials.frame as THREE.MeshLambertMaterial;
     frameMaterial.color.setHex(getThemeColorAsHex('--color-window-frame', 0x4A4A4A));
-  }
-  dispose(): void {
+  }  dispose(): void {
     // Cancel any ongoing animations
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
@@ -597,6 +628,19 @@ export class WindowService {
     
     // Clear references
     this.buildingWindows.clear();
+  }
+
+  // New method to cancel animations for a specific building
+  cancelBuildingAnimation(buildingId: string): void {
+    if (this.animatingBuildings.has(buildingId)) {
+      this.animatingBuildings.delete(buildingId);
+      
+      // If no more animations, cancel the frame
+      if (this.animatingBuildings.size === 0 && this.animationFrameId !== null) {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+      }
+    }
   }
 
   getBuildingWindowCount(buildingId: string): number {
