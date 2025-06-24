@@ -218,17 +218,39 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
       floorHeight: edited.floorHeight,
       newHeight: edited.floors * edited.floorHeight
     });
-  }, [edited.floors, edited.floorHeight, updateBuildingGeometry]);
-  const updateField = (field: keyof typeof edited, value: any) => {
+  }, [edited.floors, edited.floorHeight, updateBuildingGeometry]);  const updateField = (field: keyof typeof edited, value: any) => {
     setEdited(prev => ({ ...prev, [field]: value }));
+    
+    // Live update for color
     if (field === 'color' && building.mesh && building.mesh.material && building.mesh.userData.buildingId && !building.mesh.userData.isPreview && !building.mesh.userData.isDrawingElement) {
       const material = building.mesh.material as THREE.MeshLambertMaterial;
       material.color.setHex(value);
     }
+      // Live update for window properties - trigger debounced window update
+    if (field === 'window_to_wall_ratio' || field === 'window_overhang' || field === 'window_overhang_depth') {
+      // Trigger window update through debounced onSave
+      const updates: Partial<BuildingData> & { config: BuildingConfig } = {
+        [field]: value,
+        config: {
+          floors: edited.floors,
+          floorHeight: edited.floorHeight,
+          color: edited.color,
+          window_to_wall_ratio: field === 'window_to_wall_ratio' ? value : edited.window_to_wall_ratio,
+          window_overhang: field === 'window_overhang' ? value : edited.window_overhang,
+          window_overhang_depth: field === 'window_overhang_depth' ? value : edited.window_overhang_depth,
+          // Add other required config fields
+          name: edited.name,
+          description: edited.description
+        }
+      };
+      
+      // Use debounced update for smooth slider interaction
+      debouncedWindowUpdate(updates);
+    }
     
     // If floors or floorHeight was updated directly via the UI controls,
     // we don't need to call updateBuildingGeometry here as the useEffect will handle it
-  };  const handleSave = () => {
+  };const handleSave = () => {
     // Apply the changes to the building object permanently
     const updates: Partial<BuildingData> & { config: BuildingConfig } = {
       name: edited.name,
@@ -409,6 +431,19 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
     // Call the original onClose handler
     onClose();
   }, [building, edited, hasChanges, onClose]);
+  // Debounced window update to avoid too many rapid updates
+  const debouncedWindowUpdate = useCallback(
+    (() => {
+      let timeoutId: number;
+      return (updates: Partial<BuildingData> & { config: BuildingConfig }) => {
+        clearTimeout(timeoutId);
+        timeoutId = window.setTimeout(() => {
+          onSave(updates);
+        }, 150); // 150ms debounce
+      };
+    })(),
+    [onSave]
+  );
 
   return (
     <div className="fixed inset-0 z-50 pointer-events-none">

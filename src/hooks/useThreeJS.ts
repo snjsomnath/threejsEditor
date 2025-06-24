@@ -195,12 +195,12 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     } else {
       console.warn('Cannot update sun position - core not initialized');
     }
-  }, []);
-  return {
+  }, []);  return {
     scene: coreRef.current?.getScene() || null,
     camera: coreRef.current?.getCamera() || null,
     renderer: coreRef.current?.getRenderer() || null,
     groundPlane: coreRef.current?.getGroundPlane() || null,
+    windowService: coreRef.current?.getWindowService() || null,
     isInitialized,
     isInitializing,
     initializationError,

@@ -27,11 +27,12 @@ export const SimpleBuildingCreator: React.FC = () => {
     color: getThemeColorAsHex('--color-building-default', 0x6366f1)
   });
   const [currentCameraType, setCurrentCameraType] = useState<CameraType>('perspective');
-    // Initialize Three.js scene
+  // Initialize Three.js scene
   const { 
     scene, 
     camera, 
     groundPlane, 
+    windowService,
     isInitialized, 
     isInitializing,
     initializationError,
@@ -57,7 +58,7 @@ export const SimpleBuildingCreator: React.FC = () => {
     handleBuildingInteraction,
     addBuilding,
     hideBuildingTooltip
-  } = useBuildingManager(scene, camera as THREE.PerspectiveCamera | null);
+  } = useBuildingManager(scene, camera as THREE.PerspectiveCamera | null, windowService);
 
   // Initialize drawing functionality
   const { 

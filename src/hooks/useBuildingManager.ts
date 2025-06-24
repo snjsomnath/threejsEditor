@@ -6,6 +6,7 @@ import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { Point3D, BuildingData, BuildingConfig, BuildingTooltipData } from '../types/building';
 import { createShapeFromPoints, calculateCentroid } from '../utils/geometry';
 import { getThemeColorAsHex } from '../utils/themeColors';
+import { WindowService } from '../services/WindowService';
 
 interface BuildingStats {
   count: number;
@@ -13,7 +14,11 @@ interface BuildingStats {
   totalFloors: number;
 }
 
-export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.PerspectiveCamera | null) => {
+export const useBuildingManager = (
+  scene: THREE.Scene | null, 
+  camera: THREE.PerspectiveCamera | null,
+  windowService: WindowService | null = null
+) => {
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingData | null>(null);
   const [hoveredBuilding, setHoveredBuilding] = useState<BuildingData | null>(null);
@@ -134,7 +139,7 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
       
       const lineMaterial = new LineMaterial({
         color: getThemeColorAsHex('--color-floor-lines', 0x888888),
-        linewidth: 4, // This works reliably with Line2
+        linewidth: 2, // This works reliably with Line2
         transparent: true,
         opacity: 0.9,
         depthWrite: true,
@@ -152,7 +157,6 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     scene.add(floorGroup);
     return floorGroup;
   };
-
   const addBuilding = useCallback((mesh: THREE.Mesh, points: Point3D[], floors: number, floorHeight: number) => {
     if (!scene) return;
 
@@ -216,6 +220,10 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     // Create floor lines if building has more than 1 floor
     if (floors > 1) {
       building.floorLines = createFloorLines(points, floors, floorHeight, scene, buildingId);
+    }    // Add windows to the building using WindowService
+    if (windowService) {
+      windowService.addBuildingWindows(building, getWindowConfig(building));
+      console.log('Added windows to building:', building.id, 'Window count:', windowService.getBuildingWindowCount(building.id));
     }
 
     // Ensure mesh is added to the scene and properly positioned
@@ -256,7 +264,6 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
 
     return building;
   }, [scene]);
-
   const updateBuilding = useCallback((id: string, updates: Partial<BuildingData> & { config?: BuildingConfig }) => {
     if (!scene) return;
 
@@ -328,7 +335,11 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
         updatedBuilding.floorHeight = config.floorHeight;
         updatedBuilding.color = config.color;
         updatedBuilding.name = config.name || updatedBuilding.name;
-        updatedBuilding.description = config.description || updatedBuilding.description;
+        updatedBuilding.description = config.description || updatedBuilding.description;        // Update windows when building geometry or window properties change
+        if (windowService) {
+          windowService.updateBuildingWindows(updatedBuilding, getWindowConfig(updatedBuilding));
+          console.log('Updated windows for building:', updatedBuilding.id, 'Window count:', windowService.getBuildingWindowCount(updatedBuilding.id));
+        }
       }
 
       return updatedBuilding;
@@ -344,7 +355,7 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     if (selectedBuilding?.id === id) {
       setSelectedBuilding(prev => prev ? { ...prev, ...updates } : null);
     }
-  }, [scene, selectedBuilding]);
+  }, [scene, selectedBuilding, windowService]);
 
   const selectBuilding = useCallback((building: BuildingData | null) => {
     // Reset previous selection
@@ -415,7 +426,6 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     
     return { x, y };
   }, []);
-
   const deleteBuilding = useCallback((id: string) => {
     if (!scene) return;
 
@@ -427,6 +437,11 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     setBuildings(prev => {
       const building = prev.find(b => b.id === id);
       if (building) {
+        // Remove windows for this building
+        if (windowService) {
+          windowService.removeBuildingWindows(building.id);
+        }
+
         // Remove main building mesh
         scene.remove(building.mesh);
         building.mesh.geometry.dispose();
@@ -580,9 +595,15 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     if (hoveredBuilding?.id === id) {
       setHoveredBuilding(null);
     }
-  }, [scene, selectedBuilding, hoveredBuilding, buildingTooltip]);
-  const clearAllBuildings = useCallback(() => {
+  }, [scene, selectedBuilding, hoveredBuilding, buildingTooltip]);  const clearAllBuildings = useCallback(() => {
     if (!scene) return;
+
+    // Remove windows for all buildings
+    if (windowService) {
+      buildingsRef.current.forEach(building => {
+        windowService.removeBuildingWindows(building.id);
+      });
+    }
 
     buildingsRef.current.forEach(building => {
       scene.remove(building.mesh);
@@ -644,12 +665,11 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
       }
     });
 
-    // Clear both ref and state
-    buildingsRef.current = [];
+    // Clear both ref and state    buildingsRef.current = [];
     setBuildings([]);
     setSelectedBuilding(null);
     setHoveredBuilding(null);
-  }, [scene]);
+  }, [scene, windowService]);
 
   const exportBuildings = useCallback(() => {
     const exportData = {
@@ -826,6 +846,14 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     totalArea: buildings.reduce((sum, building) => sum + building.area, 0),
     totalFloors: buildings.reduce((sum, building) => sum + building.floors, 0)
   };
+  // Helper function to get window configuration from building data
+  const getWindowConfig = (building: BuildingData) => ({
+    windowWidth: 1.2,
+    windowHeight: 1.5,
+    windowSpacing: 0.3,      
+    offsetDistance: 0.1,
+    frameThickness: 0.05
+  });
 
   return {
     buildings,

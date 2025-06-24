@@ -41,6 +41,10 @@
   --color-drawing-footprint-point: #ffff00;
   --color-drawing-footprint-line: #00ff00;
   
+  /* Window Colors */
+  --color-window-glass: #87ceeb;
+  --color-window-frame: #4a4a4a;
+  
   /* Performance Indicator Colors */
   --color-performance-good: #00ff00;
   --color-performance-medium: #ffaa00;
@@ -181,6 +185,10 @@
   --color-drawing-snap-emissive: #a16207;
   --color-drawing-footprint-point: #fbbf24;
   --color-drawing-footprint-line: #15803d;
+  
+  /* Window Colors - Dark Theme */
+  --color-window-glass: #4a90e2;
+  --color-window-frame: #333333;
   
   /* Performance Indicator Colors - Dark Theme */
   --color-performance-good: #22c55e;

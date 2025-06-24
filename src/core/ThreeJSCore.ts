@@ -7,6 +7,7 @@ import { LightingManager } from './LightingManager';
 import { EnvironmentManager } from './EnvironmentManager';
 import { PerformanceManager } from './PerformanceManager';
 import { ContextModelLoader } from '../services/ContextModelLoader';
+import { WindowService } from '../services/WindowService';
 import { addThemeChangeListener, getThemeColorAsHex } from '../utils/themeColors';
 import type { SunPosition } from '../utils/sunPosition';
 
@@ -39,6 +40,7 @@ export class ThreeJSCore {
   private environmentManager: EnvironmentManager;
   private performanceManager: PerformanceManager;
   private contextModelLoader: ContextModelLoader;
+  private windowService: WindowService;
   
   private animationId: number | null = null;
   private isInitialized = false;
@@ -87,6 +89,16 @@ export class ThreeJSCore {
       
       // Initialize context model loader
       this.contextModelLoader = new ContextModelLoader(this.sceneManager);
+
+      // Initialize window service with default configuration
+      this.windowService = new WindowService(this.sceneManager.getScene(), {
+        windowWidth: 1.2,
+        windowHeight: 1.5,
+        windowSpacing: 0.3,
+        offsetDistance: 0.1,
+        frameThickness: 0.05,
+        maxWindows: 50000
+      });
 
       // Setup resize observer instead of window listener
       this.resizeObserver = new ResizeObserver(this.handleResize.bind(this));
@@ -225,6 +237,12 @@ export class ThreeJSCore {
       console.warn('Error updating context model colors:', e);
     }
     
+    try {
+      this.windowService.updateThemeColors();
+    } catch (e) {
+      console.warn('Error updating window colors:', e);
+    }
+    
     // Additional global scene adjustments
     const scene = this.sceneManager.getScene();
     const renderer = this.rendererManager.getRenderer();
@@ -355,6 +373,10 @@ export class ThreeJSCore {
     return this.environmentManager.getGroundPlane();
   }
 
+  getWindowService(): WindowService {
+    return this.windowService;
+  }
+
   toggleGrid(): void {
     this.environmentManager.toggleGrid();
   }
@@ -394,6 +416,7 @@ export class ThreeJSCore {
     this.environmentManager.dispose();
     this.lightingManager.dispose();
     this.contextModelLoader.dispose(); // Dispose the context model loader
+    this.windowService.dispose(); // Dispose the window service
     this.cameraManager.dispose();
     this.rendererManager.dispose();
     this.sceneManager.dispose();
