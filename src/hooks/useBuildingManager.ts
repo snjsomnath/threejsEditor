@@ -519,7 +519,6 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
       setHoveredBuilding(null);
     }
   }, [scene, selectedBuilding, hoveredBuilding, buildingTooltip]);
-
   const clearAllBuildings = useCallback(() => {
     if (!scene) return;
 
@@ -539,35 +538,46 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
       if (building.floorLines) {
         scene.remove(building.floorLines);
         building.floorLines.children.forEach(child => {
-          if (child.geometry) child.geometry.dispose();
-          if (child.material) (child.material as THREE.Material).dispose();
+          // Use type assertions for THREE.js objects
+          const obj = child as unknown as THREE.Mesh;
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) {
+            if (Array.isArray(obj.material)) {
+              obj.material.forEach(mat => mat.dispose());
+            } else {
+              (obj.material as THREE.Material).dispose();
+            }
+          }
         });
       }
     });
 
-    // Also remove any other footprint-related objects (lines, points, etc.)
+    // Only remove objects that are directly related to buildings
+    // Avoid removing grid elements, axes, or other UI elements
     const objectsToRemove = scene.children.filter(child => {
-      // Remove objects that might be footprint lines or points
-      return child.userData?.isFootprintLine || 
+      // Only remove objects explicitly marked as building-related
+      return child.userData?.isBuilding || 
+             child.userData?.buildingId ||
+             child.userData?.isFootprintLine || 
              child.userData?.isFootprintPoint || 
-             child.userData?.isDrawingElement ||
              child.userData?.isPolygonFootprint ||
              child.userData?.isFloorLines ||
-             child.userData?.isFloorLine ||
-             (child instanceof THREE.Line) ||
-             (child instanceof THREE.Points);
+             child.userData?.isFloorLine;
+      // Explicitly NOT removing all Lines and Points as they may be grid or other elements
     });
 
     objectsToRemove.forEach(obj => {
       scene.remove(obj);
-      if (obj.geometry) {
-        obj.geometry.dispose();
+      // Use type assertions for THREE.js objects
+      const mesh = obj as unknown as THREE.Mesh;
+      if (mesh.geometry) {
+        mesh.geometry.dispose();
       }
-      if (obj.material) {
-        if (Array.isArray(obj.material)) {
-          obj.material.forEach(mat => mat.dispose());
+      if (mesh.material) {
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach(mat => mat.dispose());
         } else {
-          obj.material.dispose();
+          (mesh.material as THREE.Material).dispose();
         }
       }
     });

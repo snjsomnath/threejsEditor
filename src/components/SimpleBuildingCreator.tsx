@@ -209,10 +209,10 @@ export const SimpleBuildingCreator: React.FC = () => {
       selectBuilding(building);
     }
   };
-
   const handleClearAll = () => {
     clearAllBuildings();
-    if (clearAllDrawingElements) clearAllDrawingElements();
+    // Don't clear drawing elements when using the Clear All button from LeftToolbar
+    // Only clear selected building and reset UI state
     selectBuilding(null);
     
     // Force service state reset

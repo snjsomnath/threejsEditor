@@ -69,13 +69,12 @@ export const useKeyboardShortcuts = ({
             event.preventDefault();
             onExport();
           }
-          break;
-        case 'delete':
+          break;        case 'delete':
         case 'backspace':
-          if (event.ctrlKey || event.metaKey) {
-            event.preventDefault();
-            onClearAll();
-          }
+          // Only use Delete/Backspace as a shortcut if we're not currently typing in an input field
+          // We don't require Ctrl/Cmd anymore to match the toolbar's Del shortcut behavior
+          event.preventDefault();
+          onClearAll();
           break;
         case 'escape':
           event.preventDefault();
