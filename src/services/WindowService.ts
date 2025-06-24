@@ -124,7 +124,7 @@ export class WindowService {
       if (edgeLength < windowWidth * 0.5) continue;
       
       const dir = edgeVec.clone().normalize();
-      const normal = new THREE.Vector2(-dir.y, dir.x); // Outward normal      // Calculate window distribution based on WWR
+      const normal = new THREE.Vector2(dir.y, -dir.x); // Outward normal      // Calculate window distribution based on WWR
       const wallAreaPerFloor = edgeLength * floorHeight;
       
       // Determine optimal number of windows and their dimensions
@@ -200,7 +200,7 @@ export class WindowService {
             const position = new THREE.Vector3(x, rowY, z);
             
             // Fix window orientation - make windows face outward from building
-            const rotationY = Math.atan2(dir.y, dir.x);
+            const rotationY = Math.atan2(normal.y, normal.x) + Math.PI/2;;
             const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rotationY, 0));
 
             // Scale based on calculated window width
@@ -495,7 +495,7 @@ export class WindowService {
       if (edgeLength < windowWidth * 0.5) continue;
       
       const dir = edgeVec.clone().normalize();
-      const normal = new THREE.Vector2(-dir.y, dir.x); // Outward normal
+      const normal = new THREE.Vector2(dir.y, -dir.x); // Outward normal
 
       // Calculate window distribution based on WWR
       const wallAreaPerFloor = edgeLength * floorHeight;
@@ -568,7 +568,7 @@ export class WindowService {
             const position = new THREE.Vector3(x, rowY, z);
             
             // Fix window orientation - make windows face outward from building
-            const rotationY = Math.atan2(dir.y, dir.x);
+            const rotationY = Math.atan2(normal.y, normal.x) + Math.PI/2;
             const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rotationY, 0));
 
             // Scale based on calculated window width
