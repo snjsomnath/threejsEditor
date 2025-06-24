@@ -105,19 +105,29 @@
 }
 
 /* Apply animations to toolbars */
-.fixed:has(.bg-gray-900\/90):first-of-type {
+.fixed:has(.bg-gray-900\/90):first-of-type:not(.animation-complete) {
   animation: slideInLeft 0.3s ease-out;
 }
 
-.fixed:has(.bg-gray-900\/90):last-of-type {
+.fixed:has(.bg-gray-900\/90):last-of-type:not(.animation-complete) {
   animation: slideInUp 0.3s ease-out;
 }
 
 /* Floating panel animations */
-.fixed:has(.bg-blue-900\/90),
-.fixed:has(.bg-cyan-900\/90),
-.fixed:has(.bg-gray-900\/95) {
+.fixed:has(.bg-blue-900\/90):not(.animation-complete),
+.fixed:has(.bg-cyan-900\/90):not(.animation-complete),
+.fixed:has(.bg-gray-900\/95):not(.animation-complete) {
   animation: fadeIn 0.2s ease-out;
+}
+
+/* Animation completed state - keeps position but prevents re-animation */
+.animation-complete {
+  transform: translateX(0) translateY(-50%); /* For left toolbar */
+}
+
+/* Bottom toolbar animation complete state */
+.fixed:has(.bg-gray-900\/90):last-of-type.animation-complete {
+  transform: translateX(-50%) translateY(0); /* For bottom toolbar */
 }
 
 /* Enhanced button hover effects */

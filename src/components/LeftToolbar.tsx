@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Settings, Pencil, Download, Trash2, Sun, Moon } from 'lucide-react';
 import { ToolbarButton } from './ToolbarButton';
 import { toggleTheme } from '../utils/themeColors';
@@ -21,20 +21,33 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
   onShowConfig,
   onExport,
   onClearAll
-}) => {  const [isDarkTheme, setIsDarkTheme] = React.useState(
+}) => {
+  const [isDarkTheme, setIsDarkTheme] = React.useState(
     () => document.documentElement.classList.contains('dark-theme')
   );
   
-  // Access the refreshThemeColors method from the global ThreeJS context
-  // This will be passed through from the App component
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  
+  // Add animation-complete class after initial animation
+  useEffect(() => {
+    const toolbar = toolbarRef.current;
+    if (toolbar) {
+      const animDuration = 300; // 0.3s animation duration in ms
+      const timer = setTimeout(() => {
+        toolbar.classList.add('animation-complete');
+      }, animDuration);
+      
+      return () => clearTimeout(timer);
+    }
+  }, []);
+  
   const handleThemeToggle = () => {
     const newTheme = toggleTheme();
     setIsDarkTheme(newTheme === 'dark');
-    // Theme changes will be picked up automatically by the ThreeJS core
   };
   
   return (
-    <div className="fixed left-4 top-1/2 -translate-y-1/2 z-40 transform-gpu">
+    <div ref={toolbarRef} className="fixed left-4 top-1/2 -translate-y-1/2 z-40 transform-gpu">
       <div className="bg-gray-900/90 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl p-2">
         <div className="flex flex-col space-y-2">
           {/* Building Config */}
