@@ -16,22 +16,222 @@
   --color-grid: #999999;
   --color-sun-light: #faf6ed;
   --color-ambient-light: #ffffff;
-  --color-hemisphere-sky: #77a0d5;
-  --color-hemisphere-ground: #bcaf70;
+  --color-hemisphere-sky: #94accc;
+  --color-hemisphere-ground: #ffdb27;
   --color-scene-background: #f2f2f2;
   --color-scene-fog: #cccccc;
+    /* Building Colors */
+  --color-building-default: #6366f1;
+  --color-building-preview: #3b82f6;
+  --color-building-selected: #2563eb;
+  --color-building-hovered: #4f46e5;
+  --color-building-debug: #00ff00;
+  --color-building-footprint: #00ffaa;
+  --color-floor-lines: #888888;
+  --color-building-emissive: #000000;
+    /* Drawing Elements Colors */
+  --color-drawing-point: #ff3333;
+  --color-drawing-point-emissive: #ff0000;
+  --color-drawing-line: #00ff88;
+  --color-drawing-preview: #00ff00;
+  --color-drawing-preview-emissive: #004400;
+  --color-drawing-preview-line: #88ff00;
+  --color-drawing-snap: #ffff00;
+  --color-drawing-snap-emissive: #ffff00;
+  --color-drawing-footprint-point: #ffff00;
+  --color-drawing-footprint-line: #00ff00;
   
   /* Performance Indicator Colors */
   --color-performance-good: #00ff00;
   --color-performance-medium: #ffaa00;
   --color-performance-poor: #ff4444;
+  
+  /* UI Element Colors */
+  --color-slider-thumb: #3b82f6;
+  --color-slider-thumb-hover: #2563eb;
+  --color-slider-thumb-border: #ffffff;
+  --color-scrollbar-track: rgba(55, 65, 81, 0.5);
+  --color-scrollbar-thumb: rgba(156, 163, 175, 0.7);
+  --color-scrollbar-thumb-hover: rgba(156, 163, 175, 0.9);
+  --color-fps-counter-bg: rgba(0, 0, 0, 0.8);
+  --color-fps-counter-border: rgba(0, 255, 0, 0.3);
+  --color-fps-counter-shadow: rgba(0, 0, 0, 0.5);
+  --color-box-shadow: rgba(0, 0, 0, 0.3);
+  --color-active-glow: rgba(59, 130, 246, 0.3);
+  
+  /* Text and Labels */
+  --color-text-label-bg: rgba(0, 0, 0, 0.9);
+  --color-text-label-border: rgba(255, 255, 255, 0.8);
+  --color-text-label: #ffffff;
+  
+  /* Context Model */
+  --color-context-model: #ffffff;
+  
+  /* Keyboard Shortcut Styling */
+  --color-kbd-text: rgb(229, 231, 235);
+  --color-kbd-bg: rgb(31, 41, 55);
+  --color-kbd-border: rgb(75, 85, 99);
+  --color-kbd-shadow: rgba(0, 0, 0, 0.05);
+  
+  /* Building Options Colors */
+  --color-building-blue: #3b82f6;
+  --color-building-green: #10b981;
+  --color-building-purple: #8b5cf6;
+  --color-building-orange: #f59e0b;
+  --color-building-red: #ef4444;
+  --color-building-cyan: #06b6d4;
+  --color-building-pink: #ec4899;
+  --color-building-gray: #6b7280;
+  
+  /* Building Hover/Selected State Colors */
+  --color-building-highlight: #ffa500; /* orange */
+  --color-building-highlight-emissive: #332200; /* subtle orange glow */
+  --color-building-hover-emissive: #444444; /* Gray highlight for hover */
+  
+  /* Component Colors - UI */
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+  --color-gray-950: #030712;
+  
+  --color-blue-300: #93c5fd;
+  --color-blue-400: #60a5fa;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-blue-700: #1d4ed8;
+  
+  --color-yellow-400: #facc15;
+  --color-yellow-500: #eab308;
+  
+  /* Dialog/Panel Colors */
+  --color-panel-background: rgba(17, 24, 39, 0.95);
+  --color-panel-border: rgba(75, 85, 99, 0.5);
+  --color-panel-header: rgba(31, 41, 55, 0.5);
+  --color-panel-bg-darker: rgba(17, 24, 39, 0.98);
+  --color-panel-bg-lighter: rgba(31, 41, 55, 0.3);
+  --color-panel-highlight: rgba(59, 130, 246, 0.1);
+  
+  /* Warning/Alert Colors */
+  --color-warning-text: #facc15;
+  --color-warning-bg: rgba(250, 204, 21, 0.1);
+  --color-warning-border: rgba(250, 204, 21, 0.2);
+  
+  /* Form Element Colors */
+  --color-input-bg: #1f2937;
+  --color-input-border: #4b5563;
+  --color-input-border-hover: #6b7280;
+  --color-input-border-focus: #3b82f6;
+  --color-input-placeholder: #6b7280;
+  --color-input-text: #ffffff;
+  
+  /* Button Colors */
+  --color-button-primary: #3b82f6;
+  --color-button-primary-hover: #2563eb;
+  --color-button-secondary: #374151;
+  --color-button-secondary-hover: #4b5563;
+  --color-button-danger: #ef4444;
+  --color-button-danger-hover: #dc2626;
+  
+  /* Tooltip Colors */
+  --color-tooltip-text: #ffffff;
+  --color-tooltip-bg: rgba(0, 0, 0, 0.8);
+  --color-tooltip-border: rgba(255, 255, 255, 0.1);
+  
+  /* Divider Colors */
+  --color-divider: rgba(75, 85, 99, 0.5);
 }
 
 /* Optional Dark Mode Theme */
 .dark-theme {
+  /* Core UI Colors - Dark Theme */
+  --color-primary: #60a5fa;
+  --color-primary-hover: #3b82f6;
+  --color-text: #f3f4f6;
+  --color-background: #111827;
+  
+  /* 3D Scene Colors - Dark Theme */
   --color-ground: #333333;
   --color-grid: #666666;
   --color-sun-light: #e6dfd1;
+  --color-ambient-light: #e6e6e6;
+  --color-hemisphere-sky: #7a95b5;
+  --color-hemisphere-ground: #b59a6a;
   --color-scene-background: #252525;
   --color-scene-fog: #1a1a1a;
+    /* Building Colors - Dark Theme */
+  --color-building-default: #818cf8;
+  --color-building-preview: #60a5fa;
+  --color-building-selected: #3b82f6;
+  --color-building-hovered: #6366f1;
+  --color-building-debug: #22c55e;
+  --color-building-footprint: #34d399;
+  --color-floor-lines: #9ca3af;
+  --color-building-emissive: #000000;
+    /* Drawing Elements Colors - Dark Theme */
+  --color-drawing-point: #ff6b6b;
+  --color-drawing-point-emissive: #ff3333;
+  --color-drawing-line: #34d399;
+  --color-drawing-preview: #22c55e;
+  --color-drawing-preview-emissive: #166534;
+  --color-drawing-preview-line: #a3e635;
+  --color-drawing-snap: #fde047;
+  --color-drawing-snap-emissive: #eab308;
+  --color-drawing-footprint-point: #fde047;
+  --color-drawing-footprint-line: #22c55e;
+  
+  /* Performance Indicator Colors - Dark Theme */
+  --color-performance-good: #22c55e;
+  --color-performance-medium: #f59e0b;
+  --color-performance-poor: #ef4444;
+  
+  /* UI Element Colors - Dark Theme */
+  --color-slider-thumb: #60a5fa;
+  --color-slider-thumb-hover: #3b82f6;
+  --color-slider-thumb-border: #e5e7eb;
+  --color-scrollbar-track: rgba(30, 35, 45, 0.6);
+  --color-scrollbar-thumb: rgba(120, 130, 150, 0.7);
+  --color-scrollbar-thumb-hover: rgba(120, 130, 150, 0.9);
+  --color-fps-counter-bg: rgba(10, 10, 10, 0.8);
+  --color-fps-counter-border: rgba(0, 200, 0, 0.3);
+  --color-fps-counter-shadow: rgba(0, 0, 0, 0.6);
+  --color-box-shadow: rgba(0, 0, 0, 0.4);
+  --color-active-glow: rgba(59, 130, 246, 0.4);
+  
+  /* Text and Labels - Dark Theme */
+  --color-text-label-bg: rgba(20, 20, 20, 0.95);
+  --color-text-label-border: rgba(200, 200, 200, 0.8);
+  --color-text-label: #f3f4f6;
+  
+  /* Context Model - Dark Theme */
+  --color-context-model: #cccccc;
+  
+  /* Building Options Colors - Dark Theme */
+  --color-building-blue: #60a5fa;
+  --color-building-green: #34d399;
+  --color-building-purple: #a78bfa;
+  --color-building-orange: #fb923c;
+  --color-building-red: #f87171;
+  --color-building-cyan: #22d3ee;
+  --color-building-pink: #f472b6;
+  --color-building-gray: #9ca3af;
+  
+  /* Form Element Colors - Dark Theme */
+  --color-input-bg: #1f2937;
+  --color-input-border: #374151;
+  --color-input-border-hover: #4b5563;
+  --color-input-border-focus: #60a5fa;
+  --color-input-placeholder: #9ca3af;
+  --color-input-text: #f3f4f6;
+  
+  /* Button Colors - Dark Theme */
+  --color-button-primary: #60a5fa;
+  --color-button-primary-hover: #3b82f6;
+  --color-button-secondary: #4b5563;
+  --color-button-secondary-hover: #6b7280;
+  --color-button-danger: #f87171;
+  --color-button-danger-hover: #ef4444;
 }

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Rhino3dmLoader } from 'three/examples/jsm/loaders/3DMLoader.js';
 import { SceneManager } from '../core/SceneManager';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
 export class ContextModelLoader {
   private sceneManager: SceneManager;
@@ -26,11 +27,9 @@ export class ContextModelLoader {
               // Set all objects to receive shadows but not cast them
               child.receiveShadow = true;
               child.castShadow = true;
-              
-              if (child instanceof THREE.Mesh) {
-                // Apply a light grey matte material
+                if (child instanceof THREE.Mesh) {                // Apply a light grey matte material
                 child.material = new THREE.MeshStandardMaterial({
-                  color: "#ffffff", // Model Colour White
+                  color: getThemeColorAsHex('--color-context-model', 0xffffff), // Use CSS variable
                   roughness: 0.8,
                   metalness: 0.0,
                 });

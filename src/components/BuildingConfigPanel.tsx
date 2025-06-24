@@ -1,6 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { BuildingConfig } from '../types/building';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
 interface BuildingConfigPanelProps {
   config: BuildingConfig;
@@ -9,14 +10,14 @@ interface BuildingConfigPanelProps {
 }
 
 const colorOptions = [
-  { name: 'Blue', value: 0x3b82f6 },
-  { name: 'Green', value: 0x10b981 },
-  { name: 'Purple', value: 0x8b5cf6 },
-  { name: 'Orange', value: 0xf59e0b },
-  { name: 'Red', value: 0xef4444 },
-  { name: 'Cyan', value: 0x06b6d4 },
-  { name: 'Pink', value: 0xec4899 },
-  { name: 'Gray', value: 0x6b7280 }
+  { name: 'Blue', value: getThemeColorAsHex('--color-building-blue', 0x3b82f6) },
+  { name: 'Green', value: getThemeColorAsHex('--color-building-green', 0x10b981) },
+  { name: 'Purple', value: getThemeColorAsHex('--color-building-purple', 0x8b5cf6) },
+  { name: 'Orange', value: getThemeColorAsHex('--color-building-orange', 0xf59e0b) },
+  { name: 'Red', value: getThemeColorAsHex('--color-building-red', 0xef4444) },
+  { name: 'Cyan', value: getThemeColorAsHex('--color-building-cyan', 0x06b6d4) },
+  { name: 'Pink', value: getThemeColorAsHex('--color-building-pink', 0xec4899) },
+  { name: 'Gray', value: getThemeColorAsHex('--color-building-gray', 0x6b7280) }
 ];
 
 export const BuildingConfigPanel: React.FC<BuildingConfigPanelProps> = ({

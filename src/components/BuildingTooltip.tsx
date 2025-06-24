@@ -1,6 +1,7 @@
 import React from 'react';
 import { Edit, Trash2, Building } from 'lucide-react';
 import { BuildingData } from '../types/building';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
 interface BuildingTooltipProps {
   building: BuildingData;
@@ -51,7 +52,7 @@ export const BuildingTooltip: React.FC<BuildingTooltipProps> = ({
         <div className="flex items-center space-x-2 mb-3">
           <div 
             className="w-4 h-4 rounded"
-            style={{ backgroundColor: `#${(building.color || 0x3b82f6).toString(16).padStart(6, '0')}` }}
+            style={{ backgroundColor: `#${(building.color || getThemeColorAsHex('--color-building-default')).toString(16).padStart(6, '0')}` }}
           />
           <Building className="w-4 h-4 text-gray-400" />
           <span className="text-white font-medium text-sm">

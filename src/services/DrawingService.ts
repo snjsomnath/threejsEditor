@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Point3D } from '../types/building';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
 export class DrawingService {
   private scene: THREE.Scene;
@@ -33,38 +34,37 @@ export class DrawingService {
       DrawingService.pointGeometry = new THREE.SphereGeometry(0.25, 12, 12);
       DrawingService.previewGeometry = new THREE.SphereGeometry(0.2, 12, 12);
       DrawingService.snapGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-      
-      DrawingService.pointMaterial = new THREE.MeshLambertMaterial({ 
-        color: 0xff4444,
-        emissive: 0xff0000,
+        DrawingService.pointMaterial = new THREE.MeshLambertMaterial({ 
+        color: getThemeColorAsHex('--color-drawing-point', 0xff4444),
+        emissive: getThemeColorAsHex('--color-drawing-point-emissive', 0xff0000),
         emissiveIntensity: 0.2
       });
       
       DrawingService.previewMaterial = new THREE.MeshLambertMaterial({ 
-        color: 0x00ff00,
+        color: getThemeColorAsHex('--color-drawing-preview', 0x00ff00),
         transparent: true,
         opacity: 0.7,
-        emissive: 0x004400,
+        emissive: getThemeColorAsHex('--color-drawing-preview-emissive', 0x004400),
         emissiveIntensity: 0.3
       });
       
       DrawingService.snapMaterial = new THREE.MeshLambertMaterial({ 
-        color: 0xffff00,
+        color: getThemeColorAsHex('--color-drawing-snap', 0xffff00),
         transparent: true,
         opacity: 0.9,
-        emissive: 0xffff00,
+        emissive: getThemeColorAsHex('--color-drawing-snap-emissive', 0xffff00),
         emissiveIntensity: 0.4
       });
       
       DrawingService.lineMaterial = new THREE.LineBasicMaterial({ 
-        color: 0x00ff88,
+        color: getThemeColorAsHex('--color-drawing-line', 0x00ff88),
         linewidth: 3, // Increase line width for better visibility
         transparent: true,
         opacity: 1.0 // Make lines fully opaque
       });
       
       DrawingService.previewLineMaterial = new THREE.LineBasicMaterial({ 
-        color: 0x88ff00, // Brighter green for preview lines
+        color: getThemeColorAsHex('--color-drawing-preview-line', 0x88ff00), // Brighter green for preview lines
         linewidth: 2,
         transparent: true,
         opacity: 0.8 // Increase opacity for better visibility
@@ -120,11 +120,10 @@ export class DrawingService {
 
   createSnapPreviewMarker(position: Point3D): THREE.Mesh {
     // Create a new material instance for animation (can't share animated materials)
-    const material = new THREE.MeshLambertMaterial({ 
-      color: 0xffff00,
+    const material = new THREE.MeshLambertMaterial({      color: getThemeColorAsHex('--color-drawing-snap', 0xffff00),
       transparent: true,
       opacity: 0.9,
-      emissive: 0xffff00,
+      emissive: getThemeColorAsHex('--color-drawing-snap-emissive', 0xffff00),
       emissiveIntensity: 0.4
     });
     

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
 export class TextService {
   private scene: THREE.Scene;
@@ -76,10 +77,9 @@ export class TextService {
     const bgHeight = 40; // Smaller height
     const bgX = (this.canvas.width - bgWidth) / 2;
     const bgY = (this.canvas.height - bgHeight) / 2;
-    
-    // Background with rounded corners
-    this.context.fillStyle = 'rgba(0, 0, 0, 0.9)'; // More opaque background
-    this.context.strokeStyle = 'rgba(255, 255, 255, 0.8)'; // More visible border
+      // Background with rounded corners
+    this.context.fillStyle = `var(--color-text-label-bg, rgba(0, 0, 0, 0.9))`; // Use CSS variable
+    this.context.strokeStyle = `var(--color-text-label-border, rgba(255, 255, 255, 0.8))`; // Use CSS variable
     this.context.lineWidth = 2;
     
     this.roundRect(bgX, bgY, bgWidth, bgHeight, 8);
@@ -87,7 +87,7 @@ export class TextService {
     this.context.stroke();
     
     // Draw text
-    this.context.fillStyle = '#ffffff';
+    this.context.fillStyle = `var(--color-text-label, #ffffff)`; // Use CSS variable
     this.context.fillText(text, this.canvas.width / 2, this.canvas.height / 2);
     
     // Create texture

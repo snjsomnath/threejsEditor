@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { Point3D, BuildingData, BuildingConfig, BuildingTooltipData } from '../types/building';
 import { createShapeFromPoints, calculateCentroid } from '../utils/geometry';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
 interface BuildingStats {
   count: number;
@@ -39,9 +40,8 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
       shape.lineTo(points[0].x, -points[0].z); // Close the shape
     }
 
-    const geometry = new THREE.ShapeGeometry(shape);
-    const material = new THREE.MeshBasicMaterial({ 
-      color: 0x00ffaa,
+    const geometry = new THREE.ShapeGeometry(shape);    const material = new THREE.MeshBasicMaterial({ 
+      color: getThemeColorAsHex('--color-building-footprint', 0x00ffaa),
       transparent: true,
       opacity: 0.3,
       side: THREE.DoubleSide,
@@ -76,7 +76,7 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
 
       const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
       const lineMaterial = new THREE.LineBasicMaterial({ 
-        color: 0x888888, // Gray color for floor lines
+        color: getThemeColorAsHex('--color-floor-lines', 0x888888), // Gray color for floor lines
         transparent: false,
         opacity: 1,
         linewidth: 5
@@ -287,9 +287,8 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
   const selectBuilding = useCallback((building: BuildingData | null) => {
     // Reset previous selection
     if (selectedBuilding) {
-      const material = selectedBuilding.mesh.material as THREE.MeshLambertMaterial;
-      // Restore original color and remove selection effects
-      material.emissive.setHex(0x000000);
+      const material = selectedBuilding.mesh.material as THREE.MeshLambertMaterial;      // Restore original color and remove selection effects
+      material.emissive.setHex(getThemeColorAsHex('--color-building-emissive', 0x000000));
       if (typeof selectedBuilding.color === 'number') {
         material.color.setHex(selectedBuilding.color);
       }
@@ -299,12 +298,11 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
 
     // Apply selection to new building (but only if it's not a preview)
     if (building && !building.mesh.userData.isPreview && !building.mesh.userData.isDrawingElement) {
-      const material = building.mesh.material as THREE.MeshLambertMaterial;
-      // Set selection color (orange with transparency)
-      material.color.setHex(0xffa500); // orange
+      const material = building.mesh.material as THREE.MeshLambertMaterial;      // Set selection color (orange with transparency)
+      material.color.setHex(getThemeColorAsHex('--color-building-highlight', 0xffa500)); // Use CSS variable
       material.transparent = true;
       material.opacity = 0.6; // More visible than before
-      material.emissive.setHex(0x332200); // subtle orange glow
+      material.emissive.setHex(getThemeColorAsHex('--color-building-highlight-emissive', 0x332200)); // Use CSS variable
     }
 
     setSelectedBuilding(building);
@@ -314,7 +312,7 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     // Reset previous hover (only if not selected)
     if (hoveredBuilding && hoveredBuilding !== selectedBuilding) {
       const material = hoveredBuilding.mesh.material as THREE.MeshLambertMaterial;
-      material.emissive.setHex(0x000000);
+      material.emissive.setHex(getThemeColorAsHex('--color-building-emissive', 0x000000));
       // Restore original color properly
       if (typeof hoveredBuilding.color === 'number') {
         material.color.setHex(hoveredBuilding.color);
@@ -326,7 +324,7 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
     // Apply hover to new building (only if not selected)
     if (building && building !== selectedBuilding && !building.mesh.userData.isPreview) {
       const material = building.mesh.material as THREE.MeshLambertMaterial;
-      material.emissive.setHex(0x444444); // Gray highlight for hover
+      material.emissive.setHex(getThemeColorAsHex('--color-building-hover-emissive', 0x444444)); // Use CSS variable
       console.log('Hovering building:', building.id, building.name);
     }
 
@@ -415,12 +413,12 @@ export const useBuildingManager = (scene: THREE.Scene | null, camera: THREE.Pers
                                         (userData.type === 'footprint' || 
                                          userData.isPoint || 
                                          child.material && (child.material as any).color && 
-                                         (child.material as any).color.getHex() === 0xffff00)) || // Yellow points
+                                         (child.material as any).color.getHex() === getThemeColorAsHex('--color-drawing-footprint-point', 0xffff00))) || // Yellow points
                                        (child instanceof THREE.Line && 
                                         (userData.type === 'footprint' || 
                                          userData.isLine ||
                                          child.material && (child.material as any).color &&
-                                         (child.material as any).color.getHex() === 0x00ff00)); // Green lines
+                                         (child.material as any).color.getHex() === getThemeColorAsHex('--color-drawing-footprint-line', 0x00ff00))); // Green lines
 
           // Check for any mesh that might be a preview
           const isPreviewMesh = child instanceof THREE.Mesh && 

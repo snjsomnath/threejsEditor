@@ -5,16 +5,17 @@ import { BuildingData, BuildingConfig } from '../types/building';
 import { Tooltip } from './ui/Tooltip';
 import { MaterialCompareDialog } from './dialogs/MaterialCompareDialog';
 import { calculateCentroid, createShapeFromPoints } from '../utils/geometry';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
 const colorOptions = [
-  { name: 'Blue', value: 0x3b82f6 },
-  { name: 'Green', value: 0x10b981 },
-  { name: 'Purple', value: 0x8b5cf6 },
-  { name: 'Orange', value: 0xf59e0b },
-  { name: 'Red', value: 0xef4444 },
-  { name: 'Cyan', value: 0x06b6d4 },
-  { name: 'Pink', value: 0xec4899 },
-  { name: 'Gray', value: 0x6b7280 }
+  { name: 'Blue', value: getThemeColorAsHex('--color-building-blue', 0x3b82f6) },
+  { name: 'Green', value: getThemeColorAsHex('--color-building-green', 0x10b981) },
+  { name: 'Purple', value: getThemeColorAsHex('--color-building-purple', 0x8b5cf6) },
+  { name: 'Orange', value: getThemeColorAsHex('--color-building-orange', 0xf59e0b) },
+  { name: 'Red', value: getThemeColorAsHex('--color-building-red', 0xef4444) },
+  { name: 'Cyan', value: getThemeColorAsHex('--color-building-cyan', 0x06b6d4) },
+  { name: 'Pink', value: getThemeColorAsHex('--color-building-pink', 0xec4899) },
+  { name: 'Gray', value: getThemeColorAsHex('--color-building-gray', 0x6b7280) }
 ];
 
 // Updated options with performance data
@@ -71,13 +72,15 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
     program: false,
     hvac: false
   });
+
+  
   // All editable fields
   const [edited, setEdited] = useState<BuildingConfig & { name: string; description: string }>({
     name: building.name || '',
     description: building.description || '',
     floors: building.floors,
     floorHeight: building.floorHeight,
-    color: building.color || 0x3b82f6,
+    color: building.color || getThemeColorAsHex('--color-building-blue', 0x3b82f6),
     window_to_wall_ratio: building.window_to_wall_ratio ?? 0.4,
     window_overhang: building.window_overhang ?? false,
     window_overhang_depth: building.window_overhang_depth ?? 0.0,
@@ -179,7 +182,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
               
               const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
               const lineMaterial = new THREE.LineBasicMaterial({ 
-                color: 0x888888,
+                color: getThemeColorAsHex('--color-floor-lines', 0x888888),
                 transparent: false,
                 opacity: 1,
                 linewidth: 5
@@ -243,7 +246,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
       description: building.description || '',
       floors: building.floors,
       floorHeight: building.floorHeight,
-      color: building.color || 0x3b82f6,
+      color: building.color || getThemeColorAsHex('--color-building-blue', 0x3b82f6),
       window_to_wall_ratio: building.window_to_wall_ratio ?? 0.4,
       window_overhang: building.window_overhang ?? false,
       window_overhang_depth: building.window_overhang_depth ?? 0.0,
@@ -255,10 +258,9 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
       building_program: building.building_program || 'Office',
       hvac_system: building.hvac_system || 'Default HVAC',
       natural_ventilation: building.natural_ventilation ?? false
-    });
-    if (building.mesh && building.mesh.material && building.mesh.userData.buildingId && !building.mesh.userData.isPreview && !building.mesh.userData.isDrawingElement) {
+    });    if (building.mesh && building.mesh.material && building.mesh.userData.buildingId && !building.mesh.userData.isPreview && !building.mesh.userData.isDrawingElement) {
       const material = building.mesh.material as THREE.MeshLambertMaterial;
-      material.color.setHex(building.color || 0x3b82f6);
+      material.color.setHex(building.color || getThemeColorAsHex('--color-building-blue', 0x3b82f6));
     }
   };
 
@@ -373,7 +375,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
               
               const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
               const lineMaterial = new THREE.LineBasicMaterial({ 
-                color: 0x888888,
+                color: getThemeColorAsHex('--color-floor-lines', 0x888888),
                 transparent: false,
                 opacity: 1,
                 linewidth: 5
@@ -386,11 +388,10 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
           }
         }
       }
-      
-      // Restore original color if changed
+        // Restore original color if changed
       if (edited.color !== building.color && building.mesh && building.mesh.material) {
         const material = building.mesh.material as THREE.MeshLambertMaterial;
-        material.color.setHex(building.color || 0x3b82f6);
+        material.color.setHex(building.color || getThemeColorAsHex('--color-building-blue', 0x3b82f6));
       }
     }
     

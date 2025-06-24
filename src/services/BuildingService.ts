@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Point3D, BuildingConfig } from '../types/building';
 import { calculateCentroid, createShapeFromPoints } from '../utils/geometry';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
 export class BuildingService {
   private scene: THREE.Scene;
@@ -21,16 +22,14 @@ export class BuildingService {
   }
 
   private initializeSharedResources(): void {
-    if (!BuildingService.debugMaterial) {
-      BuildingService.debugMaterial = new THREE.MeshLambertMaterial({
-        color: 0x00ff00,
-        emissive: 0x00ff00,
+    if (!BuildingService.debugMaterial) {      BuildingService.debugMaterial = new THREE.MeshLambertMaterial({
+        color: getThemeColorAsHex('--color-building-debug', 0x00ff00),
+        emissive: getThemeColorAsHex('--color-building-debug', 0x00ff00),
         emissiveIntensity: 0.3
       });
-      
-      // Add shared preview material
+        // Add shared preview material
       BuildingService.previewMaterial = new THREE.MeshLambertMaterial({
-        color: 0x3b82f6,
+        color: getThemeColorAsHex('--color-building-preview', 0x3b82f6),
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.5,

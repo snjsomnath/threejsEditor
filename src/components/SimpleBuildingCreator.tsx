@@ -12,17 +12,17 @@ import { BuildingEditPanel } from './BuildingEditPanel';
 import { BuildingTooltip } from './BuildingTooltip';
 import { BuildingConfig } from '../types/building';
 import type { CameraType, CameraView } from '../core/ThreeJSCore';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
 export const SimpleBuildingCreator: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
-  const [showBuildingConfig, setShowBuildingConfig] = useState(false);
-  const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
+  const [showBuildingConfig, setShowBuildingConfig] = useState(false);  const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
     floors: 3,
     floorHeight: 3.5,
-    color: 0x6366f1
+    color: getThemeColorAsHex('--color-building-default', 0x6366f1)
   });
   const [currentCameraType, setCurrentCameraType] = useState<CameraType>('perspective');
   
@@ -102,7 +102,7 @@ export const SimpleBuildingCreator: React.FC = () => {
           setBuildingConfig({
             floors: result.building.floors,
             floorHeight: result.building.floorHeight,
-            color: result.building.color || 0x6366f1
+            color: result.building.color || getThemeColorAsHex('--color-building-default', 0x6366f1)
           });
           setShowBuildingConfig(true);
         } else if (!result) {

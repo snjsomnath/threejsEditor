@@ -21,10 +21,42 @@ export function getThemeColorAsHex(variableName: string, fallback: number = 0xff
     
   if (!cssColor) return fallback;
   
-  // Convert CSS hex to number (handle both #fff and #ffffff formats)
   try {
-    return parseInt(cssColor.replace('#', ''), 16);
-  } catch {
+    // Handle different CSS color formats
+    if (cssColor.startsWith('#')) {
+      // Handle hex format (#fff or #ffffff)
+      return parseInt(cssColor.replace('#', ''), 16);
+    } else if (cssColor.startsWith('rgb')) {
+      // Handle rgb/rgba format
+      const rgbMatch = cssColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+      if (rgbMatch) {
+        const r = parseInt(rgbMatch[1]);
+        const g = parseInt(rgbMatch[2]);
+        const b = parseInt(rgbMatch[3]);
+        return (r << 16) + (g << 8) + b;
+      }
+    }
+    
+    // If we can't parse the color, create a temporary element to have the browser parse it
+    const tempEl = document.createElement('div');
+    tempEl.style.color = cssColor;
+    document.body.appendChild(tempEl);
+    const computedColor = getComputedStyle(tempEl).color;
+    document.body.removeChild(tempEl);
+    
+    // Now parse the computed RGB color
+    const rgbMatch = computedColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (rgbMatch) {
+      const r = parseInt(rgbMatch[1]);
+      const g = parseInt(rgbMatch[2]);
+      const b = parseInt(rgbMatch[3]);
+      return (r << 16) + (g << 8) + b;
+    }
+    
+    // If all else fails, return fallback
+    return fallback;
+  } catch (error) {
+    console.warn(`Failed to parse color for ${variableName}:`, error);
     return fallback;
   }
 }
@@ -61,8 +93,18 @@ export function getThemeColors(
  * This can be called when theme changes
  */
 export function updateThemeColors(): void {
+  // Invalidate CSS cache by forcing a style recalculation
+  if (typeof document !== 'undefined') {
+    document.documentElement.style.display = 'none';
+    // Trigger reflow
+    void document.documentElement.offsetHeight;
+    document.documentElement.style.display = '';
+  }
+  
   // Event to notify components that theme colors have changed
   window.dispatchEvent(new CustomEvent('theme-colors-changed'));
+  
+  console.log('Theme colors updated');
 }
 
 /**
@@ -100,4 +142,47 @@ export function toggleTheme(): 'light' | 'dark' {
     updateThemeColors();
     return 'dark';
   }
+}
+
+/**
+ * Debug function to output all theme colors to the console
+ * Useful for troubleshooting theme issues
+ * @param variables Array of CSS variable names to debug
+ */
+export function debugThemeColors(variables: string[] = []): void {
+  if (typeof document === 'undefined') return;
+  
+  // If no variables provided, debug common ones
+  if (variables.length === 0) {
+    variables = [
+      '--color-sun-light',
+      '--color-ambient-light',
+      '--color-hemisphere-sky',
+      '--color-hemisphere-ground',
+      '--color-ground',
+      '--color-grid',
+      '--color-scene-background'
+    ];
+  }
+  
+  console.group('Theme Colors Debug');
+  
+  // Current theme
+  const theme = document.documentElement.classList.contains('dark-theme') ? 'dark' : 'light';
+  console.log(`Current theme: ${theme}`);
+  
+  // Log each variable's CSS value and parsed Three.js value
+  variables.forEach(varName => {
+    const cssValue = getComputedStyle(document.documentElement)
+      .getPropertyValue(varName).trim();
+    const threeJsValue = getThemeColorAsHex(varName).toString(16).padStart(6, '0');
+    
+    console.log(
+      `${varName}:`,
+      cssValue || '(not set)',
+      `→ 0x${threeJsValue}`
+    );
+  });
+  
+  console.groupEnd();
 }

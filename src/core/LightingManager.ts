@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Sky } from 'three/examples/jsm/objects/Sky.js';
-import { getThemeColorAsHex } from '../utils/themeColors';
+import { getThemeColorAsHex, getThemeColorAsThreeColor } from '../utils/themeColors';
 
 export interface LightingConfig {
   sunLightColor?: number;
@@ -55,12 +55,20 @@ export class LightingManager {
     this.ambient = new THREE.AmbientLight(ambientColor, 0.25); // Reduced since we're adding hemisphere light
     this.scene.add(this.ambient);
   }
-  
-  private createHemisphereLight(): void {
-    // Create hemisphere light for better ambient illumination    // Sky color (blueish), ground color (warm tone), intensity
+    private createHemisphereLight(): void {
+    // Create hemisphere light for better ambient illumination
     // Using CSS variable colors via our utility function
     const skyColor = getThemeColorAsHex('--color-hemisphere-sky', 0x77a0d5);
     const groundColor = getThemeColorAsHex('--color-hemisphere-ground', 0xbcaf70);
+    
+    // Debug info - remove in production
+    console.log('Creating hemisphere light with colors:', {
+      skyColorVar: '--color-hemisphere-sky',
+      skyColorHex: '0x' + skyColor.toString(16),
+      groundColorVar: '--color-hemisphere-ground',
+      groundColorHex: '0x' + groundColor.toString(16)
+    });
+    
     this.hemiLight = new THREE.HemisphereLight(skyColor, groundColor, 0.30);
     this.scene.add(this.hemiLight);
   }
@@ -246,6 +254,23 @@ export class LightingManager {
       this.hemiLight.color.setHex(skyColor);
       this.hemiLight.groundColor.setHex(groundColor);
     }
+  }
+
+  // Getter methods for color debugging
+  getSunLightColor(): THREE.Color {
+    return this.sun ? this.sun.color : getThemeColorAsThreeColor('--color-sun-light', 0xffffff);
+  }
+
+  getAmbientLightColor(): THREE.Color {
+    return this.ambient ? this.ambient.color : getThemeColorAsThreeColor('--color-ambient-light', 0xffffff);
+  }
+
+  getHemisphereSkyColor(): THREE.Color {
+    return this.hemiLight ? this.hemiLight.color : getThemeColorAsThreeColor('--color-hemisphere-sky', 0xffffff);
+  }
+
+  getHemisphereGroundColor(): THREE.Color {
+    return this.hemiLight ? this.hemiLight.groundColor : getThemeColorAsThreeColor('--color-hemisphere-ground', 0xffffff);
   }
 
   dispose(): void {
