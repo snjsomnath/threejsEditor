@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import type { Pass } from 'three/examples/jsm/postprocessing/Pass.js';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
 export interface RendererConfig {
   antialias?: boolean;
@@ -159,5 +160,33 @@ export class RendererManager {
     // Clear render lists
     this.renderer.info.memory.geometries = 0;
     this.renderer.info.memory.textures = 0;
+  }
+  
+  /**
+   * Update renderer settings based on current theme
+   */
+  updateThemeColors(): void {
+    const isDarkTheme = document.documentElement.classList.contains('dark-theme');
+    
+    // Adjust renderer tone mapping exposure based on theme
+    if (this.renderer) {
+      // Lower exposure for dark theme, brighter for light theme
+      this.renderer.toneMappingExposure = isDarkTheme ? 0.8 : 1.1;
+      
+      // Update output encoding if needed
+      this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+      
+      // Apply any additional renderer-specific theme settings
+      if (isDarkTheme) {
+        // Night mode specific settings
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      } else {
+        // Day mode specific settings
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      }
+      
+      // Force update
+      this.renderer.shadowMap.needsUpdate = true;
+    }
   }
 }

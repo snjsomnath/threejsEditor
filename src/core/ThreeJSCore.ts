@@ -7,7 +7,8 @@ import { LightingManager } from './LightingManager';
 import { EnvironmentManager } from './EnvironmentManager';
 import { PerformanceManager } from './PerformanceManager';
 import { ContextModelLoader } from '../services/ContextModelLoader';
-import { addThemeChangeListener } from '../utils/themeColors';
+import { addThemeChangeListener, getThemeColorAsHex } from '../utils/themeColors';
+import type { SunPosition } from '../utils/sunPosition';
 
 export interface ThreeJSCoreConfig {
   container: HTMLElement;
@@ -151,7 +152,6 @@ export class ThreeJSCore {
       throw errorObj;
     }
   }
-
   private setupThemeChangeListener(): void {
     // Clean up any existing listener
     if (this.themeChangeCleanup) {
@@ -159,18 +159,95 @@ export class ThreeJSCore {
       this.themeChangeCleanup = null;
     }
     
-    // Add new listener
+    // Add listener for the general theme change event
     this.themeChangeCleanup = addThemeChangeListener(() => {
       this.updateThemeColors();
     });
-  }
-  
-  private updateThemeColors(): void {
-    // Update colors in all managers
-    this.sceneManager.updateThemeColors();
-    this.lightingManager.updateThemeColors();
-    this.environmentManager.updateThemeColors();
-    this.performanceManager.updateThemeColors();
+    
+    // Add specific listener for ThreeJS theme update
+    const handleThreeJSThemeUpdate = (event: CustomEvent) => {
+      console.log(`ThreeJS responding to theme update: ${event.detail?.theme || 'unknown'}`);
+      // Force immediate and complete update
+      this.updateThemeColors();
+      // Re-render the scene
+      this.rendererManager.getRenderer().render(
+        this.sceneManager.getScene(), 
+        this.cameraManager.getCamera()
+      );
+    };
+    
+    window.addEventListener('threejs-theme-update', handleThreeJSThemeUpdate as EventListener);
+    
+    // Extend cleanup to remove this listener too
+    const originalCleanup = this.themeChangeCleanup;
+    this.themeChangeCleanup = () => {
+      originalCleanup();
+      window.removeEventListener('threejs-theme-update', handleThreeJSThemeUpdate as EventListener);
+    };
+  }  private updateThemeColors(): void {
+    console.log("ThreeJSCore: Updating theme colors");
+    
+    // Get current theme
+    const isDarkTheme = document.documentElement.classList.contains('dark-theme');    // Update colors in all managers - with error handling for each manager
+    try {
+      this.sceneManager.updateThemeColors();
+    } catch (e) {
+      console.warn('Error updating scene colors:', e);
+    }
+    
+    try {
+      this.lightingManager.updateThemeColors();
+    } catch (e) {
+      console.warn('Error updating lighting colors:', e);
+    }
+    
+    try {
+      this.environmentManager.updateThemeColors();
+    } catch (e) {
+      console.warn('Error updating environment colors:', e);
+    }
+    
+    try {
+      this.performanceManager.updateThemeColors();
+    } catch (e) {
+      console.warn('Error updating performance manager colors:', e);
+    }
+    
+    try {
+      this.rendererManager.updateThemeColors();
+    } catch (e) {
+      console.warn('Error updating renderer colors:', e);
+    }
+    
+    try {
+      this.contextModelLoader.updateThemeColors();
+    } catch (e) {
+      console.warn('Error updating context model colors:', e);
+    }
+    
+    // Additional global scene adjustments
+    const scene = this.sceneManager.getScene();
+    const renderer = this.rendererManager.getRenderer();
+    
+    // Update renderer clear color
+    renderer.setClearColor(
+      getThemeColorAsHex('--color-scene-background', isDarkTheme ? 0x050a1c : 0xf2f2f2)
+    );
+    
+    // Enable fog with appropriate settings based on theme
+    if (!scene.fog) {
+      const fogColor = getThemeColorAsHex('--color-scene-fog', isDarkTheme ? 0x050a1c : 0xcccccc);
+      scene.fog = new THREE.Fog(
+        fogColor, 
+        isDarkTheme ? 150 : 250,
+        isDarkTheme ? 500 : 800
+      );
+    }
+    
+    // Force an immediate render to show changes
+    renderer.render(scene, this.cameraManager.getCamera());
+    
+    console.log(`Theme updated to ${isDarkTheme ? 'dark' : 'light'} mode`);
   }
 
   private startAnimationLoop(): void {
@@ -433,6 +510,14 @@ export class ThreeJSCore {
 
   updateSunPosition(x: number, y: number, z: number): void {
     this.lightingManager.updateSunPosition(x, y, z);
+  }
+
+  updateRealisticSunPosition(sunPosition: SunPosition): void {
+    this.lightingManager.updateRealisticSunPosition(sunPosition);
+  }
+
+  setRealisticSunMode(enabled: boolean): void {
+    this.lightingManager.setRealisticSunMode(enabled);
   }
 
   // Add new shadow debugging methods

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { getThemeColorAsHex, getThemeColorAsThreeColor } from '../utils/themeColors';
+import { getCurrentSunPosition, getSunIntensity, getAmbientIntensity, type SunPosition } from '../utils/sunPosition';
 
 export interface LightingConfig {
   sunLightColor?: number;
@@ -10,6 +11,7 @@ export interface LightingConfig {
   shadowMapSize?: number;
   shadowCameraBounds?: number;
   enableSky?: boolean;
+  useRealisticSun?: boolean; // New option for realistic sun positioning
 }
 
 export class LightingManager {
@@ -21,7 +23,8 @@ export class LightingManager {
   private shadowHelper: THREE.CameraHelper | null = null;
   private sky: Sky | null = null;
   private needsShadowUpdate = false;
-
+  private currentSunPosition: SunPosition | null = null; // Track current realistic sun position
+  private isUsingRealisticSun = false; // Track if we're using realistic positioning
   constructor(scene: THREE.Scene, config: LightingConfig = {}) {
     this.scene = scene;
     this.config = {      // This will be loaded from CSS variable at runtime
@@ -32,19 +35,29 @@ export class LightingManager {
       shadowMapSize: 2048, // Increased for better shadow quality
       shadowCameraBounds: 30,
       enableSky: true,
+      useRealisticSun: false, // Default to manual positioning
       ...config
     };
-  }  async initialize(): Promise<void> {
+  }async initialize(): Promise<void> {
     try {
+      // Create basic lights first to ensure they're available
       this.createSunLight();
       this.createAmbientLight();
       this.createHemisphereLight();
       
+      // Then try to create the sky, but don't let failure stop initialization
       if (this.config.enableSky) {
-        await this.createSky();
+        try {
+          await this.createSky();
+        } catch (skyError) {
+          console.warn('Sky creation failed, continuing without sky:', skyError);
+          // Continue without sky - this is not critical
+        }
       }
+      
+      console.log('Lighting system initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize lighting:', error);
+      console.error('Failed to initialize core lighting components:', error);
       throw error;
     }
   }
@@ -115,27 +128,105 @@ export class LightingManager {
     }
     
     this.scene.add(this.sun);
-  }
-
-  private async createSky(): Promise<void> {
+  }  private async createSky(): Promise<void> {
     try {
       const { Sky } = await import('three/examples/jsm/objects/Sky.js');
       this.sky = new Sky();
       this.sky.scale.setScalar(10000);
+      
+      // First add it to the scene to ensure it's properly initialized
       this.scene.add(this.sky);
       
-      this.updateSkyUniforms();
+      // Add a slight delay to ensure the Sky object is fully initialized
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // Initialize uniforms safely after Sky is added to scene 
+      this.initializeSkyUniforms();
+      
+      console.log('Sky created successfully');
     } catch (error) {
       console.error('Failed to create sky:', error);
-      throw error;
+      this.sky = null;
     }
   }
-
-  private updateSkyUniforms(): void {
-    if (this.sky && this.sun) {
-      const sunPosition = new THREE.Vector3();
-      sunPosition.copy(this.sun.position).normalize();
-      this.sky.material.uniforms['sunPosition'].value.copy(sunPosition);
+  
+  private initializeSkyUniforms(): void {
+    if (!this.sky || !this.sky.material || !this.sky.material.uniforms) {
+      console.warn('Sky uniforms not available');
+      return;
+    }
+    
+    try {
+      const isDarkTheme = document.documentElement.classList.contains('dark-theme');
+      const uniforms = this.sky.material.uniforms;
+      
+      // Check if each uniform exists before setting
+      if ('turbidity' in uniforms) {
+        uniforms['turbidity'].value = isDarkTheme ? 10 : 10;
+      }
+      
+      if ('rayleigh' in uniforms) {
+        uniforms['rayleigh'].value = isDarkTheme ? 2 : 1;
+      }
+      
+      if ('mieCoefficient' in uniforms) {
+        uniforms['mieCoefficient'].value = 0.005;
+      }
+      
+      if ('mieDirectionalG' in uniforms) {
+        uniforms['mieDirectionalG'].value = isDarkTheme ? 0.7 : 0.8;
+      }
+      
+      if ('luminance' in uniforms) {
+        uniforms['luminance'].value = isDarkTheme ? 0.5 : 1.0;
+      }
+      
+      // Initialize sun position if available
+      if (this.sun && 'sunPosition' in uniforms) {
+        const sunPosition = new THREE.Vector3();
+        sunPosition.copy(this.sun.position).normalize();
+        uniforms['sunPosition'].value.copy(sunPosition);
+      }
+      
+      console.log(`Sky uniforms initialized with ${isDarkTheme ? 'night' : 'day'} settings`);
+    } catch (error) {
+      console.error('Error initializing sky uniforms:', error);
+    }
+  }  private updateSkyUniforms(): void {
+    // Check if sky and sun are available
+    if (!this.sky || !this.sun || !this.sky.material || !this.sky.material.uniforms) {
+      return;
+    }
+    
+    try {
+      const uniforms = this.sky.material.uniforms;
+      const isDarkTheme = document.documentElement.classList.contains('dark-theme');
+      
+      // Update sun position if that uniform exists
+      if (this.sun && 'sunPosition' in uniforms && uniforms['sunPosition']?.value) {
+        const sunPosition = new THREE.Vector3();
+        sunPosition.copy(this.sun.position).normalize();
+        uniforms['sunPosition'].value.copy(sunPosition);
+      }
+      
+      // Only update uniforms that exist
+      if (isDarkTheme) {
+        // Night sky settings - with safety checks
+        if ('turbidity' in uniforms) uniforms['turbidity'].value = 10;
+        if ('rayleigh' in uniforms) uniforms['rayleigh'].value = 2;
+        if ('mieCoefficient' in uniforms) uniforms['mieCoefficient'].value = 0.005;
+        if ('mieDirectionalG' in uniforms) uniforms['mieDirectionalG'].value = 0.7;
+        if ('luminance' in uniforms) uniforms['luminance'].value = 0.5;
+      } else {
+        // Day sky settings - with safety checks
+        if ('turbidity' in uniforms) uniforms['turbidity'].value = 10;
+        if ('rayleigh' in uniforms) uniforms['rayleigh'].value = 1;
+        if ('mieCoefficient' in uniforms) uniforms['mieCoefficient'].value = 0.005;
+        if ('mieDirectionalG' in uniforms) uniforms['mieDirectionalG'].value = 0.8;
+        if ('luminance' in uniforms) uniforms['luminance'].value = 1.0;
+      }
+    } catch (error) {
+      console.error('Error updating sky uniforms:', error);
     }
   }
 
@@ -197,6 +288,110 @@ export class LightingManager {
     }
   }
 
+  /**
+   * Update sun position using realistic solar calculations
+   */
+  updateRealisticSunPosition(sunPosition: SunPosition): void {
+    this.currentSunPosition = sunPosition;
+    this.isUsingRealisticSun = true;
+    
+    if (this.sun) {
+      // Update sun position
+      this.sun.position.set(sunPosition.x, sunPosition.y, sunPosition.z);
+      
+      // Update sun intensity based on elevation
+      const intensity = getSunIntensity(sunPosition.elevation);
+      this.sun.intensity = intensity;
+      
+      // Update sun color based on elevation (warmer colors at low elevations)
+      const isDarkTheme = document.documentElement.classList.contains('dark-theme');
+      if (sunPosition.elevation < 0) {
+        // Night time - use moon color
+        this.sun.color.setHex(isDarkTheme ? 0x133b7a : 0x4a6ba8);
+        this.sun.intensity = 0.3; // Moonlight is dimmer
+      } else if (sunPosition.elevation < 10) {
+        // Sunrise/sunset - warm colors
+        this.sun.color.setHex(0xffa500); // Orange
+        this.sun.intensity = intensity * 0.8;
+      } else {
+        // Daytime - use theme color
+        const sunColor = getThemeColorAsHex('--color-sun-light', isDarkTheme ? 0x133b7a : 0xfaf6ed);
+        this.sun.color.setHex(sunColor);
+        this.sun.intensity = intensity;
+      }
+      
+      // Update shadow camera position
+      if (this.sun.shadow && this.sun.target) {
+        this.sun.target.position.set(0, 0, 0);
+        this.sun.target.updateMatrixWorld();
+      }
+      
+      // Update ambient light based on sun position
+      if (this.ambient) {
+        const ambientIntensity = getAmbientIntensity(sunPosition.elevation);
+        this.ambient.intensity = ambientIntensity;
+        
+        // Adjust ambient color based on time of day
+        if (sunPosition.elevation < 0) {
+          this.ambient.color.setHex(0x0c1625); // Night ambient
+        } else if (sunPosition.elevation < 10) {
+          this.ambient.color.setHex(0x4a3728); // Warm ambient for sunrise/sunset
+        } else {
+          const ambientColor = getThemeColorAsHex('--color-ambient-light', 0xffffff);
+          this.ambient.color.setHex(ambientColor);
+        }
+      }
+      
+      // Update hemisphere light
+      if (this.hemiLight) {
+        const hemiIntensity = getAmbientIntensity(sunPosition.elevation) * 0.5;
+        this.hemiLight.intensity = hemiIntensity;
+      }
+      
+      // Update sky uniforms
+      this.updateSkyUniforms();
+      
+      // Update shadow helper
+      if (this.shadowHelper) {
+        this.shadowHelper.update();
+      }
+    }
+  }
+
+  /**
+   * Enable or disable realistic sun positioning
+   */
+  setRealisticSunMode(enabled: boolean): void {
+    this.isUsingRealisticSun = enabled;
+    
+    if (enabled && !this.currentSunPosition) {
+      // Initialize with current sun position
+      this.currentSunPosition = getCurrentSunPosition();
+      this.updateRealisticSunPosition(this.currentSunPosition);
+    } else if (!enabled) {
+      // Restore manual sun position
+      this.updateSunPosition(
+        this.config.sunPosition!.x,
+        this.config.sunPosition!.y,
+        this.config.sunPosition!.z
+      );
+    }
+  }
+
+  /**
+   * Get current realistic sun position
+   */
+  getCurrentRealisticSunPosition(): SunPosition | null {
+    return this.currentSunPosition;
+  }
+
+  /**
+   * Check if realistic sun positioning is enabled
+   */
+  isRealisticSunEnabled(): boolean {
+    return this.isUsingRealisticSun;
+  }
+
   // Add method to get shadow information for debugging
   getShadowInfo(): { enabled: boolean; mapSize: number; bounds: number; position: THREE.Vector3 | null } {
     if (!this.sun) {
@@ -232,27 +427,59 @@ export class LightingManager {
     if (this.shadowHelper) {
       this.shadowHelper.update();
     }
-  }
-
-  updateThemeColors(): void {
+  }  updateThemeColors(): void {
+    const isDarkTheme = document.documentElement.classList.contains('dark-theme');
+    
     // Update sunlight color
     if (this.sun) {
-      const sunColor = getThemeColorAsHex('--color-sun-light', 0xfaf6ed);
+      const sunColor = getThemeColorAsHex('--color-sun-light', isDarkTheme ? 0x133b7a : 0xfaf6ed);
       this.sun.color.setHex(sunColor);
+      
+      // Adjust intensity based on theme - moonlight is much less intense than sunlight
+      this.sun.intensity = isDarkTheme ? 0.5 : 1.8;
+      
+      // Update shadow properties for the theme
+      if (this.sun.shadow) {
+        this.sun.shadow.bias = isDarkTheme ? -0.00025 : -0.0005;
+        this.sun.shadow.normalBias = isDarkTheme ? 0.03 : 0.05;
+        // Softer, blurrier shadows at night
+        this.sun.shadow.radius = isDarkTheme ? 10 : 8;      }
+      
+      // Update sun position for day/night effect
+      if (isDarkTheme) {
+        // Night - low angle moonlight position
+        this.sun.position.set(45, 15, 35);
+      } else {
+        // Day - high sun position
+        this.sun.position.set(50, 65, 25);
+      }
+      
+      try {
+        // Safely update sky if available
+        this.updateSkyUniforms();
+      } catch (error) {
+        console.warn('Error updating sky uniforms during theme change:', error);
+      }
     }
     
     // Update ambient light color
     if (this.ambient) {
-      const ambientColor = getThemeColorAsHex('--color-ambient-light', 0xffffff);
+      const ambientColor = getThemeColorAsHex('--color-ambient-light', isDarkTheme ? 0x0c1625 : 0xffffff);
       this.ambient.color.setHex(ambientColor);
+      
+      // Adjust intensity based on theme
+      this.ambient.intensity = isDarkTheme ? 0.2 : 0.7;
     }
     
     // Update hemisphere light colors
     if (this.hemiLight) {
-      const skyColor = getThemeColorAsHex('--color-hemisphere-sky', 0xd1e5ff);
-      const groundColor = getThemeColorAsHex('--color-hemisphere-ground', 0xb97a20);
+      const skyColor = getThemeColorAsHex('--color-hemisphere-sky', isDarkTheme ? 0x0a1525 : 0x94accc);
+      const groundColor = getThemeColorAsHex('--color-hemisphere-ground', isDarkTheme ? 0x102137 : 0xffdb27);
       this.hemiLight.color.setHex(skyColor);
       this.hemiLight.groundColor.setHex(groundColor);
+      
+      // Adjust intensity based on theme
+      this.hemiLight.intensity = isDarkTheme ? 0.15 : 0.30;
     }
   }
 

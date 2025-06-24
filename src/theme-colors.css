@@ -153,35 +153,37 @@
   --color-text: #f3f4f6;
   --color-background: #111827;
   
-  /* 3D Scene Colors - Dark Theme */
-  --color-ground: #333333;
-  --color-grid: #666666;
-  --color-sun-light: #e6dfd1;
-  --color-ambient-light: #e6e6e6;
-  --color-hemisphere-sky: #7a95b5;
-  --color-hemisphere-ground: #b59a6a;
-  --color-scene-background: #252525;
-  --color-scene-fog: #1a1a1a;
-    /* Building Colors - Dark Theme */
-  --color-building-default: #818cf8;
-  --color-building-preview: #60a5fa;
-  --color-building-selected: #3b82f6;
+  /* 3D Scene Colors - Dark Theme - ENHANCED FOR NIGHT APPEARANCE */
+  --color-ground: #0a0c14; /* Much darker ground for night */
+  --color-grid: #1e3a70;   /* Blue-tinted grid for night feel */
+  --color-sun-light: #133b7a; /* Moonlight-like blue tint */
+  --color-ambient-light: #0c1625; /* Very dark blue ambient for night */
+  --color-hemisphere-sky: #081018; /* Very dark blue night sky */
+  --color-hemisphere-ground: #0c1828; /* Dark blue-tinted ground */
+  --color-scene-background: #030610; /* Very dark blue/black background */
+  --color-scene-fog: #030610; /* Matching fog color */
+  
+  /* Building Colors - Dark Theme - ENHANCED CONTRAST */
+  --color-building-default: #4f46e5;
+  --color-building-preview: #3b82f6;
+  --color-building-selected: #2563eb;
   --color-building-hovered: #6366f1;
-  --color-building-debug: #22c55e;
-  --color-building-footprint: #34d399;
-  --color-floor-lines: #9ca3af;
-  --color-building-emissive: #000000;
-    /* Drawing Elements Colors - Dark Theme */
-  --color-drawing-point: #ff6b6b;
-  --color-drawing-point-emissive: #ff3333;
-  --color-drawing-line: #34d399;
-  --color-drawing-preview: #22c55e;
-  --color-drawing-preview-emissive: #166534;
-  --color-drawing-preview-line: #a3e635;
-  --color-drawing-snap: #fde047;
-  --color-drawing-snap-emissive: #eab308;
-  --color-drawing-footprint-point: #fde047;
-  --color-drawing-footprint-line: #22c55e;
+  --color-building-debug: #059669;
+  --color-building-footprint: #10b981;
+  --color-floor-lines: #475569;
+  --color-building-emissive: #1a237e; /* Blue emissive glow for night */
+  
+  /* Drawing Elements Colors - Dark Theme */
+  --color-drawing-point: #ef4444;
+  --color-drawing-point-emissive: #b91c1c;
+  --color-drawing-line: #10b981;
+  --color-drawing-preview: #059669;
+  --color-drawing-preview-emissive: #064e3b;
+  --color-drawing-preview-line: #84cc16;
+  --color-drawing-snap: #eab308;
+  --color-drawing-snap-emissive: #a16207;
+  --color-drawing-footprint-point: #fbbf24;
+  --color-drawing-footprint-line: #15803d;
   
   /* Performance Indicator Colors - Dark Theme */
   --color-performance-good: #22c55e;
@@ -194,9 +196,9 @@
   --color-text-label: #f3f4f6;
   
   /* Context Model - Dark Theme */
-  --color-context-model: #cccccc;
+  --color-context-model: #8a8a8a; /* Darker context model for night */
   
-  /* Building Options Colors - Dark Theme */
+  /* Building Options Colors - Dark Theme - ENHANCED VISIBILITY */
   --color-building-blue: #60a5fa;
   --color-building-green: #34d399;
   --color-building-purple: #a78bfa;
@@ -205,20 +207,28 @@
   --color-building-cyan: #22d3ee;
   --color-building-pink: #f472b6;
   --color-building-gray: #9ca3af;
+
+    /* Dialog/Panel Colors - Dark Theme */
+  --color-panel-background: rgba(15, 23, 42, 0.95);
+  --color-panel-border: rgba(51, 65, 85, 0.6);
+  --color-panel-header: rgba(30, 41, 59, 0.8);
+  --color-panel-bg-darker: rgba(15, 23, 42, 0.98);
+  --color-panel-bg-lighter: rgba(30, 41, 59, 0.5);
+  --color-panel-highlight: rgba(56, 189, 248, 0.15);
   
   /* Form Element Colors - Dark Theme */
-  --color-input-bg: #1f2937;
-  --color-input-border: #374151;
-  --color-input-border-hover: #4b5563;
-  --color-input-border-focus: #60a5fa;
-  --color-input-placeholder: #9ca3af;
-  --color-input-text: #f3f4f6;
+  --color-input-bg: #1e293b;
+  --color-input-border: #334155;
+  --color-input-border-hover: #475569;
+  --color-input-border-focus: #38bdf8;
+  --color-input-placeholder: #64748b;
+  --color-input-text: #f1f5f9;
   
   /* Button Colors - Dark Theme */
-  --color-button-primary: #60a5fa;
-  --color-button-primary-hover: #3b82f6;
-  --color-button-secondary: #4b5563;
-  --color-button-secondary-hover: #6b7280;
+  --color-button-primary: #38bdf8;
+  --color-button-primary-hover: #0ea5e9;
+  --color-button-secondary: #334155;
+  --color-button-secondary-hover: #475569;
   --color-button-danger: #f87171;
   --color-button-danger-hover: #ef4444;
 }

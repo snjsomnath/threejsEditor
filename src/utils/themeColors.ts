@@ -101,10 +101,20 @@ export function updateThemeColors(): void {
     document.documentElement.style.display = '';
   }
   
-  // Event to notify components that theme colors have changed
-  window.dispatchEvent(new CustomEvent('theme-colors-changed'));
+  // Get current theme for logging
+  const currentTheme = document.documentElement.classList.contains('dark-theme') ? 'dark' : 'light';
   
-  console.log('Theme colors updated');
+  // Event to notify components that theme colors have changed
+  window.dispatchEvent(new CustomEvent('theme-colors-changed', { 
+    detail: { theme: currentTheme } 
+  }));
+  
+  // Force ThreeJSCore refresh by dispatching an additional specific event
+  window.dispatchEvent(new CustomEvent('threejs-theme-update', { 
+    detail: { theme: currentTheme } 
+  }));
+  
+  console.log(`Theme colors updated to ${currentTheme} theme`);
 }
 
 /**
@@ -141,6 +151,41 @@ export function toggleTheme(): 'light' | 'dark' {
     document.documentElement.classList.add('dark-theme');
     updateThemeColors();
     return 'dark';
+  }
+}
+
+/**
+ * Initialize the theme system on application startup
+ * Makes sure there's a consistent theme state (light by default)
+ */
+export function initializeTheme(): 'light' | 'dark' {
+  if (typeof document === 'undefined') return 'light';
+  
+  // Check for user preference or previously set theme
+  const userPrefersDark = window.matchMedia && 
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+  
+  // Check if theme is already set
+  const hasThemeClass = document.documentElement.classList.contains('dark-theme');
+  
+  if (userPrefersDark && !hasThemeClass) {
+    // User prefers dark mode but it's not set
+    document.documentElement.classList.add('dark-theme');
+    updateThemeColors();
+    return 'dark';
+  } else if (!userPrefersDark && hasThemeClass) {
+    // User prefers light mode but dark is set
+    document.documentElement.classList.remove('dark-theme');
+    updateThemeColors();
+    return 'light';
+  } else if (hasThemeClass) {
+    // Dark theme is already set correctly
+    updateThemeColors();
+    return 'dark';
+  } else {
+    // Light theme is already set or is the default
+    updateThemeColors();
+    return 'light';
   }
 }
 

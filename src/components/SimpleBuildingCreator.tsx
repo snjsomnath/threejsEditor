@@ -10,23 +10,24 @@ import { FloatingInstructions } from './FloatingInstructions';
 import { BuildingConfigPanel } from './BuildingConfigPanel';
 import { BuildingEditPanel } from './BuildingEditPanel';
 import { BuildingTooltip } from './BuildingTooltip';
+import { SunController } from './SunController';
 import { BuildingConfig } from '../types/building';
 import type { CameraType, CameraView } from '../core/ThreeJSCore';
 import { getThemeColorAsHex } from '../utils/themeColors';
+import type { SunPosition } from '../utils/sunPosition';
 
 export const SimpleBuildingCreator: React.FC = () => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [hasInteracted, setHasInteracted] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);  const [hasInteracted, setHasInteracted] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
-  const [showBuildingConfig, setShowBuildingConfig] = useState(false);  const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
+  const [showBuildingConfig, setShowBuildingConfig] = useState(false);
+  const [showSunController, setShowSunController] = useState(false);const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
     floors: 3,
     floorHeight: 3.5,
     color: getThemeColorAsHex('--color-building-default', 0x6366f1)
   });
   const [currentCameraType, setCurrentCameraType] = useState<CameraType>('perspective');
-  
-  // Initialize Three.js scene
+    // Initialize Three.js scene
   const { 
     scene, 
     camera, 
@@ -39,18 +40,13 @@ export const SimpleBuildingCreator: React.FC = () => {
     toggleFPSCounter,
     retryInitialization,
     switchCameraType,
-    getCurrentCameraType,
     setCameraView,
-    debugShadows, // Add this
-    updateShadowBounds, // Add this
-    getShadowInfo // Add this
+    updateSunPosition
   } = useThreeJS(containerRef, showGrid);
-  
-  // Initialize building management
+    // Initialize building management
   const { 
     buildings, 
     selectedBuilding, 
-    hoveredBuilding, 
     buildingTooltip,
     selectBuilding, 
     updateBuilding, 
@@ -61,7 +57,7 @@ export const SimpleBuildingCreator: React.FC = () => {
     handleBuildingInteraction,
     addBuilding,
     hideBuildingTooltip
-  } = useBuildingManager(scene, camera);
+  } = useBuildingManager(scene, camera as THREE.PerspectiveCamera | null);
 
   // Initialize drawing functionality
   const { 
@@ -230,33 +226,13 @@ export const SimpleBuildingCreator: React.FC = () => {
 
   const handleSetCameraView = (view: CameraView) => {
     if (setCameraView) {
-      setCameraView(view, { duration: 1000 });
-    }
+      setCameraView(view, { duration: 1000 });    }
   };
 
-  // Add shadow debugging function
-  const handleDebugShadows = () => {
-    if (debugShadows) {
-      console.log('=== Shadow Debug Report ===');
-      debugShadows();
-      
-      // Check all buildings for shadow settings
-      buildings.forEach(building => {
-        console.log(`Building ${building.id}:`, {
-          castShadow: building.mesh.castShadow,
-          receiveShadow: building.mesh.receiveShadow,
-          position: building.mesh.position,
-          material: building.mesh.material.constructor.name
-        });
-      });
-      
-      // Auto-adjust shadow bounds based on buildings
-      if (updateShadowBounds && buildings.length > 0) {
-        const maxDistance = Math.max(...buildings.map(b => 
-          Math.max(Math.abs(b.mesh.position.x), Math.abs(b.mesh.position.z))
-        ));
-        updateShadowBounds(Math.max(50, maxDistance + 20));
-      }
+  // Handle sun position updates from SunController
+  const handleSunPositionChange = (sunPosition: SunPosition) => {
+    if (updateSunPosition) {
+      updateSunPosition(sunPosition);
     }
   };
 
@@ -320,14 +296,12 @@ export const SimpleBuildingCreator: React.FC = () => {
 
       {/* Left Toolbar */}
       <LeftToolbar
-        isDrawing={drawingState.isDrawing}
-        isInitialized={isInitialized}
+        isDrawing={drawingState.isDrawing}        isInitialized={isInitialized}
         hasBuildings={buildings.length > 0}
         onStartDrawing={handleStartDrawing}
         onShowConfig={() => setShowBuildingConfig(!showBuildingConfig)}
         onExport={exportBuildings}
         onClearAll={handleClearAll}
-        onDebugShadows={handleDebugShadows} // Add this prop
       />
 
       {/* Bottom Toolbar */}
@@ -361,9 +335,7 @@ export const SimpleBuildingCreator: React.FC = () => {
           onDelete={deleteBuilding}
           onClose={hideBuildingTooltip}
         />
-      )}
-
-      {/* Building Configuration Panel */}
+      )}      {/* Building Configuration Panel */}
       {showBuildingConfig && (
         <BuildingConfigPanel
           config={buildingConfig}
@@ -371,6 +343,13 @@ export const SimpleBuildingCreator: React.FC = () => {
           onClose={() => setShowBuildingConfig(false)}
         />
       )}
+
+      {/* Sun Controller */}
+      <SunController
+        isOpen={showSunController}
+        onToggle={() => setShowSunController(!showSunController)}
+        onSunPositionChange={handleSunPositionChange}
+      />
 
       {/* Building Edit Panel */}
       {selectedBuilding && (

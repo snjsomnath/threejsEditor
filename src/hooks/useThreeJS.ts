@@ -21,6 +21,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 // No need to import THREE directly in this hook
 import { ThreeJSCore } from '../core/ThreeJSCore';
 import type { CameraType, CameraView, ViewTransitionOptions } from '../core/ThreeJSCore';
+import type { SunPosition } from '../utils/sunPosition';
 
 export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGrid: boolean = true) => {
   const coreRef = useRef<ThreeJSCore | null>(null);
@@ -178,13 +179,23 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     }
     return undefined;
   }, []);
-
   const refreshThemeColors = useCallback(() => {
     if (coreRef.current) {
       coreRef.current.refreshThemeColors();
     }
   }, []);
-
+  const updateSunPosition = useCallback((sunPosition: SunPosition) => {
+    if (coreRef.current) {
+      try {
+        coreRef.current.updateRealisticSunPosition(sunPosition);
+        console.log('Sun position updated:', sunPosition);
+      } catch (error) {
+        console.error('Failed to update sun position:', error);
+      }
+    } else {
+      console.warn('Cannot update sun position - core not initialized');
+    }
+  }, []);
   return {
     scene: coreRef.current?.getScene() || null,
     camera: coreRef.current?.getCamera() || null,
@@ -202,6 +213,7 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     getCurrentCameraType,
     setCameraView,
     refreshThemeColors,
+    updateSunPosition,
     debugHelpers: {
       toggleShadowHelper: () => {},
       toggleShadowQuality: () => {},

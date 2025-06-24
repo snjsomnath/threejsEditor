@@ -40,10 +40,14 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
       return () => clearTimeout(timer);
     }
   }, []);
-  
-  const handleThemeToggle = () => {
+    const handleThemeToggle = () => {
     const newTheme = toggleTheme();
     setIsDarkTheme(newTheme === 'dark');
+    
+    // Force Three.js scene to immediately update
+    window.dispatchEvent(new CustomEvent('threejs-theme-update', { 
+      detail: { theme: newTheme } 
+    }));
   };
   
   return (
@@ -92,14 +96,13 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
             variant="danger"
             keyboardShortcut="Del"
           />
-          
-          {/* Theme Toggle */}
+            {/* Theme Toggle */}
           <div className="h-px bg-gray-700/50 mx-2 my-1" />
           <ToolbarButton
             icon={isDarkTheme ? Sun : Moon}
             tooltip={isDarkTheme ? "Light Theme" : "Dark Theme"}
             onClick={handleThemeToggle}
-            variant="default"
+            variant={isDarkTheme ? "success" : "default"}
             keyboardShortcut="T"
           />
         </div>

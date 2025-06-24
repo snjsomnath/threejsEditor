@@ -162,19 +162,65 @@ export class EnvironmentManager {
         this.gridHelper.material[1].color = newColorDark;
       }
     }
-  }
-
-  updateThemeColors(): void {
+  }  updateThemeColors(): void {
+    const isDarkTheme = document.documentElement.classList.contains('dark-theme');
+    
     // Update ground plane color
     if (this.groundPlane && this.groundPlane.material) {
       const material = this.groundPlane.material as THREE.MeshStandardMaterial;
-      const groundColor = getThemeColorAsHex('--color-ground', 0xffffff);
+      const groundColor = getThemeColorAsHex('--color-ground', isDarkTheme ? 0x0a0c14 : 0xffffff);
       material.color.setHex(groundColor);
+      
+      // Adjust material properties based on theme
+      material.roughness = isDarkTheme ? 0.9 : 0.5;
+      material.metalness = isDarkTheme ? 0.05 : 0.0;
+      
+      // Apply emissive glow in dark theme for subtle ground lighting
+      if (isDarkTheme) {
+        material.emissive.setHex(0x060a14);
+        material.envMapIntensity = 0.1; // Lower reflectivity at night
+      } else {
+        material.emissive.setHex(0x000000);
+        material.envMapIntensity = 0.2; // More reflectivity during day
+      }
     }
     
-    // Update grid color
+    // Update grid color and visibility
     if (this.gridHelper) {
-      this.updateGridColor(getThemeColorAsHex('--color-grid', 0x999999));
+      const gridColor = getThemeColorAsHex('--color-grid', isDarkTheme ? 0x1e3a70 : 0x999999);
+      this.updateGridColor(gridColor);
+      
+      // Make grid more visible but with appropriate theme-specific opacity
+      if (this.gridHelper.material instanceof THREE.Material) {
+        const material = this.gridHelper.material as THREE.Material;
+        material.opacity = isDarkTheme ? 0.35 : 0.45;
+        material.visible = true;
+      } else if (Array.isArray(this.gridHelper.material)) {
+        (this.gridHelper.material as THREE.Material[]).forEach((mat: THREE.Material) => {
+          mat.opacity = isDarkTheme ? 0.35 : 0.45;
+          mat.visible = true;
+        });
+      }
+      
+      // Ensure grid is visible regardless of theme
+      this.gridHelper.visible = true;
+    }
+    
+    // Update fog color and density based on theme
+    if (this.scene.fog) {
+      const fogColor = getThemeColorAsHex('--color-scene-fog', isDarkTheme ? 0x050a1c : 0xcccccc);
+      (this.scene.fog as THREE.Fog).color.setHex(fogColor);
+      
+      // Adjust fog near/far based on theme
+      if (isDarkTheme) {
+        // Denser fog at night
+        (this.scene.fog as THREE.Fog).near = 150;
+        (this.scene.fog as THREE.Fog).far = 500;
+      } else {
+        // Lighter fog during day
+        (this.scene.fog as THREE.Fog).near = 250;
+        (this.scene.fog as THREE.Fog).far = 800;
+      }
     }
   }
 

@@ -49,15 +49,28 @@ export class SceneManager {
   updateBackgroundColor(color: number): void {
     this.scene.background = new THREE.Color(color);
   }
-
   // Update scene colors based on current theme
   updateThemeColors(): void {
-    const backgroundColor = getThemeColorAsHex('--color-scene-background', 0xf2f2f2);
+    const isDarkTheme = document.documentElement.classList.contains('dark-theme');
+    
+    // Set appropriate background color based on theme
+    const backgroundColor = getThemeColorAsHex(
+      '--color-scene-background', 
+      isDarkTheme ? 0x050a1c : 0xf2f2f2
+    );
     this.scene.background = new THREE.Color(backgroundColor);
     
+    // Update fog color and density if present
     if (this.scene.fog instanceof THREE.Fog) {
-      const fogColor = getThemeColorAsHex('--color-scene-fog', 0xcccccc);
+      const fogColor = getThemeColorAsHex(
+        '--color-scene-fog', 
+        isDarkTheme ? 0x050a1c : 0xcccccc
+      );
       this.scene.fog.color = new THREE.Color(fogColor);
+      
+      // Adjust fog density based on theme
+      this.scene.fog.near = isDarkTheme ? 150 : 250;
+      this.scene.fog.far = isDarkTheme ? 500 : 800;
     }
   }
 

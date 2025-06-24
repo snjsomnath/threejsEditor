@@ -59,12 +59,27 @@ export class ContextModelLoader {
                   }
                 });
               }
-            });
-
-            // Add the loaded object to the scene
+            });            // Store reference to the mesh for theme updates
             this.contextMesh = object;
+              
+            // Apply current theme colors
+            const isDarkTheme = document.documentElement.classList.contains('dark-theme');
+            const contextColor = getThemeColorAsHex(
+              '--color-context-model', 
+              isDarkTheme ? 0x8a8a8a : 0xffffff
+            );
+              
+            // Apply colors to all meshes
+            object.traverse((child) => {
+              if (child instanceof THREE.Mesh && child.material && 'color' in child.material) {
+                (child.material as THREE.MeshStandardMaterial).color.setHex(contextColor);
+              }
+            });
+              
+            // Add to scene
             this.sceneManager.addObject(object);
-
+            console.log('Context model loaded with', isDarkTheme ? 'dark' : 'light', 'theme colors');
+              
             // Return the loaded object
             resolve(object);
           },
@@ -94,5 +109,37 @@ export class ContextModelLoader {
       this.sceneManager.removeObject(this.contextMesh);
       this.contextMesh = null;
     }
+  }
+  
+  /**
+   * Updates the context model colors based on current theme
+   */
+  updateThemeColors(): void {
+    if (!this.contextMesh) return;
+    
+    const isDarkTheme = document.documentElement.classList.contains('dark-theme');
+    const contextColor = getThemeColorAsHex(
+      '--color-context-model', 
+      isDarkTheme ? 0x8a8a8a : 0xffffff
+    );
+    
+    // Update all mesh materials in the context model
+    this.contextMesh.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.material) {
+        if (child.material instanceof THREE.Material) {
+          // For single materials
+          if ('color' in child.material) {
+            (child.material as THREE.MeshStandardMaterial).color.setHex(contextColor);
+          }
+        } else if (Array.isArray(child.material)) {
+          // For multiple materials
+          child.material.forEach(mat => {
+            if ('color' in mat) {
+              (mat as THREE.MeshStandardMaterial).color.setHex(contextColor);
+            }
+          });
+        }
+      }
+    });
   }
 }
