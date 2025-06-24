@@ -146,32 +146,29 @@
 }
 
 /* Optional Dark Mode Theme */
-.dark-theme {
-  /* Core UI Colors - Dark Theme */
-  --color-primary: #60a5fa;
-  --color-primary-hover: #3b82f6;
-  --color-text: #f3f4f6;
-  --color-background: #111827;
-  
-  /* 3D Scene Colors - Dark Theme - ENHANCED FOR NIGHT APPEARANCE */
-  --color-ground: #0a0c14; /* Much darker ground for night */
-  --color-grid: #1e3a70;   /* Blue-tinted grid for night feel */
-  --color-sun-light: #133b7a; /* Moonlight-like blue tint */
-  --color-ambient-light: #0c1625; /* Very dark blue ambient for night */
-  --color-hemisphere-sky: #081018; /* Very dark blue night sky */
-  --color-hemisphere-ground: #0c1828; /* Dark blue-tinted ground */
-  --color-scene-background: #030610; /* Very dark blue/black background */
-  --color-scene-fog: #030610; /* Matching fog color */
-  
-  /* Building Colors - Dark Theme - ENHANCED CONTRAST */
-  --color-building-default: #4f46e5;
-  --color-building-preview: #3b82f6;
-  --color-building-selected: #2563eb;
-  --color-building-hovered: #6366f1;
-  --color-building-debug: #059669;
-  --color-building-footprint: #10b981;
-  --color-floor-lines: #475569;
-  --color-building-emissive: #1a237e; /* Blue emissive glow for night */
+.dark-theme {  /* Core UI Colors - Dark Theme */
+  --color-primary: #808080;
+  --color-primary-hover: #9a9a9a;
+  --color-text: #f0f0f0;
+  --color-background: #2a2a2a;
+  /* 3D Scene Colors - Dark Theme - SUBTLE GRAY AESTHETIC */
+  --color-ground: #6b6b6b; /* Neutral dark gray ground */
+  --color-grid: #565656;   /* Subtle gray grid for better visibility */
+  --color-sun-light: #f5f5f5; /* Soft warm white light */
+  --color-ambient-light: #4a4a4a; /* Balanced gray ambient lighting */
+  --color-hemisphere-sky: #2a2a2a; /* Dark neutral sky */
+  --color-hemisphere-ground: #404040; /* Subtle gray ground illumination */
+  --color-scene-background: #1a1a1a; /* Deep charcoal background */
+  --color-scene-fog: #2a2a2a; /* Matching subtle fog */
+  /* Building Colors - Dark Theme - NEUTRAL CONTRAST */
+  --color-building-default: #5a5a5a;
+  --color-building-preview: #6a6a6a;
+  --color-building-selected: #7a7a7a;
+  --color-building-hovered: #8a8a8a;
+  --color-building-debug: #10b981;
+  --color-building-footprint: #34d399;
+  --color-floor-lines: #6a6a6a;
+  --color-building-emissive: #2a2a2a; /* Subtle gray emissive glow */
   
   /* Drawing Elements Colors - Dark Theme */
   --color-drawing-point: #ef4444;
@@ -189,46 +186,41 @@
   --color-performance-good: #22c55e;
   --color-performance-medium: #f59e0b;
   --color-performance-poor: #ef4444;
-  
   /* Text and Labels - Dark Theme */
-  --color-text-label-bg: rgba(20, 20, 20, 0.95);
-  --color-text-label-border: rgba(200, 200, 200, 0.8);
-  --color-text-label: #f3f4f6;
+  --color-text-label-bg: rgba(50, 50, 50, 0.9);
+  --color-text-label-border: rgba(160, 160, 160, 0.6);
+  --color-text-label: #f0f0f0;
   
   /* Context Model - Dark Theme */
-  --color-context-model: #8a8a8a; /* Darker context model for night */
-  
-  /* Building Options Colors - Dark Theme - ENHANCED VISIBILITY */
+  --color-context-model: #a0a0a0; /* Neutral light gray context model */
+  /* Building Options Colors - Dark Theme - NEUTRAL VISIBILITY */
   --color-building-blue: #60a5fa;
   --color-building-green: #34d399;
   --color-building-purple: #a78bfa;
-  --color-building-orange: #fb923c;
+  --color-building-orange: #fbbf24;
   --color-building-red: #f87171;
   --color-building-cyan: #22d3ee;
   --color-building-pink: #f472b6;
-  --color-building-gray: #9ca3af;
-
-    /* Dialog/Panel Colors - Dark Theme */
-  --color-panel-background: rgba(15, 23, 42, 0.95);
-  --color-panel-border: rgba(51, 65, 85, 0.6);
-  --color-panel-header: rgba(30, 41, 59, 0.8);
-  --color-panel-bg-darker: rgba(15, 23, 42, 0.98);
-  --color-panel-bg-lighter: rgba(30, 41, 59, 0.5);
-  --color-panel-highlight: rgba(56, 189, 248, 0.15);
-  
+  --color-building-gray: #a0a0a0;  /* Dialog/Panel Colors - Dark Theme */
+  --color-panel-background: rgba(50, 50, 50, 0.92);
+  --color-panel-border: rgba(90, 90, 90, 0.5);
+  --color-panel-header: rgba(70, 70, 70, 0.7);
+  --color-panel-bg-darker: rgba(30, 30, 30, 0.95);
+  --color-panel-bg-lighter: rgba(70, 70, 70, 0.4);
+  --color-panel-highlight: rgba(130, 130, 130, 0.12);
   /* Form Element Colors - Dark Theme */
-  --color-input-bg: #1e293b;
-  --color-input-border: #334155;
-  --color-input-border-hover: #475569;
-  --color-input-border-focus: #38bdf8;
-  --color-input-placeholder: #64748b;
-  --color-input-text: #f1f5f9;
+  --color-input-bg: #4a4a4a;
+  --color-input-border: #606060;
+  --color-input-border-hover: #707070;
+  --color-input-border-focus: #808080;
+  --color-input-placeholder: #a0a0a0;
+  --color-input-text: #f0f0f0;
   
   /* Button Colors - Dark Theme */
-  --color-button-primary: #38bdf8;
-  --color-button-primary-hover: #0ea5e9;
-  --color-button-secondary: #334155;
-  --color-button-secondary-hover: #475569;
-  --color-button-danger: #f87171;
-  --color-button-danger-hover: #ef4444;
+  --color-button-primary: #707070;
+  --color-button-primary-hover: #808080;
+  --color-button-secondary: #606060;
+  --color-button-secondary-hover: #707070;
+  --color-button-danger: #ef4444;
+  --color-button-danger-hover: #dc2626;
 }

@@ -29,11 +29,11 @@ export class EnvironmentManager {
   constructor(scene: THREE.Scene, config: EnvironmentConfig = {}) {
     this.scene = scene;
     this.config = {
-      groundSize: 200,
+      groundSize: 1000,
       groundColor: DEFAULT_COLORS.GROUND,
       groundOpacity: 1,
-      gridSize: 500,
-      gridDivisions: 500,
+      gridSize: 100,
+      gridDivisions: 100,
       gridColor: DEFAULT_COLORS.GRID,
       gridOpacity: 1.0,
       showGrid: true,
@@ -168,7 +168,7 @@ export class EnvironmentManager {
     // Update ground plane color
     if (this.groundPlane && this.groundPlane.material) {
       const material = this.groundPlane.material as THREE.MeshStandardMaterial;
-      const groundColor = getThemeColorAsHex('--color-ground', isDarkTheme ? 0x0a0c14 : 0xffffff);
+      const groundColor = getThemeColorAsHex('--color-ground', isDarkTheme ? 0x6b6b6b : 0xffffff);
       material.color.setHex(groundColor);
       
       // Adjust material properties based on theme
