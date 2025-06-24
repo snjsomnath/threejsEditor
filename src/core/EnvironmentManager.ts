@@ -209,16 +209,15 @@ export class EnvironmentManager {
     if (this.scene.fog) {
       const fogColor = getThemeColorAsHex('--color-scene-fog', isDarkTheme ? 0x050a1c : 0xcccccc);
       (this.scene.fog as THREE.Fog).color.setHex(fogColor);
-      
-      // Adjust fog near/far based on theme
+        // Adjust fog near/far based on theme
       if (isDarkTheme) {
-        // Denser fog at night
-        (this.scene.fog as THREE.Fog).near = 150;
-        (this.scene.fog as THREE.Fog).far = 500;
+        // Denser fog at night (reduced effect by half)
+        (this.scene.fog as THREE.Fog).near = 300;
+        (this.scene.fog as THREE.Fog).far = 1000;
       } else {
-        // Lighter fog during day
-        (this.scene.fog as THREE.Fog).near = 250;
-        (this.scene.fog as THREE.Fog).far = 800;
+        // Lighter fog during day (reduced effect by half)
+        (this.scene.fog as THREE.Fog).near = 500;
+        (this.scene.fog as THREE.Fog).far = 1600;
       }
     }
   }
