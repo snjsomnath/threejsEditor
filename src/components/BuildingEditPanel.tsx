@@ -5,9 +5,9 @@ import { BuildingData, BuildingConfig } from '../types/building';
 import { Tooltip } from './ui/Tooltip';
 import { MaterialCompareDialog } from './dialogs/MaterialCompareDialog';
 import { calculateCentroid, createShapeFromPoints } from '../utils/geometry';
-import { getThemeColorAsHex } from '../utils/themeColors';
+import { getThemeColorAsHex, addThemeChangeListener } from '../utils/themeColors';
 
-const colorOptions = [
+const getColorOptions = () => [
   { name: 'Blue', value: getThemeColorAsHex('--color-building-blue', 0x3b82f6) },
   { name: 'Green', value: getThemeColorAsHex('--color-building-green', 0x10b981) },
   { name: 'Purple', value: getThemeColorAsHex('--color-building-purple', 0x8b5cf6) },
@@ -95,6 +95,17 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
   });
 
   const [hasChanges, setHasChanges] = useState(false);
+  const [themeVersion, setThemeVersion] = useState(0);
+
+  useEffect(() => {
+    // Listen for theme changes to refresh colors
+    const cleanup = addThemeChangeListener(() => {
+      setThemeVersion(prev => prev + 1);
+    });
+    
+    return cleanup;
+  }, []);
+
   useEffect(() => {
     // Compare all fields for changes
     const orig = {
@@ -556,9 +567,8 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
                       <Info className="w-3 h-3" />
                     </span>
                   </Tooltip>
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {colorOptions.map(color => (
+                </div>                <div className="grid grid-cols-4 gap-2">
+                  {getColorOptions().map(color => (
                     <button
                       key={color.value}
                       onClick={() => updateField('color', color.value)}

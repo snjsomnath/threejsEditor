@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { BuildingConfig } from '../types/building';
-import { getThemeColorAsHex } from '../utils/themeColors';
+import { getThemeColorAsHex, addThemeChangeListener } from '../utils/themeColors';
 
 interface BuildingConfigPanelProps {
   config: BuildingConfig;
@@ -9,7 +9,7 @@ interface BuildingConfigPanelProps {
   onClose: () => void;
 }
 
-const colorOptions = [
+const getColorOptions = () => [
   { name: 'Blue', value: getThemeColorAsHex('--color-building-blue', 0x3b82f6) },
   { name: 'Green', value: getThemeColorAsHex('--color-building-green', 0x10b981) },
   { name: 'Purple', value: getThemeColorAsHex('--color-building-purple', 0x8b5cf6) },
@@ -25,6 +25,17 @@ export const BuildingConfigPanel: React.FC<BuildingConfigPanelProps> = ({
   onConfigChange,
   onClose
 }) => {
+  const [themeVersion, setThemeVersion] = useState(0);
+
+  useEffect(() => {
+    // Listen for theme changes to refresh colors
+    const cleanup = addThemeChangeListener(() => {
+      setThemeVersion(prev => prev + 1);
+    });
+    
+    return cleanup;
+  }, []);
+
   const updateConfig = (updates: Partial<BuildingConfig>) => {
     onConfigChange({ ...config, ...updates });
   };
@@ -89,13 +100,11 @@ export const BuildingConfigPanel: React.FC<BuildingConfigPanelProps> = ({
               {(config.floors * config.floorHeight).toFixed(1)}m
             </span>
           </div>
-        </div>
-
-        {/* Color Selection */}
+        </div>        {/* Color Selection */}
         <div>
           <label className="block text-xs font-medium text-gray-300 mb-1">Color</label>
           <div className="grid grid-cols-4 gap-1">
-            {colorOptions.map((color) => (
+            {getColorOptions().map((color) => (
               <button
                 key={color.value}
                 onClick={() => updateConfig({ color: color.value })}
