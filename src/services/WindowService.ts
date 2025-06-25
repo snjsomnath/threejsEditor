@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { BuildingData } from '../types/building';
 import { getThemeColorAsHex } from '../utils/themeColors';
+import { solveWindowParams } from './WindowParametricSolver';
+import { placeWindowsOnEdge, createFrameGeometry } from './WindowGeometryPlacer';
+import { buildWindowMatrices } from './WindowTransformBuilder';
+import { WindowAnimationManager } from './WindowAnimationManager';
 
 interface WindowConfig {
   windowWidth: number;
@@ -19,7 +23,7 @@ interface WindowMaterials {
 export class WindowService {
   private scene: THREE.Scene;
   private glassGeometry: THREE.PlaneGeometry;
-  private frameGeometry: THREE.BoxGeometry;
+  private frameGeometry: THREE.BufferGeometry;
   private materials: WindowMaterials;
   private maxWindows: number;
   
@@ -29,9 +33,7 @@ export class WindowService {
   private currentIndex = 0;
   private buildingWindows = new Map<string, number[]>(); // Track which indices belong to which building
 
-  // Animation support for smooth window transitions
-  private animatingBuildings = new Set<string>();
-  private animationFrameId: number | null = null;
+  private animationManager = new WindowAnimationManager();
 
   constructor(scene: THREE.Scene, config: WindowConfig) {
     this.scene = scene;
@@ -39,9 +41,9 @@ export class WindowService {
     
     // Create geometries
     this.glassGeometry = new THREE.PlaneGeometry(config.windowWidth, config.windowHeight);
-    this.frameGeometry = new THREE.BoxGeometry(
-      config.windowWidth + config.frameThickness,
-      config.windowHeight + config.frameThickness,
+    this.frameGeometry = createFrameGeometry(
+      config.windowWidth,
+      config.windowHeight,
       config.frameThickness
     );
     
@@ -112,129 +114,59 @@ export class WindowService {
       offsetDistance
     } = config;
 
-    const buildingIndices: number[] = [];    // Process each edge of the building footprint
+    const buildingIndices: number[] = [];
     for (let i = 0; i < footprint.length; i++) {
       const p1 = footprint[i];
       const p2 = footprint[(i + 1) % footprint.length];
-
       const edgeVec = new THREE.Vector2().subVectors(p2, p1);
       const edgeLength = edgeVec.length();
-      
-      // Skip very short edges
       if (edgeLength < windowWidth * 0.5) continue;
-      
       const dir = edgeVec.clone().normalize();
-      const normal = new THREE.Vector2(dir.y, -dir.x); // Outward normal      // Calculate window distribution based on WWR
-      const wallAreaPerFloor = edgeLength * floorHeight;
-      
-      // Determine optimal number of windows and their dimensions
-      const minWindowWidth = windowWidth * 0.7; // Allow smaller windows
-      const maxWindowWidth = windowWidth * 1.5; // Allow larger windows
-      const minSpacing = windowSpacing * 0.5;
-      
-      // Try different numbers of windows to find best fit
-      let bestConfig = null;
-      let bestScore = -1;
-      
-      for (let numWindows = 1; numWindows <= Math.floor(edgeLength / minWindowWidth); numWindows++) {
-        const availableWidth = edgeLength - minSpacing * 2; // Leave minimum margins
-        const totalSpacing = minSpacing * (numWindows - 1);
-        const windowAreaWidth = availableWidth - totalSpacing;
-        
-        if (windowAreaWidth <= 0) continue;
-        
-        const calculatedWindowWidth = windowAreaWidth / numWindows;
-        
-        // Check if window width is within acceptable range
-        if (calculatedWindowWidth < minWindowWidth || calculatedWindowWidth > maxWindowWidth) continue;
-        
-        const windowArea = calculatedWindowWidth * windowHeight * numWindows;
-        const areaRatio = windowArea / wallAreaPerFloor;
-        
-        // Score based on how close we get to target WWR
-        const score = 1 - Math.abs(areaRatio - wwr);
-        
-        if (score > bestScore) {
-          bestScore = score;
-          bestConfig = {
-            numWindows,
-            windowWidth: calculatedWindowWidth,
-            spacing: minSpacing,
-            marginStart: (edgeLength - (calculatedWindowWidth * numWindows + minSpacing * (numWindows - 1))) / 2
-          };
+      const normal = new THREE.Vector2(dir.y, -dir.x);
+      // Use parametric solver
+      const parametric = solveWindowParams({
+        edgeLength,
+        windowWidth,
+        windowHeight,
+        windowSpacing,
+        wwr
+      });
+      if (!parametric || parametric.numWindows < 1) continue;
+      // Use geometry placer
+      const placements = placeWindowsOnEdge({
+        p1,
+        p2,
+        normal,
+        edgeLength,
+        numFloors,
+        floorHeight,
+        windowHeight,
+        windowSpacing,
+        offsetDistance,
+        parametric
+      });
+      for (const placement of placements) {
+        if (this.currentIndex >= this.maxWindows) {
+          console.warn('Maximum number of windows reached');
+          break;
         }
-      }      
-      if (!bestConfig || bestConfig.numWindows < 1) continue;
-
-      // Calculate vertical distribution
-      const verticalSpacing = windowSpacing;
-      const availableVerticalSpace = floorHeight - 2 * verticalSpacing;
-      const windowRows = Math.max(1, Math.floor(availableVerticalSpace / (windowHeight + verticalSpacing)));
-      
-      // Warn if vertical space is very constrained
-      if (windowRows === 1 && availableVerticalSpace < windowHeight * 1.2) {
-        console.warn(`Very constrained vertical space for building ${building.id}: ${availableVerticalSpace.toFixed(2)}m available, ${windowHeight}m needed`);
+        // Use transform builder
+        const { glassMatrix, frameMatrix } = buildWindowMatrices({
+          position: placement.position,
+          rotationY: placement.rotationY,
+          scaleX: placement.scaleX,
+          windowWidth,
+          windowHeight,
+          glassOffset: 0.02
+        });
+        this.glassInstancedMesh.setMatrixAt(this.currentIndex, glassMatrix);
+        this.frameInstancedMesh.setMatrixAt(this.currentIndex, frameMatrix);
+        buildingIndices.push(this.currentIndex);
+        this.currentIndex++;
       }
-
-      // Place windows with the optimized configuration
-      for (let floor = 0; floor < numFloors; floor++) {
-        const baseY = floor * floorHeight;
-
-        for (let row = 0; row < windowRows; row++) {
-          const rowY = baseY + verticalSpacing + (row + 0.5) * (availableVerticalSpace / windowRows);
-
-          for (let col = 0; col < bestConfig.numWindows; col++) {
-            if (this.currentIndex >= this.maxWindows) {
-              console.warn('Maximum number of windows reached');
-              break;
-            }
-
-            // Calculate window position along the edge
-            const edgePos = bestConfig.marginStart + col * (bestConfig.windowWidth + bestConfig.spacing) + bestConfig.windowWidth / 2;
-            const edgeT = edgePos / edgeLength;
-
-            const pos2D = p1.clone().lerp(p2, edgeT);
-            const x = pos2D.x + normal.x * offsetDistance;
-            const z = pos2D.y + normal.y * offsetDistance;
-
-            const position = new THREE.Vector3(x, rowY, z);
-            
-            // Fix window orientation - make windows face outward from building
-            const rotationY = Math.atan2(normal.y, normal.x) + Math.PI/2;;
-            const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rotationY, 0));
-
-            // Scale based on calculated window width
-            const scaleX = bestConfig.windowWidth / windowWidth;
-            const windowScale = new THREE.Vector3(scaleX, 1, 1);
-
-            // Create transformation matrices with proper forward offset for glass
-            const glassOffset = new THREE.Vector3(normal.x * 0.02, 0, normal.y * 0.02); // Glass slightly forward
-            const glassMatrix = new THREE.Matrix4().compose(
-              position.clone().add(glassOffset),
-              rotation,
-              windowScale
-            );
-
-            const frameMatrix = new THREE.Matrix4().compose(
-              position,
-              rotation,
-              windowScale
-            );
-
-            // Set matrices for both glass and frame
-            this.glassInstancedMesh.setMatrixAt(this.currentIndex, glassMatrix);
-            this.frameInstancedMesh.setMatrixAt(this.currentIndex, frameMatrix);
-
-            buildingIndices.push(this.currentIndex);
-            this.currentIndex++;
-          }
-        }
-      }
-    }    // Store indices for this building
+    }
     this.buildingWindows.set(building.id, buildingIndices);
     this.updateInstanceCounts();
-    
-    // Debug logging
     console.log(`Added ${buildingIndices.length} windows for building ${building.id}. Total windows: ${this.currentIndex}`);
   }
 
@@ -314,7 +246,7 @@ export class WindowService {
     }
 
     // Calculate new window configuration
-    const newWindowData = this.calculateWindowMatrices(building, config);
+    const newWindowData = calculateWindowMatrices(building, config);
       if (newWindowData.length === existingIndices.length) {
       // Same number of windows - just update matrices
       for (let i = 0; i < newWindowData.length; i++) {
@@ -355,265 +287,28 @@ export class WindowService {
   }  // Method to animate window updates for smoother transitions
   updateBuildingWindowsSmooth(building: BuildingData, config: WindowConfig, duration: number = 300): void {
     if (!building.points || building.points.length < 3) return;
-
-    // Cancel existing animation for this building to prevent stacking
-    this.cancelBuildingAnimation(building.id);
-
+    this.animationManager.cancelBuildingAnimation(building.id);
     const existingIndices = this.buildingWindows.get(building.id);
     if (!existingIndices) {
-      // If building doesn't have windows yet, add them normally
       this.addBuildingWindows(building, config);
       return;
     }
-
-    // Calculate new window configuration
-    const newWindowData = this.calculateWindowMatrices(building, config);
-    
+    const newWindowData = calculateWindowMatrices(building, config);
     if (newWindowData.length === existingIndices.length) {
-      // Same number of windows - animate the transition
-      this.animateWindowTransition(building.id, existingIndices, newWindowData, duration);
+      this.animationManager.animateWindowTransition(
+        building.id,
+        existingIndices,
+        this.glassInstancedMesh,
+        this.frameInstancedMesh,
+        newWindowData,
+        duration
+      );
     } else {
-      // Different number of windows - use regular efficient update
       this.updateBuildingWindowsEfficient(building, config);
     }
   }
-  private animateWindowTransition(
-    buildingId: string, 
-    indices: number[], 
-    targetData: Array<{glassMatrix: THREE.Matrix4, frameMatrix: THREE.Matrix4}>,
-    duration: number
-  ): void {
-    const startTime = performance.now();
-    const startMatrices = indices.map(() => ({
-      glass: new THREE.Matrix4(),
-      frame: new THREE.Matrix4()
-    }));
-
-    // Store current matrices
-    indices.forEach((index, i) => {
-      this.glassInstancedMesh.getMatrixAt(index, startMatrices[i].glass);
-      this.frameInstancedMesh.getMatrixAt(index, startMatrices[i].frame);
-    });
-
-    this.animatingBuildings.add(buildingId);
-
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      
-      // Use easing function for smoother animation
-      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-
-      // Interpolate matrices using decompose/compose
-      indices.forEach((index, i) => {
-        const startGlass = startMatrices[i].glass;
-        const startFrame = startMatrices[i].frame;
-        const targetGlass = targetData[i].glassMatrix;
-        const targetFrame = targetData[i].frameMatrix;
-
-        // Decompose start matrices
-        const startGlassPos = new THREE.Vector3();
-        const startGlassQuat = new THREE.Quaternion();
-        const startGlassScale = new THREE.Vector3();
-        startGlass.decompose(startGlassPos, startGlassQuat, startGlassScale);
-
-        const startFramePos = new THREE.Vector3();
-        const startFrameQuat = new THREE.Quaternion();
-        const startFrameScale = new THREE.Vector3();
-        startFrame.decompose(startFramePos, startFrameQuat, startFrameScale);
-
-        // Decompose target matrices
-        const targetGlassPos = new THREE.Vector3();
-        const targetGlassQuat = new THREE.Quaternion();
-        const targetGlassScale = new THREE.Vector3();
-        targetGlass.decompose(targetGlassPos, targetGlassQuat, targetGlassScale);
-
-        const targetFramePos = new THREE.Vector3();
-        const targetFrameQuat = new THREE.Quaternion();
-        const targetFrameScale = new THREE.Vector3();
-        targetFrame.decompose(targetFramePos, targetFrameQuat, targetFrameScale);
-
-        // Interpolate components
-        const currentGlassPos = startGlassPos.clone().lerp(targetGlassPos, eased);
-        const currentGlassQuat = startGlassQuat.clone().slerp(targetGlassQuat, eased);
-        const currentGlassScale = startGlassScale.clone().lerp(targetGlassScale, eased);
-
-        const currentFramePos = startFramePos.clone().lerp(targetFramePos, eased);
-        const currentFrameQuat = startFrameQuat.clone().slerp(targetFrameQuat, eased);
-        const currentFrameScale = startFrameScale.clone().lerp(targetFrameScale, eased);
-
-        // Compose new matrices
-        const currentGlass = new THREE.Matrix4().compose(currentGlassPos, currentGlassQuat, currentGlassScale);
-        const currentFrame = new THREE.Matrix4().compose(currentFramePos, currentFrameQuat, currentFrameScale);
-
-        this.glassInstancedMesh.setMatrixAt(index, currentGlass);
-        this.frameInstancedMesh.setMatrixAt(index, currentFrame);
-      });
-
-      // Mark for update
-      this.glassInstancedMesh.instanceMatrix.needsUpdate = true;
-      this.frameInstancedMesh.instanceMatrix.needsUpdate = true;
-
-      if (progress < 1) {
-        this.animationFrameId = requestAnimationFrame(animate);
-      } else {
-        this.animatingBuildings.delete(buildingId);
-        if (this.animatingBuildings.size === 0) {
-          this.animationFrameId = null;
-        }
-      }
-    };
-
-    if (this.animationFrameId === null) {
-      this.animationFrameId = requestAnimationFrame(animate);
-    }
-  }
-
-  // Helper method to calculate window matrices without adding them to the mesh
-  private calculateWindowMatrices(building: BuildingData, config: WindowConfig): Array<{glassMatrix: THREE.Matrix4, frameMatrix: THREE.Matrix4}> {
-    const matrices: Array<{glassMatrix: THREE.Matrix4, frameMatrix: THREE.Matrix4}> = [];
-    
-    const footprint: THREE.Vector2[] = building.points.map(p => new THREE.Vector2(p.x, p.z));
-    const numFloors = building.floors ?? 1;
-    const floorHeight = building.floorHeight ?? 3;
-    const wwr = building.window_to_wall_ratio ?? 0.4;
-
-    const {
-      windowWidth,
-      windowHeight,
-      windowSpacing,
-      offsetDistance
-    } = config;    // Process each edge of the building footprint
-    for (let i = 0; i < footprint.length; i++) {
-      const p1 = footprint[i];
-      const p2 = footprint[(i + 1) % footprint.length];
-
-      const edgeVec = new THREE.Vector2().subVectors(p2, p1);
-      const edgeLength = edgeVec.length();
-      
-      // Skip very short edges
-      if (edgeLength < windowWidth * 0.5) continue;
-      
-      const dir = edgeVec.clone().normalize();
-      const normal = new THREE.Vector2(dir.y, -dir.x); // Outward normal
-
-      // Calculate window distribution based on WWR
-      const wallAreaPerFloor = edgeLength * floorHeight;
-      
-      // Determine optimal number of windows and their dimensions
-      const minWindowWidth = windowWidth * 0.7; // Allow smaller windows
-      const maxWindowWidth = windowWidth * 1.5; // Allow larger windows
-      const minSpacing = windowSpacing * 0.5;
-      
-      // Try different numbers of windows to find best fit
-      let bestConfig = null;
-      let bestScore = -1;
-      
-      for (let numWindows = 1; numWindows <= Math.floor(edgeLength / minWindowWidth); numWindows++) {
-        const availableWidth = edgeLength - minSpacing * 2; // Leave minimum margins
-        const totalSpacing = minSpacing * (numWindows - 1);
-        const windowAreaWidth = availableWidth - totalSpacing;
-        
-        if (windowAreaWidth <= 0) continue;
-        
-        const calculatedWindowWidth = windowAreaWidth / numWindows;
-        
-        // Check if window width is within acceptable range
-        if (calculatedWindowWidth < minWindowWidth || calculatedWindowWidth > maxWindowWidth) continue;
-        
-        const windowArea = calculatedWindowWidth * windowHeight * numWindows;
-        const areaRatio = windowArea / wallAreaPerFloor;
-        
-        // Score based on how close we get to target WWR
-        const score = 1 - Math.abs(areaRatio - wwr);
-        
-        if (score > bestScore) {
-          bestScore = score;
-          bestConfig = {
-            numWindows,
-            windowWidth: calculatedWindowWidth,
-            spacing: minSpacing,
-            marginStart: (edgeLength - (calculatedWindowWidth * numWindows + minSpacing * (numWindows - 1))) / 2
-          };
-        }
-      }
-        if (!bestConfig || bestConfig.numWindows < 1) continue;
-
-      // Calculate vertical distribution
-      const verticalSpacing = windowSpacing;
-      const availableVerticalSpace = floorHeight - 2 * verticalSpacing;
-      const windowRows = Math.max(1, Math.floor(availableVerticalSpace / (windowHeight + verticalSpacing)));
-      
-      // Warn if vertical space is very constrained
-      if (windowRows === 1 && availableVerticalSpace < windowHeight * 1.2) {
-        console.warn(`Very constrained vertical space for building ${building.id}: ${availableVerticalSpace.toFixed(2)}m available, ${windowHeight}m needed`);
-      }
-
-      // Place windows with the optimized configuration
-      for (let floor = 0; floor < numFloors; floor++) {
-        const baseY = floor * floorHeight;
-
-        for (let row = 0; row < windowRows; row++) {
-          const rowY = baseY + verticalSpacing + (row + 0.5) * (availableVerticalSpace / windowRows);
-
-          for (let col = 0; col < bestConfig.numWindows; col++) {
-            // Calculate window position along the edge
-            const edgePos = bestConfig.marginStart + col * (bestConfig.windowWidth + bestConfig.spacing) + bestConfig.windowWidth / 2;
-            const edgeT = edgePos / edgeLength;
-
-            const pos2D = p1.clone().lerp(p2, edgeT);
-            const x = pos2D.x + normal.x * offsetDistance;
-            const z = pos2D.y + normal.y * offsetDistance;
-
-            const position = new THREE.Vector3(x, rowY, z);
-            
-            // Fix window orientation - make windows face outward from building
-            const rotationY = Math.atan2(normal.y, normal.x) + Math.PI/2;
-            const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rotationY, 0));
-
-            // Scale based on calculated window width
-            const scaleX = bestConfig.windowWidth / windowWidth;
-            const windowScale = new THREE.Vector3(scaleX, 1, 1);
-
-            // Create transformation matrices with proper forward offset for glass
-            const glassOffset = new THREE.Vector3(normal.x * 0.02, 0, normal.y * 0.02); // Glass slightly forward
-            const glassMatrix = new THREE.Matrix4().compose(
-              position.clone().add(glassOffset),
-              rotation,
-              windowScale
-            );
-
-            const frameMatrix = new THREE.Matrix4().compose(
-              position,
-              rotation,
-              windowScale
-            );
-
-            matrices.push({ glassMatrix, frameMatrix });
-          }
-        }
-      }
-    }
-
-    return matrices;
-  }
-
-  updateThemeColors(): void {
-    // Update glass material
-    const glassMaterial = this.materials.glass as THREE.MeshPhongMaterial;
-    glassMaterial.color.setHex(getThemeColorAsHex('--color-window-glass', 0x87CEEB));
-    
-    // Update frame material
-    const frameMaterial = this.materials.frame as THREE.MeshLambertMaterial;
-    frameMaterial.color.setHex(getThemeColorAsHex('--color-window-frame', 0x4A4A4A));
-  }  dispose(): void {
-    // Cancel any ongoing animations
-    if (this.animationFrameId !== null) {
-      cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = null;
-    }
-    this.animatingBuildings.clear();
-    
+  dispose(): void {
+    this.animationManager.dispose();
     // Remove from scene
     this.scene.remove(this.glassInstancedMesh);
     this.scene.remove(this.frameInstancedMesh);
@@ -630,19 +325,6 @@ export class WindowService {
     this.buildingWindows.clear();
   }
 
-  // New method to cancel animations for a specific building
-  cancelBuildingAnimation(buildingId: string): void {
-    if (this.animatingBuildings.has(buildingId)) {
-      this.animatingBuildings.delete(buildingId);
-      
-      // If no more animations, cancel the frame
-      if (this.animatingBuildings.size === 0 && this.animationFrameId !== null) {
-        cancelAnimationFrame(this.animationFrameId);
-        this.animationFrameId = null;
-      }
-    }
-  }
-
   getBuildingWindowCount(buildingId: string): number {
     return this.buildingWindows.get(buildingId)?.length ?? 0;
   }
@@ -650,4 +332,58 @@ export class WindowService {
   getTotalWindowCount(): number {
     return this.currentIndex;
   }
+}
+
+function calculateWindowMatrices(building: BuildingData, config: WindowConfig): Array<{glassMatrix: THREE.Matrix4, frameMatrix: THREE.Matrix4}> {
+  const matrices: Array<{glassMatrix: THREE.Matrix4, frameMatrix: THREE.Matrix4}> = [];
+  const footprint: THREE.Vector2[] = building.points.map(p => new THREE.Vector2(p.x, p.z));
+  const numFloors = building.floors ?? 1;
+  const floorHeight = building.floorHeight ?? 3;
+  const wwr = building.window_to_wall_ratio ?? 0.4;
+  const {
+    windowWidth,
+    windowHeight,
+    windowSpacing,
+    offsetDistance
+  } = config;
+  for (let i = 0; i < footprint.length; i++) {
+    const p1 = footprint[i];
+    const p2 = footprint[(i + 1) % footprint.length];
+    const edgeVec = new THREE.Vector2().subVectors(p2, p1);
+    const edgeLength = edgeVec.length();
+    if (edgeLength < windowWidth * 0.5) continue;
+    const dir = edgeVec.clone().normalize();
+    const normal = new THREE.Vector2(dir.y, -dir.x);
+    const parametric = solveWindowParams({
+      edgeLength,
+      windowWidth,
+      windowHeight,
+      windowSpacing,
+      wwr
+    });
+    if (!parametric || parametric.numWindows < 1) continue;
+    const placements = placeWindowsOnEdge({
+      p1,
+      p2,
+      normal,
+      edgeLength,
+      numFloors,
+      floorHeight,
+      windowHeight,
+      windowSpacing,
+      offsetDistance,
+      parametric
+    });
+    for (const placement of placements) {
+      matrices.push(buildWindowMatrices({
+        position: placement.position,
+        rotationY: placement.rotationY,
+        scaleX: placement.scaleX,
+        windowWidth,
+        windowHeight,
+        glassOffset: 0.02
+      }));
+    }
+  }
+  return matrices;
 }
