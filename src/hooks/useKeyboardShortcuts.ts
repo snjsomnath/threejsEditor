@@ -10,6 +10,10 @@ interface KeyboardShortcutsProps {
   onClearAll: () => void;
   onEscape: () => void;
   onUndoLastPoint: () => void;
+  onSaveConfiguration: () => void;
+  onImportConfiguration: () => void;
+  onToggleSunController: () => void;
+  onToggleTheme: () => void;
   isDrawing: boolean;
   isInitialized: boolean;
 }
@@ -24,6 +28,10 @@ export const useKeyboardShortcuts = ({
   onClearAll,
   onEscape,
   onUndoLastPoint,
+  onSaveConfiguration,
+  onImportConfiguration,
+  onToggleSunController,
+  onToggleTheme,
   isDrawing,
   isInitialized
 }: KeyboardShortcutsProps) => {
@@ -49,7 +57,12 @@ export const useKeyboardShortcuts = ({
           onToggleGrid();
           break;
         case 's':
-          if (!event.ctrlKey && !event.metaKey) {
+          if (event.ctrlKey || event.metaKey) {
+            // Ctrl+S for Save Configuration
+            event.preventDefault();
+            onSaveConfiguration();
+          } else {
+            // Just S for Toggle Snap (keeping existing behavior)
             event.preventDefault();
             onToggleSnap();
           }
@@ -69,7 +82,8 @@ export const useKeyboardShortcuts = ({
             event.preventDefault();
             onExport();
           }
-          break;        case 'delete':
+          break;
+        case 'delete':
         case 'backspace':
           // Only use Delete/Backspace as a shortcut if we're not currently typing in an input field
           // We don't require Ctrl/Cmd anymore to match the toolbar's Del shortcut behavior
@@ -79,6 +93,19 @@ export const useKeyboardShortcuts = ({
         case 'escape':
           event.preventDefault();
           onEscape();
+          break;
+        case 'i':
+          event.preventDefault();
+          onImportConfiguration();
+          break;
+        case 't':
+          event.preventDefault();
+          onToggleTheme();
+          break;
+        case 'r':
+          // R for Sun Controller (changed from U to avoid conflict)
+          event.preventDefault();
+          onToggleSunController();
           break;
         case 'u':
           event.preventDefault();
@@ -99,6 +126,10 @@ export const useKeyboardShortcuts = ({
     onClearAll,
     onEscape,
     onUndoLastPoint,
+    onSaveConfiguration,
+    onImportConfiguration,
+    onToggleSunController,
+    onToggleTheme,
     isDrawing,
     isInitialized
   ]);

@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Settings, Pencil, Download, Trash2, Sun, Moon, Save, Upload, CloudSun } from 'lucide-react';
 import { ToolbarButton } from './ToolbarButton';
-import { toggleTheme } from '../utils/themeColors';
 
 interface LeftToolbarProps {
   isDrawing: boolean;
@@ -14,6 +13,7 @@ interface LeftToolbarProps {
   onSaveConfiguration: () => void;
   onImportConfiguration: () => void;
   onToggleSunController: () => void;
+  onToggleTheme: () => void;
 }
 
 export const LeftToolbar: React.FC<LeftToolbarProps> = ({
@@ -26,7 +26,8 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
   onClearAll,
   onSaveConfiguration,
   onImportConfiguration,
-  onToggleSunController
+  onToggleSunController,
+  onToggleTheme
 }) => {
   const [isDarkTheme, setIsDarkTheme] = React.useState(
     () => document.documentElement.classList.contains('dark-theme')
@@ -46,15 +47,20 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
       return () => clearTimeout(timer);
     }
   }, []);
-    const handleThemeToggle = () => {
-    const newTheme = toggleTheme();
-    setIsDarkTheme(newTheme === 'dark');
+
+  // Listen for theme changes to update the icon
+  useEffect(() => {
+    const handleThemeChange = () => {
+      setIsDarkTheme(document.documentElement.classList.contains('dark-theme'));
+    };
+
+    // Listen for our custom theme change event
+    window.addEventListener('threejs-theme-update', handleThemeChange);
     
-    // Force Three.js scene to immediately update
-    window.dispatchEvent(new CustomEvent('threejs-theme-update', { 
-      detail: { theme: newTheme } 
-    }));
-  };
+    return () => {
+      window.removeEventListener('threejs-theme-update', handleThemeChange);
+    };
+  }, []);
   
   return (
     <div ref={toolbarRef} className="fixed left-4 top-1/2 -translate-y-1/2 z-40 transform-gpu">
@@ -67,7 +73,7 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
             onClick={onShowConfig}
             disabled={!isInitialized}
             variant="default"
-            keyboardShortcut="C"
+            keyboardShortcut="Ctrl+C"
           />
 
           {/* Draw Building */}
@@ -90,7 +96,7 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
             onClick={onSaveConfiguration}
             disabled={!isInitialized}
             variant="default"
-            keyboardShortcut="S"
+            keyboardShortcut="Ctrl+S"
           />
 
           {/* Import Configuration */}
@@ -113,7 +119,7 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
             onClick={onExport}
             disabled={!hasBuildings}
             variant="success"
-            keyboardShortcut="E"
+            keyboardShortcut="Ctrl+E"
           />
 
           {/* Clear All */}
@@ -136,7 +142,7 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
             onClick={onToggleSunController}
             disabled={!isInitialized}
             variant="default"
-            keyboardShortcut="U"
+            keyboardShortcut="R"
           />
 
             {/* Theme Toggle */}
@@ -144,7 +150,7 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
           <ToolbarButton
             icon={isDarkTheme ? Sun : Moon}
             tooltip={isDarkTheme ? "Light Theme" : "Dark Theme"}
-            onClick={handleThemeToggle}
+            onClick={onToggleTheme}
             variant={isDarkTheme ? "success" : "default"}
             keyboardShortcut="T"
           />

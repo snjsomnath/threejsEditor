@@ -4,6 +4,7 @@ import { useDrawing } from '../hooks/useDrawing';
 import { useClickHandler } from '../hooks/useClickHandler';
 import { useBuildingManager } from '../hooks/useBuildingManager';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { toggleTheme } from '../utils/themeColors';
 import { LeftToolbar } from './LeftToolbar';
 import { BottomToolbar } from './BottomToolbar';
 import { FloatingInstructions } from './FloatingInstructions';
@@ -136,40 +137,6 @@ export const SimpleBuildingCreator: React.FC = () => {
     isDrawingRef
   );
 
-  // Keyboard shortcuts
-  useKeyboardShortcuts({
-    onDrawBuilding: () => {
-      if (!hasInteracted) setHasInteracted(true);
-      selectBuilding(null);
-      startDrawing();
-    },
-    onToggleGrid: () => {
-      setShowGrid(!showGrid);
-      toggleGrid();
-    },
-    onToggleSnap: () => setSnapToGrid(!snapToGrid),
-    onToggleFPS: toggleFPSCounter,
-    onShowConfig: () => setShowBuildingConfig(!showBuildingConfig),
-    onExport: exportBuildings,
-    onClearAll: () => {
-      clearAllBuildings();
-      if (clearAllDrawingElements) clearAllDrawingElements();
-      selectBuilding(null);
-    },
-    onEscape: () => {
-      if (drawingState.isDrawing) {
-        stopDrawing();
-      } else if (selectedBuilding) {
-        selectBuilding(null);
-      } else if (showBuildingConfig) {
-        setShowBuildingConfig(false);
-      }
-    },
-    onUndoLastPoint: undoLastPoint,
-    isDrawing: drawingState.isDrawing,
-    isInitialized
-  });
-
   // Event handlers
   const handleStartDrawing = () => {
     if (!hasInteracted) setHasInteracted(true);
@@ -214,6 +181,15 @@ export const SimpleBuildingCreator: React.FC = () => {
 
   const handleImportConfiguration = () => {
     setShowImportConfigDialog(true);
+  };
+
+  const handleToggleTheme = () => {
+    const newTheme = toggleTheme();
+    
+    // Force Three.js scene to immediately update
+    window.dispatchEvent(new CustomEvent('threejs-theme-update', { 
+      detail: { theme: newTheme } 
+    }));
   };
 
   const handleImportConfigConfirm = (config: any) => {
@@ -413,6 +389,44 @@ export const SimpleBuildingCreator: React.FC = () => {
     return null;
   };
 
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onDrawBuilding: () => {
+      if (!hasInteracted) setHasInteracted(true);
+      selectBuilding(null);
+      startDrawing();
+    },
+    onToggleGrid: () => {
+      setShowGrid(!showGrid);
+      toggleGrid();
+    },
+    onToggleSnap: () => setSnapToGrid(!snapToGrid),
+    onToggleFPS: toggleFPSCounter,
+    onShowConfig: () => setShowBuildingConfig(!showBuildingConfig),
+    onExport: exportBuildings,
+    onClearAll: () => {
+      clearAllBuildings();
+      if (clearAllDrawingElements) clearAllDrawingElements();
+      selectBuilding(null);
+    },
+    onEscape: () => {
+      if (drawingState.isDrawing) {
+        stopDrawing();
+      } else if (selectedBuilding) {
+        selectBuilding(null);
+      } else if (showBuildingConfig) {
+        setShowBuildingConfig(false);
+      }
+    },
+    onUndoLastPoint: undoLastPoint,
+    onSaveConfiguration: handleSaveConfiguration,
+    onImportConfiguration: handleImportConfiguration,
+    onToggleSunController: () => setShowSunController(!showSunController),
+    onToggleTheme: handleToggleTheme,
+    isDrawing: drawingState.isDrawing,
+    isInitialized
+  });
+
   // Add debugging for drawing state changes
   React.useEffect(() => {
     console.log('Drawing state changed:', {
@@ -518,6 +532,7 @@ export const SimpleBuildingCreator: React.FC = () => {
         onSaveConfiguration={handleSaveConfiguration}
         onImportConfiguration={handleImportConfiguration}
         onToggleSunController={() => setShowSunController(!showSunController)}
+        onToggleTheme={handleToggleTheme}
       />
 
       {/* Bottom Toolbar */}
