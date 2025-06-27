@@ -45,7 +45,9 @@ export const SimpleBuildingCreator: React.FC = () => {
     retryInitialization,
     switchCameraType,
     setCameraView,
-    updateSunPosition
+    updateSunPosition,
+    enableBuildingFocus,
+    disableBuildingFocus
   } = useThreeJS(containerRef, showGrid);
     // Initialize building management
   const { 
@@ -419,6 +421,8 @@ export const SimpleBuildingCreator: React.FC = () => {
           onClose={() => selectBuilding(null)}
           onSave={handleSaveBuilding}
           onPreview={handlePreviewBuilding}
+          enableBuildingFocus={enableBuildingFocus}
+          disableBuildingFocus={disableBuildingFocus}
         />
       )}
     </div>

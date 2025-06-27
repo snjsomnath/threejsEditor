@@ -58,13 +58,17 @@ interface BuildingEditPanelProps {
   onClose: () => void;
   onSave: (updates: Partial<BuildingData> & { config?: BuildingConfig }) => void;
   onPreview?: (updates: Partial<BuildingData> & { config?: BuildingConfig }) => void;
+  enableBuildingFocus?: (buildingId: string) => void;
+  disableBuildingFocus?: () => void;
 }
 
 export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
   building,
   onClose,
   onSave,
-  onPreview
+  onPreview,
+  enableBuildingFocus,
+  disableBuildingFocus
 }) => {  // Collapsible state
   const [sections, setSections] = useState({
     general: true,
@@ -98,6 +102,22 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
 
   const [hasChanges, setHasChanges] = useState(false);
   const [themeVersion, setThemeVersion] = useState(0);
+
+  // Enable focus effect when panel opens
+  useEffect(() => {
+    if (enableBuildingFocus && building.id) {
+      enableBuildingFocus(building.id);
+      console.log('Building focus enabled for:', building.id);
+    }
+    
+    // Cleanup focus effect when panel unmounts
+    return () => {
+      if (disableBuildingFocus) {
+        disableBuildingFocus();
+        console.log('Building focus disabled on unmount');
+      }
+    };
+  }, [building.id, enableBuildingFocus, disableBuildingFocus]);
 
   useEffect(() => {
     // Listen for theme changes to refresh colors
@@ -342,6 +362,12 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
 
   // Restore original geometry when panel is closed without saving
   const handleClose = useCallback(() => {
+    // Disable focus effect before closing
+    if (disableBuildingFocus) {
+      disableBuildingFocus();
+      console.log('Building focus disabled on close');
+    }
+    
     // Only restore if there are unsaved changes
     if (hasChanges) {
       // Restore original geometry if needed
@@ -427,7 +453,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
     
     // Call the original onClose handler
     onClose();
-  }, [building, edited, hasChanges, onClose]);
+  }, [building, edited, hasChanges, onClose, disableBuildingFocus]);
   // Debounced window update to avoid too many rapid updates
   const debouncedWindowUpdate = useCallback(
     (() => {
@@ -451,7 +477,8 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 pointer-events-none">
-      {/* Drawer backdrop */}      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto" onClick={handleClose} />
+      {/* Simplified backdrop - Three.js handles the selective focus */}
+      <div className="fixed inset-0 bg-black/20 pointer-events-auto" onClick={handleClose} />
       {/* Drawer */}
       <div className="fixed top-0 right-0 h-full w-full max-w-md bg-gray-900/98 shadow-2xl border-l border-gray-700/50 z-50 flex flex-col pointer-events-auto">
         {/* Header */}

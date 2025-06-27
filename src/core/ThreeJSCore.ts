@@ -605,6 +605,15 @@ export class ThreeJSCore {
     this.updateThemeColors();
   }
 
+  // Selective focus methods for building editing
+  enableBuildingFocus(buildingId: string): void {
+    this.rendererManager.enableSelectiveFocus(buildingId, this.sceneManager.getScene(), this.cameraManager.getCamera());
+  }
+
+  disableBuildingFocus(): void {
+    this.rendererManager.disableSelectiveFocus();
+  }
+
   getCurrentCameraType(): CameraType {
     return this.cameraManager.getCurrentCameraType();
   }

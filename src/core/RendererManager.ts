@@ -189,4 +189,116 @@ export class RendererManager {
       this.renderer.shadowMap.needsUpdate = true;
     }
   }
+
+  private focusedBuildingId: string | null = null;
+  private originalMaterials: Map<THREE.Object3D, THREE.Material | THREE.Material[]> = new Map();
+  private originalShadowSettings: Map<THREE.Object3D, { castShadow: boolean; receiveShadow: boolean }> = new Map();
+
+  /**
+   * Enable selective focus on a specific building
+   */
+  async enableSelectiveFocus(buildingId: string, scene: THREE.Scene, _camera: THREE.Camera): Promise<void> {
+    this.focusedBuildingId = buildingId;
+    
+    // Use the proven material-based approach which works reliably
+    this.enableMaterialBasedFocus(buildingId, scene);
+    
+    console.log('Selective focus enabled for building:', buildingId);
+  }
+
+  /**
+   * Fallback method using material opacity changes
+   */
+  private enableMaterialBasedFocus(buildingId: string, scene: THREE.Scene): void {
+    // Store original materials and make non-focused objects semi-transparent and desaturated
+    scene.traverse((object: THREE.Object3D) => {
+      if (object instanceof THREE.Mesh && object.material) {
+        if (object.userData.buildingId !== buildingId && 
+            !object.userData.isGround && 
+            !object.userData.isFloorLine) {
+          
+          // Store original material
+          this.originalMaterials.set(object, object.material);
+          
+          // Store original shadow settings
+          this.originalShadowSettings.set(object, {
+            castShadow: object.castShadow,
+            receiveShadow: object.receiveShadow
+          });
+          
+          // Disable shadow casting for non-focused objects to reduce visual clutter
+          object.castShadow = false;
+          object.receiveShadow = true; // Keep receiving shadows for depth
+          
+          // Create a dimmed and desaturated version of the material
+          if (Array.isArray(object.material)) {
+            const dimmedMaterials = object.material.map(mat => {
+              const cloned = mat.clone();
+              cloned.transparent = true;
+              cloned.opacity = 0.15;  // More transparent
+              
+              // Desaturate the color if it's a colored material
+              if ('color' in cloned && cloned.color instanceof THREE.Color) {
+                const hsl = { h: 0, s: 0, l: 0 };
+                cloned.color.getHSL(hsl);
+                cloned.color.setHSL(hsl.h, hsl.s * 0.2, hsl.l * 0.7); // Reduce saturation and brightness
+              }
+              
+              return cloned;
+            });
+            object.material = dimmedMaterials;
+          } else {
+            const dimmedMaterial = object.material.clone();
+            dimmedMaterial.transparent = true;
+            dimmedMaterial.opacity = 0.15;  // More transparent
+            
+            // Desaturate the color if it's a colored material
+            if ('color' in dimmedMaterial && dimmedMaterial.color instanceof THREE.Color) {
+              const hsl = { h: 0, s: 0, l: 0 };
+              dimmedMaterial.color.getHSL(hsl);
+              dimmedMaterial.color.setHSL(hsl.h, hsl.s * 0.2, hsl.l * 0.7); // Reduce saturation and brightness
+            }
+            
+            object.material = dimmedMaterial;
+          }
+        }
+      }
+    });
+    
+    console.log('Material-based focus enabled for building:', buildingId);
+  }
+
+  /**
+   * Disable selective focus
+   */
+  disableSelectiveFocus(): void {
+    this.focusedBuildingId = null;
+    
+    // Restore original materials
+    this.originalMaterials.forEach((originalMaterial, object) => {
+      if (object instanceof THREE.Mesh) {
+        // Dispose cloned materials
+        if (Array.isArray(object.material)) {
+          object.material.forEach(mat => mat.dispose());
+        } else {
+          object.material.dispose();
+        }
+        
+        // Restore original
+        object.material = originalMaterial;
+      }
+    });
+    this.originalMaterials.clear();
+    
+    // Restore original shadow settings
+    this.originalShadowSettings.forEach((shadowSettings, object) => {
+      if (object instanceof THREE.Mesh) {
+        object.castShadow = shadowSettings.castShadow;
+        object.receiveShadow = shadowSettings.receiveShadow;
+      }
+    });
+    this.originalShadowSettings.clear();
+    
+    console.log('Selective focus disabled');
+  }
 }

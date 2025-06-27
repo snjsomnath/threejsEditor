@@ -195,7 +195,33 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     } else {
       console.warn('Cannot update sun position - core not initialized');
     }
-  }, []);  return {
+  }, []);
+  const enableBuildingFocus = useCallback((buildingId: string) => {
+    if (coreRef.current) {
+      try {
+        coreRef.current.enableBuildingFocus(buildingId);
+        console.log('Building focus enabled for:', buildingId);
+      } catch (error) {
+        console.error('Failed to enable building focus:', error);
+      }
+    } else {
+      console.warn('Cannot enable building focus - core not initialized');
+    }
+  }, []);
+  const disableBuildingFocus = useCallback(() => {
+    if (coreRef.current) {
+      try {
+        coreRef.current.disableBuildingFocus();
+        console.log('Building focus disabled');
+      } catch (error) {
+        console.error('Failed to disable building focus:', error);
+      }
+    } else {
+      console.warn('Cannot disable building focus - core not initialized');
+    }
+  }, []);
+
+  return {
     scene: coreRef.current?.getScene() || null,
     camera: coreRef.current?.getCamera() || null,
     renderer: coreRef.current?.getRenderer() || null,
@@ -214,6 +240,8 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     setCameraView,
     refreshThemeColors,
     updateSunPosition,
+    enableBuildingFocus,
+    disableBuildingFocus,
     debugHelpers: {
       toggleShadowHelper: () => {},
       toggleShadowQuality: () => {},
