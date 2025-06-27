@@ -14,6 +14,7 @@ import { SunController } from './SunController';
 import { MiniGraphWindow } from './MiniGraphWindow';
 import { DesignGraphDialog } from './DesignGraphDialog';
 import { SaveConfigurationDialog } from './dialogs/SaveConfigurationDialog';
+import { ImportConfigDialog } from './dialogs/ImportConfigDialog';
 import { BuildingConfig } from '../types/building';
 import type { CameraType, CameraView } from '../core/ThreeJSCore';
 import { getThemeColorAsHex } from '../utils/themeColors';
@@ -31,6 +32,7 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [showSunController, setShowSunController] = useState(false);
   const [showSaveConfigDialog, setShowSaveConfigDialog] = useState(false);
   const [showDesignGraphDialog, setShowDesignGraphDialog] = useState(false);
+  const [showImportConfigDialog, setShowImportConfigDialog] = useState(false);
 
   const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
     floors: 3,
@@ -208,6 +210,79 @@ export const SimpleBuildingCreator: React.FC = () => {
 
   const handleSaveConfiguration = () => {
     setShowSaveConfigDialog(true);
+  };
+
+  const handleImportConfig = () => {
+    setShowImportConfigDialog(true);
+  };
+
+  const handleImportConfigConfirm = (config: any) => {
+    try {
+      // Clear current buildings
+      clearAllBuildings();
+      
+      // Determine if config is an array of buildings or an object with buildings property
+      const buildingsData = Array.isArray(config) ? config : config.buildings || [];
+      
+      if (!Array.isArray(buildingsData)) {
+        throw new Error('Invalid configuration format');
+      }
+
+      // Recreate buildings from imported data
+      const buildingService = new BuildingService(scene!);
+      
+      buildingsData.forEach((buildingData: any, index: number) => {
+        try {
+          // Validate required fields
+          if (!buildingData.points || !Array.isArray(buildingData.points) || buildingData.points.length < 3) {
+            throw new Error(`Building ${index + 1}: Invalid or missing points`);
+          }
+
+          // Create building config with defaults for missing properties
+          const buildingConfig: BuildingConfig = {
+            floors: buildingData.floors || 3,
+            floorHeight: buildingData.floorHeight || 3.5,
+            color: buildingData.color || getThemeColorAsHex('--color-building-default', 0x6366f1),
+            name: buildingData.name || `Imported Building ${index + 1}`,
+            description: buildingData.description || '',
+            window_to_wall_ratio: buildingData.window_to_wall_ratio || 0.3,
+            window_overhang: buildingData.window_overhang || false,
+            window_overhang_depth: buildingData.window_overhang_depth || 0.5,
+            wall_construction: buildingData.wall_construction || 'Standard Wall',
+            floor_construction: buildingData.floor_construction || 'Standard Floor',
+            roof_construction: buildingData.roof_construction || 'Standard Roof',
+            window_construction: buildingData.window_construction || 'Standard Window',
+            structural_system: buildingData.structural_system || 'Concrete',
+            building_program: buildingData.building_program || 'Office',
+            hvac_system: buildingData.hvac_system || 'Standard HVAC',
+            natural_ventilation: buildingData.natural_ventilation || false
+          };
+
+          // Create the 3D mesh
+          const mesh = buildingService.createBuilding(buildingData.points, buildingConfig);
+          
+          // Set metadata
+          mesh.userData = {
+            ...mesh.userData,
+            buildingId: buildingData.id || `imported_${Date.now()}_${index}`,
+            name: buildingConfig.name,
+            description: buildingConfig.description
+          };
+
+          // Add the building to the manager
+          addBuilding(mesh, buildingData.points, buildingConfig.floors, buildingConfig.floorHeight);
+          
+        } catch (error) {
+          console.error(`Failed to import building ${index + 1}:`, error);
+        }
+      });
+
+      console.log(`Successfully imported ${buildingsData.length} building(s)`);
+      
+    } catch (error) {
+      console.error('Failed to import configuration:', error);
+      // You could show an error dialog here
+    }
   };
 
   const handleSaveConfigurationConfirm = (name: string) => {
@@ -441,6 +516,7 @@ export const SimpleBuildingCreator: React.FC = () => {
         onExport={exportBuildings}
         onClearAll={handleClearAll}
         onSaveConfiguration={handleSaveConfiguration}
+        onImportConfig={handleImportConfig}
       />
 
       {/* Bottom Toolbar */}
@@ -510,6 +586,13 @@ export const SimpleBuildingCreator: React.FC = () => {
         isOpen={showSaveConfigDialog}
         onClose={() => setShowSaveConfigDialog(false)}
         onSave={handleSaveConfigurationConfirm}
+      />
+
+      {/* Import Configuration Dialog */}
+      <ImportConfigDialog
+        isOpen={showImportConfigDialog}
+        onClose={() => setShowImportConfigDialog(false)}
+        onImport={handleImportConfigConfirm}
       />
 
       {/* Design Graph Dialog */}
