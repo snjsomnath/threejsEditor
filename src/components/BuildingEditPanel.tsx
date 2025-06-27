@@ -248,8 +248,9 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
       const material = building.mesh.material as THREE.MeshLambertMaterial;
       material.color.setHex(value);
     }
-    // Live update for window properties - trigger debounced window update
-    if (field === 'window_to_wall_ratio' || field === 'window_overhang' || field === 'window_overhang_depth') {
+    // Live update for window properties and building geometry that affects windows
+    if (field === 'window_to_wall_ratio' || field === 'window_overhang' || field === 'window_overhang_depth' || 
+        field === 'floors' || field === 'floorHeight') {
       // Trigger window update through debounced onPreview
       const updates: Partial<BuildingData> & { config: BuildingConfig } = {
         // Update the specific field in the building data
