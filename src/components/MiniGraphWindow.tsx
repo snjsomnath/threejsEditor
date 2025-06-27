@@ -7,6 +7,14 @@ interface MiniGraphWindowProps {
   onOpenFullGraph: () => void;
 }
 
+// Extend DesignNode with D3 simulation properties
+interface D3DesignNode extends DesignNode {
+  x?: number;
+  y?: number;
+  fx?: number;
+  fy?: number;
+}
+
 // Add CSS to disable all animations on this component
 const miniGraphStyles = `
   .mini-graph-no-animation,
@@ -56,6 +64,7 @@ export const MiniGraphWindow: React.FC<MiniGraphWindowProps> = ({ onOpenFullGrap
     const width = 120;
     const height = 60;
     const nodeRadius = 3;
+    const padding = 10; // Padding from edges
 
     // Transform edges to D3 link format
     const linkData = graph.edges.map(edge => ({
@@ -63,12 +72,58 @@ export const MiniGraphWindow: React.FC<MiniGraphWindowProps> = ({ onOpenFullGrap
       target: edge.to
     }));
 
-    // Create a simple force simulation for layout
-    const simulation = d3.forceSimulation(graph.nodes as any)
-      .force("link", d3.forceLink(linkData).id((d: any) => d.id).distance(20))
-      .force("charge", d3.forceManyBody().strength(-30))
+    // Create a copy of nodes with initial positions scaled to fit viewport
+    const nodesCopy: D3DesignNode[] = graph.nodes.map(node => ({ ...node }));
+    
+    // If nodes have calculated positions from service, scale them to fit the mini viewport
+    if (nodesCopy.some(node => node.position)) {
+      const positions = nodesCopy.map(node => node.position).filter(Boolean);
+      if (positions.length > 0) {
+        const xExtent = d3.extent(positions, d => d!.x) as [number, number];
+        const yExtent = d3.extent(positions, d => d!.y) as [number, number];
+        
+        // Calculate scale to fit within viewport with padding
+        const xRange = xExtent[1] - xExtent[0] || 1;
+        const yRange = yExtent[1] - yExtent[0] || 1;
+        const scale = Math.min(
+          (width - 2 * padding) / xRange,
+          (height - 2 * padding) / yRange,
+          1 // Don't scale up, only down
+        );
+        
+        // Apply scaled positions
+        nodesCopy.forEach(node => {
+          if (node.position) {
+            node.x = padding + (node.position.x - xExtent[0]) * scale;
+            node.y = padding + (node.position.y - yExtent[0]) * scale;
+          } else {
+            // Fallback to center for nodes without position
+            node.x = width / 2;
+            node.y = height / 2;
+          }
+        });
+      }
+    } else {
+      // Fallback: center all nodes initially
+      nodesCopy.forEach(node => {
+        node.x = width / 2;
+        node.y = height / 2;
+      });
+    }
+
+    // Create a bounded force simulation
+    const simulation = d3.forceSimulation(nodesCopy as any)
+      .force("link", d3.forceLink(linkData).id((d: any) => d.id).distance(Math.min(20, width / 4)))
+      .force("charge", d3.forceManyBody().strength(-20))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collision", d3.forceCollide(nodeRadius + 2));
+      .force("collision", d3.forceCollide(nodeRadius + 2))
+      // Add boundary force to keep nodes within viewport
+      .force("boundary", () => {
+        nodesCopy.forEach(node => {
+          node.x = Math.max(padding, Math.min(width - padding, node.x || 0));
+          node.y = Math.max(padding, Math.min(height - padding, node.y || 0));
+        });
+      });
 
     // Draw edges
     const linkElements = svg.append("g")
@@ -82,7 +137,7 @@ export const MiniGraphWindow: React.FC<MiniGraphWindowProps> = ({ onOpenFullGrap
     // Draw nodes
     const nodeElements = svg.append("g")
       .selectAll("circle")
-      .data(graph.nodes)
+      .data(nodesCopy)
       .enter().append("circle")
       .attr("r", nodeRadius)
       .attr("fill", (d: DesignNode) => 
