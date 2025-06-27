@@ -15,58 +15,51 @@ export interface WindowParametricResult {
 }
 
 export function solveWindowParams(config: WindowParametricConfig): WindowParametricResult | null {
-  const { edgeLength, windowWidth, windowHeight, windowSpacing, wwr } = config;
+  const { edgeLength, windowWidth, windowHeight, wwr } = config;
 
-  // Define bounds for variation
-  const minWindowWidth = windowWidth * 0.7;
-  const maxWindowWidth = windowWidth * 1.5;
-  const minSpacing = windowSpacing * 0.5;
-  const maxSpacing = windowSpacing * 1.5;
+  console.log(`Solving window params: edgeLength=${edgeLength.toFixed(2)}, target WWR=${(wwr * 100).toFixed(1)}%`);
 
-  let bestConfig: WindowParametricResult | null = null;
-  let bestScore = -1;
+  // No windows if WWR is zero
+  if (wwr <= 0) return null;
 
-  // Limit the number of windows to avoid too many iterations
-  const maxWindows = Math.min(50, Math.floor(edgeLength / minWindowWidth));
+  // Calculate total desired window area
+  const wallArea = edgeLength * windowHeight;
+  const targetWindowArea = wwr * wallArea;
 
-  // Try placing 1 up to maxWindows on the wall
-  for (let numWindows = 1; numWindows <= maxWindows; numWindows++) {
-    const totalMinSpacing = minSpacing * (numWindows - 1);
-    if (totalMinSpacing >= edgeLength) break; // No room for windows
+  // Start by guessing number of windows based on default window size
+  let estimatedWindowWidth = windowWidth;
+  let estimatedWindowArea = estimatedWindowWidth * windowHeight;
+  let numWindows = Math.max(1, Math.floor(targetWindowArea / estimatedWindowArea));
 
-    // Calculate max possible window width for current numWindows
-    const maxAvailableWidth = edgeLength - totalMinSpacing;
-    const windowWidthCandidate = Math.min(maxAvailableWidth / numWindows, maxWindowWidth);
-    if (windowWidthCandidate < minWindowWidth) break; // Too narrow, stop trying
+  // Ensure we don't exceed what can fit along the edge
+  const minSpacing = 0.1;
+  const minWindowWidth = 0.5;
 
-    const totalWindowWidth = windowWidthCandidate * numWindows;
+  const maxPossibleWindows = Math.floor(edgeLength / (minWindowWidth + minSpacing));
+  numWindows = Math.min(numWindows, maxPossibleWindows);
 
-    // Calculate spacing to evenly distribute windows along wall
-    const spacing = numWindows === 1 ? 0 : (edgeLength - totalWindowWidth) / (numWindows - 1);
-    if (spacing < minSpacing || spacing > maxSpacing) continue;
+  if (numWindows < 1) return null;
 
-    // Compute actual WWR for this configuration
-    const windowArea = windowWidthCandidate * windowHeight * numWindows;
-    const wallArea = edgeLength * windowHeight;
-    const areaRatio = windowArea / wallArea;
+  // Calculate the actual window width needed to hit the WWR target
+  const totalWindowWidth = targetWindowArea / windowHeight;
+  const windowWidthCandidate = totalWindowWidth / numWindows;
 
-    // Score based on closeness to desired WWR (1 is perfect)
-    const score = 1 - Math.abs(areaRatio - wwr);
+  if (windowWidthCandidate < minWindowWidth) return null;
 
-    // Store if best so far
-    if (score > bestScore) {
-      bestScore = score;
-      bestConfig = {
-        numWindows,
-        windowWidth: windowWidthCandidate,
-        spacing,
-        marginStart: (edgeLength - (totalWindowWidth + spacing * (numWindows - 1))) / 2
-      };
+  const totalWidthUsed = windowWidthCandidate * numWindows;
+  const spacing = numWindows > 1 ? (edgeLength - totalWidthUsed) / (numWindows - 1) : 0;
 
-      // Perfect match, stop searching
-      if (score === 1) return bestConfig;
-    }
-  }
+  if (spacing < 0) return null;
 
-  return bestConfig;
+  const marginStart = (edgeLength - (totalWidthUsed + spacing * (numWindows - 1))) / 2;
+
+  const actualWWR = (windowWidthCandidate * windowHeight * numWindows) / wallArea;
+  console.log(`Best config: ${numWindows} windows, ${windowWidthCandidate.toFixed(2)}m width, actual WWR=${(actualWWR * 100).toFixed(1)}%`);
+
+  return {
+    numWindows,
+    windowWidth: windowWidthCandidate,
+    spacing,
+    marginStart: Math.max(0, marginStart)
+  };
 }

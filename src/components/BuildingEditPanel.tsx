@@ -57,12 +57,14 @@ interface BuildingEditPanelProps {
   building: BuildingData;
   onClose: () => void;
   onSave: (updates: Partial<BuildingData> & { config?: BuildingConfig }) => void;
+  onPreview?: (updates: Partial<BuildingData> & { config?: BuildingConfig }) => void;
 }
 
 export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
   building,
   onClose,
-  onSave
+  onSave,
+  onPreview
 }) => {  // Collapsible state
   const [sections, setSections] = useState({
     general: true,
@@ -226,21 +228,16 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
       const material = building.mesh.material as THREE.MeshLambertMaterial;
       material.color.setHex(value);
     }
-      // Live update for window properties - trigger debounced window update
+    // Live update for window properties - trigger debounced window update
     if (field === 'window_to_wall_ratio' || field === 'window_overhang' || field === 'window_overhang_depth') {
-      // Trigger window update through debounced onSave
+      // Trigger window update through debounced onPreview
       const updates: Partial<BuildingData> & { config: BuildingConfig } = {
+        // Update the specific field in the building data
         [field]: value,
+        // Provide complete config with updated values
         config: {
-          floors: edited.floors,
-          floorHeight: edited.floorHeight,
-          color: edited.color,
-          window_to_wall_ratio: field === 'window_to_wall_ratio' ? value : edited.window_to_wall_ratio,
-          window_overhang: field === 'window_overhang' ? value : edited.window_overhang,
-          window_overhang_depth: field === 'window_overhang_depth' ? value : edited.window_overhang_depth,
-          // Add other required config fields
-          name: edited.name,
-          description: edited.description
+          ...edited, // Include all current edited values
+          [field]: value // Ensure the specific field is updated
         }
       };
       
@@ -438,11 +435,18 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
       return (updates: Partial<BuildingData> & { config: BuildingConfig }) => {
         clearTimeout(timeoutId);
         timeoutId = window.setTimeout(() => {
-          onSave(updates);
-        }, 150); // 150ms debounce
+          // Always use onPreview for live updates to keep dialog open
+          if (onPreview) {
+            onPreview(updates);
+          } else {
+            // If no onPreview is available, still use onSave but ensure dialog stays open
+            // by not including closing logic
+            console.warn('No onPreview handler provided for live updates');
+          }
+        }, 50); // Fast debounce for very responsive updates
       };
     })(),
-    [onSave]
+    [onPreview]
   );
 
   return (
@@ -605,7 +609,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
                 </div>                <div className="grid grid-cols-4 gap-2">
                   {getColorOptions().map(color => (
                     <button
-                      key={color.value}
+                      key={`${color.value}-${themeVersion}`}
                       onClick={() => updateField('color', color.value)}
                       className={`w-full h-10 rounded-lg border-2 transition-all duration-200 ${
                         edited.color === color.value 

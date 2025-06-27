@@ -74,7 +74,7 @@ export function addSampleBuilding(
       radius = 12,
       floors = 5,
       floorHeight = 3.5,
-      color = getThemeColorAsHex('--color-building-sample', 0x4A90E2),
+      color = getThemeColorAsHex('--color-building-sample', 0xFFFFFF),
       name = 'Debug Pentagon Building',
       description = 'A sample pentagon building for debugging windows',
       windowToWallRatio = 0.4

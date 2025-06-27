@@ -231,8 +231,8 @@ export class WindowService {
     this.frameInstancedMesh.instanceMatrix.needsUpdate = true;
   }
   updateBuildingWindows(building: BuildingData, config: WindowConfig): void {
-    // For now, use the existing method - but this can be optimized
-    this.addBuildingWindows(building, config);
+    // Use the efficient update method for better performance during live updates
+    this.updateBuildingWindowsEfficient(building, config);
   }
 
   // New efficient update method that only updates matrices for a specific building

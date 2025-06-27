@@ -40,6 +40,9 @@
   --color-drawing-snap-emissive: #ffff00;
   --color-drawing-footprint-point: #ffff00;
   --color-drawing-footprint-line: #00ff00;
+
+  /* Sample Building Colors */
+    --color-building-sample: #ffffff;
   
   /* Window Colors */
   --color-window-glass: #87ceeb;
@@ -185,6 +188,10 @@
   --color-drawing-snap-emissive: #a16207;
   --color-drawing-footprint-point: #fbbf24;
   --color-drawing-footprint-line: #15803d;
+
+  /* Sample Building Colors - Dark Theme */
+  --color-building-sample: #ffffff;
+
   
   /* Window Colors - Dark Theme */
   --color-window-glass: #4a90e2;

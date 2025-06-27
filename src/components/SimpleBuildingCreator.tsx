@@ -203,6 +203,13 @@ export const SimpleBuildingCreator: React.FC = () => {
     }
   };
 
+  const handlePreviewBuilding = (updates: any) => {
+    if (selectedBuilding) {
+      updateBuilding(selectedBuilding.id, updates);
+      // Don't close the dialog - keep it open for live preview
+    }
+  };
+
   const handleEditBuilding = (building: any) => {
     // Only select non-preview buildings
     if (!building.mesh.userData.isPreview && !building.mesh.userData.isDrawingElement) {
@@ -411,6 +418,7 @@ export const SimpleBuildingCreator: React.FC = () => {
           building={selectedBuilding}
           onClose={() => selectBuilding(null)}
           onSave={handleSaveBuilding}
+          onPreview={handlePreviewBuilding}
         />
       )}
     </div>

@@ -341,9 +341,32 @@ export const useBuildingManager = (
         updatedBuilding.floorHeight = config.floorHeight;
         updatedBuilding.color = config.color;
         updatedBuilding.name = config.name || updatedBuilding.name;
-        updatedBuilding.description = config.description || updatedBuilding.description;        // Update windows when building geometry or window properties change
+        updatedBuilding.description = config.description || updatedBuilding.description;
+        
+        // Update window properties from config
+        if (config.window_to_wall_ratio !== undefined) {
+          updatedBuilding.window_to_wall_ratio = config.window_to_wall_ratio;
+          console.log(`Updated building WWR to: ${(config.window_to_wall_ratio * 100).toFixed(1)}%`);
+        }
+        if (config.window_overhang !== undefined) {
+          updatedBuilding.window_overhang = config.window_overhang;
+        }
+        if (config.window_overhang_depth !== undefined) {
+          updatedBuilding.window_overhang_depth = config.window_overhang_depth;
+        }
+
+        // Update windows when building geometry or window properties change
         if (windowService) {
-          windowService.updateBuildingWindows(updatedBuilding, getWindowConfig(updatedBuilding));
+          // Use smooth window updates for better live preview experience
+          const windowConfig = getWindowConfig(updatedBuilding);
+          const existingWindowCount = windowService.getBuildingWindowCount(updatedBuilding.id);
+          if (existingWindowCount > 0) {
+            // Use smooth animation for existing buildings with windows
+            windowService.updateBuildingWindowsSmooth(updatedBuilding, windowConfig, 150);
+          } else {
+            // Use regular update for buildings without windows
+            windowService.updateBuildingWindows(updatedBuilding, windowConfig);
+          }
           console.log('Updated windows for building:', updatedBuilding.id, 'Window count:', windowService.getBuildingWindowCount(updatedBuilding.id));
         }
       }
