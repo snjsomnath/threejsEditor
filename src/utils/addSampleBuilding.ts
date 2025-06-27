@@ -20,14 +20,16 @@ export interface SampleBuildingConfig {
 
 /**
  * Creates a pentagon building with 5 sides positioned around a center point
+ * Points are generated in anti-clockwise order
  */
 function createPentagonPoints(centerX: number = 0, centerZ: number = 0, radius: number = 10): Point3D[] {
   const points: Point3D[] = [];
   const angleStep = (2 * Math.PI) / 5; // 72 degrees for each side of pentagon
   
   // Start from the top point (angle = -PI/2 so the pentagon points upward)
+  // Generate points in anti-clockwise order by subtracting the angle
   for (let i = 0; i < 5; i++) {
-    const angle = -Math.PI / 2 + i * angleStep;
+    const angle = -Math.PI / 2 - i * angleStep;
     const x = centerX + radius * Math.cos(angle);
     const z = centerZ + radius * Math.sin(angle);
     
