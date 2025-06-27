@@ -30,10 +30,10 @@ export function placeWindowsOnEdge(cfg: WindowPlacementConfig): WindowPlacement[
   const verticalSpacing = windowSpacing;
   const availableVerticalSpace = floorHeight - 2 * verticalSpacing;
   const windowRows = Math.max(1, Math.floor(availableVerticalSpace / (windowHeight + verticalSpacing)));
-  // Robust right and normal in XZ
+  // Use the pre-calculated normal from WindowService and convert to 3D
   const right2D = new THREE.Vector2().subVectors(p2, p1).normalize();
   const right = new THREE.Vector3(right2D.x, 0, right2D.y); // XZ direction
-  const normal3D = new THREE.Vector3(right.z, 0, -right.x); // Outward normal for CCW winding
+  const normal3D = new THREE.Vector3(normal.x, 0, normal.y); // Use the passed-in normal (already correctly calculated)
   for (let floor = 0; floor < numFloors; floor++) {
     const baseY = floor * floorHeight;
     for (let row = 0; row < windowRows; row++) {

@@ -122,7 +122,7 @@ export class WindowService {
       const edgeLength = edgeVec.length();
       if (edgeLength < windowWidth * 0.5) continue;
       const dir = edgeVec.clone().normalize();
-      const normal = new THREE.Vector2(dir.y, -dir.x);
+      const normal = new THREE.Vector2(-dir.y, dir.x); // Flip the normal direction
       // Use parametric solver
       const parametric = solveWindowParams({
         edgeLength,
@@ -367,7 +367,7 @@ function calculateWindowMatrices(building: BuildingData, config: WindowConfig): 
     const edgeLength = edgeVec.length();
     if (edgeLength < windowWidth * 0.5) continue;
     const dir = edgeVec.clone().normalize();
-    const normal = new THREE.Vector2(dir.y, -dir.x);
+    const normal = new THREE.Vector2(-dir.y, dir.x); // Flip the normal direction
     const parametric = solveWindowParams({
       edgeLength,
       windowWidth,
