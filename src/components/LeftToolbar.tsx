@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Settings, Pencil, Download, Trash2, Sun, Moon, Save, Upload } from 'lucide-react';
+import { Settings, Pencil, Download, Trash2, Sun, Moon, Save, Upload, CloudSun } from 'lucide-react';
 import { ToolbarButton } from './ToolbarButton';
 import { toggleTheme } from '../utils/themeColors';
 
@@ -57,7 +57,7 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
   };
   
   return (
-    <div ref={toolbarRef} className="fixed left-4 top-1/3 -translate-y-1/2 z-40 transform-gpu">
+    <div ref={toolbarRef} className="fixed left-4 top-1/2 -translate-y-1/2 z-40 transform-gpu">
       <div className="bg-gray-900/90 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl p-2">
         <div className="flex flex-col space-y-2">
           {/* Building Config */}
@@ -131,7 +131,7 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
 
           {/* Sun Controller */}
           <ToolbarButton
-            icon={Sun}
+            icon={CloudSun}
             tooltip="Sun Controller"
             onClick={onToggleSunController}
             disabled={!isInitialized}

@@ -166,17 +166,7 @@ export const SunController: React.FC<SunControllerProps> = ({
   };
 
   if (!isOpen) {
-    return (
-      <div className="fixed left-4 top-4 z-50">
-        <button
-          onClick={onToggle}
-          className="bg-amber-500/90 hover:bg-amber-500 backdrop-blur-sm rounded-full p-3 border border-amber-400/50 shadow-lg transition-all duration-200 hover:scale-105"
-          title="Sun Controller"
-        >
-          <Sun className="w-5 h-5 text-white" />
-        </button>
-      </div>
-    );
+    return null; // Don't render anything when closed since we control it from toolbar
   }
 
   return (
