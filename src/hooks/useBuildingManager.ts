@@ -598,11 +598,9 @@ export const useBuildingManager = (
   }, [scene, selectedBuilding, hoveredBuilding, buildingTooltip]);  const clearAllBuildings = useCallback(() => {
     if (!scene) return;
 
-    // Remove windows for all buildings
+    // Clear all windows at once - more efficient than removing per building
     if (windowService) {
-      buildingsRef.current.forEach(building => {
-        windowService.removeBuildingWindows(building.id);
-      });
+      windowService.clearAllWindows();
     }
 
     buildingsRef.current.forEach(building => {

@@ -20,6 +20,7 @@ import { BuildingService } from '../services/BuildingService';
 
 export const SimpleBuildingCreator: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);  const [hasInteracted, setHasInteracted] = useState(false);
+  const [hasInitializedWithSample, setHasInitializedWithSample] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [showBuildingConfig, setShowBuildingConfig] = useState(false);
@@ -264,9 +265,9 @@ export const SimpleBuildingCreator: React.FC = () => {
     });
   }, [drawingState]);
 
-  // Initialize with a sample pentagon building when the scene is ready
+  // Initialize with a sample pentagon building when the scene is ready (only once)
   useEffect(() => {
-    if (isInitialized && scene && buildings.length === 0) {
+    if (isInitialized && scene && buildings.length === 0 && !hasInitializedWithSample) {
       console.log('Initializing app with sample pentagon building...');
       
       try {
@@ -300,6 +301,8 @@ export const SimpleBuildingCreator: React.FC = () => {
             
             // Set user as having interacted so welcome screen doesn't show
             setHasInteracted(true);
+            // Mark that we've initialized with a sample building
+            setHasInitializedWithSample(true);
           } else {
             console.error('❌ Failed to add sample building to building manager');
           }
@@ -310,7 +313,7 @@ export const SimpleBuildingCreator: React.FC = () => {
         console.error('❌ Error creating sample building:', error);
       }
     }
-  }, [isInitialized, scene, buildings.length, windowService, addBuilding]);
+  }, [isInitialized, scene, buildings.length, windowService, addBuilding, hasInitializedWithSample]);
 // End of sample building initialization
   return (
     <div className="relative w-full h-screen bg-gray-950">

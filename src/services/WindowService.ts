@@ -308,6 +308,19 @@ export class WindowService {
       this.updateBuildingWindowsEfficient(building, config);
     }
   }
+  clearAllWindows(): void {
+    this.currentIndex = 0;
+    this.buildingWindows.clear();
+    this.updateInstanceCounts();
+    
+    // Clear the instance matrices by setting count to 0
+    this.glassInstancedMesh.count = 0;
+    this.frameInstancedMesh.count = 0;
+    this.glassInstancedMesh.instanceMatrix.needsUpdate = true;
+    this.frameInstancedMesh.instanceMatrix.needsUpdate = true;
+    
+    console.log('Cleared all windows');
+  }
   dispose(): void {
     this.animationManager.dispose();
     // Remove from scene

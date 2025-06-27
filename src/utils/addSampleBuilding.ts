@@ -1,9 +1,11 @@
-import * as THREE from 'three'; // Used for type references and math operations
 import { Point3D, BuildingConfig, BuildingData } from '../types/building';
 import { BuildingService } from '../services/BuildingService';
 import { WindowService } from '../services/WindowService';
 import { getThemeColorAsHex } from './themeColors';
 
+/**
+ * Configuration options for creating a debug pentagon building
+ */
 export interface SampleBuildingConfig {
   centerX?: number;
   centerZ?: number;
@@ -19,7 +21,7 @@ export interface SampleBuildingConfig {
 /**
  * Creates a pentagon building with 5 sides positioned around a center point
  */
-export function createPentagonPoints(centerX: number = 0, centerZ: number = 0, radius: number = 10): Point3D[] {
+function createPentagonPoints(centerX: number = 0, centerZ: number = 0, radius: number = 10): Point3D[] {
   const points: Point3D[] = [];
   const angleStep = (2 * Math.PI) / 5; // 72 degrees for each side of pentagon
   
@@ -40,7 +42,24 @@ export function createPentagonPoints(centerX: number = 0, centerZ: number = 0, r
 }
 
 /**
- * Creates a sample pentagon building and adds it to the scene
+ * Calculate polygon area using shoelace formula
+ */
+function calculatePolygonArea(points: Point3D[]): number {
+  let area = 0;
+  const n = points.length;
+  
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area += points[i].x * points[j].z;
+    area -= points[j].x * points[i].z;
+  }
+  
+  return Math.abs(area) / 2;
+}
+
+/**
+ * Creates a simple pentagon building for debugging window creation.
+ * This is the only building creation function needed for debugging purposes.
  */
 export function addSampleBuilding(
   buildingService: BuildingService,
@@ -56,8 +75,8 @@ export function addSampleBuilding(
       floors = 5,
       floorHeight = 3.5,
       color = getThemeColorAsHex('--color-building-sample', 0x4A90E2),
-      name = 'Sample Pentagon Building',
-      description = 'A sample pentagon-shaped building for testing',
+      name = 'Debug Pentagon Building',
+      description = 'A sample pentagon building for debugging windows',
       windowToWallRatio = 0.4
     } = config;
 
@@ -92,7 +111,7 @@ export function addSampleBuilding(
     const area = calculatePolygonArea(points);
     
     // Generate unique building ID
-    const buildingId = `sample_building_${Date.now()}`;
+    const buildingId = `debug_building_${Date.now()}`;
     
     // Configure mesh userData for interaction
     buildingMesh.userData = {
@@ -101,7 +120,7 @@ export function addSampleBuilding(
       clickable: true,
       type: 'building',
       isBuilding: true,
-      isSample: true
+      isDebug: true
     };
 
     // Create building data object
@@ -143,82 +162,23 @@ export function addSampleBuilding(
       };
       
       windowService.addBuildingWindows(building, windowConfig);
-      console.log(`Added windows to sample building: ${building.id}`);
+      console.log(`Added windows to debug building: ${building.id}`);
     }
 
-    // Log creation details
-    console.log('Sample pentagon building created:', {
+    console.log('Debug pentagon building created:', {
       id: building.id,
       name: building.name,
       center: { x: centerX, z: centerZ },
       radius,
       floors,
-      floorHeight,
-      points: points.length,
       area: area.toFixed(2),
-      color: `#${color.toString(16).padStart(6, '0')}`,
       hasWindows: !!windowService
     });
 
     return building;
     
   } catch (error) {
-    console.error('Error creating sample building:', error);
+    console.error('Error creating debug building:', error);
     return null;
   }
-}
-
-/**
- * Calculate polygon area using shoelace formula
- */
-function calculatePolygonArea(points: Point3D[]): number {
-  let area = 0;
-  const n = points.length;
-  
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    area += points[i].x * points[j].z;
-    area -= points[j].x * points[i].z;
-  }
-  
-  return Math.abs(area) / 2;
-}
-
-/**
- * Creates multiple sample buildings in a grid pattern
- */
-export function addMultipleSampleBuildings(
-  buildingService: BuildingService,
-  windowService: WindowService | null = null,
-  count: number = 3,
-  spacing: number = 30
-): BuildingData[] {
-  const buildings: BuildingData[] = [];
-  const gridSize = Math.ceil(Math.sqrt(count));
-  
-  for (let i = 0; i < count; i++) {
-    const row = Math.floor(i / gridSize);
-    const col = i % gridSize;
-    
-    const centerX = (col - (gridSize - 1) / 2) * spacing;
-    const centerZ = (row - (gridSize - 1) / 2) * spacing;
-    
-    const building = addSampleBuilding(buildingService, windowService, {
-      centerX,
-      centerZ,
-      radius: 20,
-      floors: 5,
-      floorHeight: 2.5,
-      color: 0xffffff,
-      name: `Sample Building ${i + 1}`,
-      description: `Auto-generated sample building #${i + 1}`
-    });
-    
-    if (building) {
-      buildings.push(building);
-    }
-  }
-  
-  console.log(`Created ${buildings.length} sample buildings in grid pattern`);
-  return buildings;
 }
