@@ -1,3 +1,5 @@
+import { ensureCounterClockwise } from '../utils/geometry';
+
 export interface Point3D {
   x: number;
   y: number;
@@ -89,3 +91,10 @@ export interface BuildingTooltipData {
   position: { x: number; y: number };
   visible: boolean;
 }
+
+/**
+ * Utility function to normalize building points to ensure they are in anti-clockwise order
+ */
+export const normalizeBuildingPoints = (points: Point3D[]): Point3D[] => {
+  return ensureCounterClockwise(points);
+};

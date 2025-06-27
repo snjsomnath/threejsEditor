@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Point3D, BuildingConfig } from '../types/building';
-import { calculateCentroid, createShapeFromPoints } from '../utils/geometry';
+import { calculateCentroid, createShapeFromPoints, ensureCounterClockwise } from '../utils/geometry';
 import { getThemeColorAsHex } from '../utils/themeColors';
 
 export class BuildingService {
@@ -43,8 +43,11 @@ export class BuildingService {
       throw new Error('Need at least 3 points to create a building');
     }
 
-    const centroid = calculateCentroid(points);
-    const shape = createShapeFromPoints(points, centroid);
+    // Ensure points are in anti-clockwise order for consistent polygon orientation
+    const normalizedPoints = ensureCounterClockwise(points);
+    
+    const centroid = calculateCentroid(normalizedPoints);
+    const shape = createShapeFromPoints(normalizedPoints, centroid);
     
     // Calculate height from floors and floorHeight
     const height = config.height || (config.floors * config.floorHeight);

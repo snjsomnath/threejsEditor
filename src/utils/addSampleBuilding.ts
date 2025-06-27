@@ -2,6 +2,7 @@ import { Point3D, BuildingConfig, BuildingData } from '../types/building';
 import { BuildingService } from '../services/BuildingService';
 import { WindowService } from '../services/WindowService';
 import { getThemeColorAsHex } from './themeColors';
+import { ensureCounterClockwise } from './geometry';
 
 /**
  * Configuration options for creating a debug pentagon building
@@ -82,8 +83,8 @@ export function addSampleBuilding(
       windowToWallRatio = 0.4
     } = config;
 
-    // Create pentagon points
-    const points = createPentagonPoints(centerX, centerZ, radius);
+    // Create pentagon points and ensure they are in anti-clockwise order
+    const points = ensureCounterClockwise(createPentagonPoints(centerX, centerZ, radius));
     
     // Create building configuration
     const buildingConfig: BuildingConfig = {

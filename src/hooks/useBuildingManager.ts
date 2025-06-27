@@ -4,7 +4,7 @@ import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { Point3D, BuildingData, BuildingConfig, BuildingTooltipData } from '../types/building';
-import { createShapeFromPoints, calculateCentroid } from '../utils/geometry';
+import { createShapeFromPoints, calculateCentroid, ensureCounterClockwise } from '../utils/geometry';
 import { getThemeColorAsHex } from '../utils/themeColors';
 import { WindowService } from '../services/WindowService';
 
@@ -160,7 +160,10 @@ export const useBuildingManager = (
   const addBuilding = useCallback((mesh: THREE.Mesh, points: Point3D[], floors: number, floorHeight: number) => {
     if (!scene) return;
 
-    const area = calculatePolygonArea(points);
+    // Ensure points are in anti-clockwise order for consistent storage
+    const normalizedPoints = ensureCounterClockwise(points);
+    
+    const area = calculatePolygonArea(normalizedPoints);
     
     // Use existing building ID if it exists, otherwise create a new one
     const existingBuildingId = mesh.userData?.buildingId;
@@ -195,7 +198,7 @@ export const useBuildingManager = (
     const building: BuildingData = {
       id: buildingId,
       mesh,
-      points,
+      points: normalizedPoints,
       area,
       floors,
       floorHeight,
@@ -208,7 +211,7 @@ export const useBuildingManager = (
     };
 
     // Create footprint outline for selection with proper userData
-    building.footprintOutline = createFootprintOutline(points, scene);
+    building.footprintOutline = createFootprintOutline(normalizedPoints, scene);
     building.footprintOutline.userData = { 
       buildingId, 
       isFootprint: true, 

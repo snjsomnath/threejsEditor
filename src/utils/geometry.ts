@@ -122,3 +122,47 @@ export const getGroundIntersection = (
   console.log('No ground intersection');
   return null;
 };
+
+/**
+ * Calculate the signed area of a polygon using the shoelace formula.
+ * Positive area indicates counter-clockwise (anti-clockwise) winding,
+ * negative area indicates clockwise winding.
+ */
+export const calculateSignedArea = (points: Point3D[]): number => {
+  if (points.length < 3) return 0;
+  
+  let area = 0;
+  const n = points.length;
+  
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area += (points[j].x - points[i].x) * (points[j].z + points[i].z);
+  }
+  
+  return area / 2;
+};
+
+/**
+ * Check if polygon points are in counter-clockwise (anti-clockwise) order.
+ * Returns true if anti-clockwise, false if clockwise.
+ */
+export const isCounterClockwise = (points: Point3D[]): boolean => {
+  return calculateSignedArea(points) > 0;
+};
+
+/**
+ * Ensure polygon points are in counter-clockwise (anti-clockwise) order.
+ * If the points are clockwise, this function will reverse their order.
+ * Returns a new array with points in anti-clockwise order.
+ */
+export const ensureCounterClockwise = (points: Point3D[]): Point3D[] => {
+  if (points.length < 3) return [...points];
+  
+  // If already counter-clockwise, return a copy
+  if (isCounterClockwise(points)) {
+    return [...points];
+  }
+  
+  // Reverse the order to make it counter-clockwise
+  return [...points].reverse();
+};
