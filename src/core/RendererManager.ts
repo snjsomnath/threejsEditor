@@ -212,27 +212,33 @@ export class RendererManager {
   private enableMaterialBasedFocus(buildingId: string, scene: THREE.Scene): void {
     // Store original materials and make non-focused objects semi-transparent and desaturated
     scene.traverse((object: THREE.Object3D) => {
-      if (object instanceof THREE.Mesh && object.material) {
+      // Check if object has a material property (covers both Mesh and Line2 objects)
+      const hasMaterial = 'material' in object && object.material;
+      
+      if (hasMaterial) {
+        const materialObject = object as THREE.Object3D & { material: THREE.Material | THREE.Material[] };
+        
         if (object.userData.buildingId !== buildingId && 
-            !object.userData.isGround && 
-            !object.userData.isFloorLine) {
+            !object.userData.isGround) {
           
           // Store original material
-          this.originalMaterials.set(object, object.material);
+          this.originalMaterials.set(object, materialObject.material);
           
-          // Store original shadow settings
-          this.originalShadowSettings.set(object, {
-            castShadow: object.castShadow,
-            receiveShadow: object.receiveShadow
-          });
-          
-          // Disable shadow casting for non-focused objects to reduce visual clutter
-          object.castShadow = false;
-          object.receiveShadow = true; // Keep receiving shadows for depth
+          // Store original shadow settings (only for Mesh objects)
+          if (object instanceof THREE.Mesh) {
+            this.originalShadowSettings.set(object, {
+              castShadow: object.castShadow,
+              receiveShadow: object.receiveShadow
+            });
+            
+            // Disable shadow casting for non-focused objects to reduce visual clutter
+            object.castShadow = false;
+            object.receiveShadow = true; // Keep receiving shadows for depth
+          }
           
           // Create a dimmed and desaturated version of the material
-          if (Array.isArray(object.material)) {
-            const dimmedMaterials = object.material.map(mat => {
+          if (Array.isArray(materialObject.material)) {
+            const dimmedMaterials = materialObject.material.map(mat => {
               const cloned = mat.clone();
               cloned.transparent = true;
               cloned.opacity = 0.15;  // More transparent
@@ -246,9 +252,9 @@ export class RendererManager {
               
               return cloned;
             });
-            object.material = dimmedMaterials;
+            materialObject.material = dimmedMaterials;
           } else {
-            const dimmedMaterial = object.material.clone();
+            const dimmedMaterial = materialObject.material.clone();
             dimmedMaterial.transparent = true;
             dimmedMaterial.opacity = 0.15;  // More transparent
             
@@ -259,7 +265,7 @@ export class RendererManager {
               dimmedMaterial.color.setHSL(hsl.h, hsl.s * 0.2, hsl.l * 0.7); // Reduce saturation and brightness
             }
             
-            object.material = dimmedMaterial;
+            materialObject.material = dimmedMaterial;
           }
         }
       }
@@ -276,21 +282,24 @@ export class RendererManager {
     
     // Restore original materials
     this.originalMaterials.forEach((originalMaterial, object) => {
-      if (object instanceof THREE.Mesh) {
+      // Check if object has a material property (covers both Mesh and Line2)
+      if ('material' in object && object.material) {
+        const materialObject = object as THREE.Object3D & { material: THREE.Material | THREE.Material[] };
+        
         // Dispose cloned materials
-        if (Array.isArray(object.material)) {
-          object.material.forEach(mat => mat.dispose());
+        if (Array.isArray(materialObject.material)) {
+          materialObject.material.forEach(mat => mat.dispose());
         } else {
-          object.material.dispose();
+          materialObject.material.dispose();
         }
         
         // Restore original
-        object.material = originalMaterial;
+        materialObject.material = originalMaterial;
       }
     });
     this.originalMaterials.clear();
     
-    // Restore original shadow settings
+    // Restore original shadow settings (only for Mesh objects)
     this.originalShadowSettings.forEach((shadowSettings, object) => {
       if (object instanceof THREE.Mesh) {
         object.castShadow = shadowSettings.castShadow;
