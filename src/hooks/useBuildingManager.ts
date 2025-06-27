@@ -161,10 +161,14 @@ export const useBuildingManager = (
     if (!scene) return;
 
     const area = calculatePolygonArea(points);
-    const buildingId = `building_${++buildingIdCounter.current}`;
+    
+    // Use existing building ID if it exists, otherwise create a new one
+    const existingBuildingId = mesh.userData?.buildingId;
+    const buildingId = existingBuildingId || `building_${++buildingIdCounter.current}`;
     
     // CRITICAL: Ensure proper userData configuration for raycasting
     mesh.userData = { 
+      ...mesh.userData, // Preserve existing userData
       buildingId, 
       interactive: true, 
       clickable: true, 
@@ -196,8 +200,8 @@ export const useBuildingManager = (
       floors,
       floorHeight,
       createdAt: new Date(),
-      name: `Building ${buildingIdCounter.current}`, // Give unique default names
-      description: '',
+      name: mesh.userData?.name || `Building ${buildingIdCounter.current}`, // Use existing name if available
+      description: mesh.userData?.description || '',
       color: (mesh.material as THREE.MeshLambertMaterial).color.getHex(),
       footprintOutline: null,
       floorLines: null
@@ -220,10 +224,12 @@ export const useBuildingManager = (
     // Create floor lines if building has more than 1 floor
     if (floors > 1) {
       building.floorLines = createFloorLines(points, floors, floorHeight, scene, buildingId);
-    }    // Add windows to the building using WindowService
-    if (windowService) {
+    }    // Add windows to the building using WindowService (only if not already added)
+    if (windowService && !windowService.getBuildingWindowCount(buildingId)) {
       windowService.addBuildingWindows(building, getWindowConfig(building));
       console.log('Added windows to building:', building.id, 'Window count:', windowService.getBuildingWindowCount(building.id));
+    } else if (windowService && windowService.getBuildingWindowCount(buildingId) > 0) {
+      console.log('Building already has windows:', building.id, 'Window count:', windowService.getBuildingWindowCount(buildingId));
     }
 
     // Ensure mesh is added to the scene and properly positioned

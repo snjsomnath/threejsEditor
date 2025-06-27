@@ -120,7 +120,9 @@ export function addSampleBuilding(
       clickable: true,
       type: 'building',
       isBuilding: true,
-      isDebug: true
+      isDebug: true,
+      name, // Store name in userData
+      description // Store description in userData
     };
 
     // Create building data object
