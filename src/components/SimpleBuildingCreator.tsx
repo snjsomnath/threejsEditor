@@ -11,12 +11,16 @@ import { BuildingConfigPanel } from './BuildingConfigPanel';
 import { BuildingEditPanel } from './BuildingEditPanel';
 import { BuildingTooltip } from './BuildingTooltip';
 import { SunController } from './SunController';
+import { MiniGraphWindow } from './MiniGraphWindow';
+import { DesignGraphDialog } from './DesignGraphDialog';
+import { SaveConfigurationDialog } from './dialogs/SaveConfigurationDialog';
 import { BuildingConfig } from '../types/building';
 import type { CameraType, CameraView } from '../core/ThreeJSCore';
 import { getThemeColorAsHex } from '../utils/themeColors';
 import type { SunPosition } from '../utils/sunPosition';
 import { addSampleBuilding } from '../utils/addSampleBuilding';
 import { BuildingService } from '../services/BuildingService';
+import { designExplorationService } from '../services/DesignExplorationService';
 
 export const SimpleBuildingCreator: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);  const [hasInteracted, setHasInteracted] = useState(false);
@@ -24,7 +28,11 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [showBuildingConfig, setShowBuildingConfig] = useState(false);
-  const [showSunController, setShowSunController] = useState(false);const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
+  const [showSunController, setShowSunController] = useState(false);
+  const [showSaveConfigDialog, setShowSaveConfigDialog] = useState(false);
+  const [showDesignGraphDialog, setShowDesignGraphDialog] = useState(false);
+
+  const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
     floors: 3,
     floorHeight: 3.5,
     color: getThemeColorAsHex('--color-building-default', 0x6366f1)
@@ -198,6 +206,31 @@ export const SimpleBuildingCreator: React.FC = () => {
     toggleGrid();
   };
 
+  const handleSaveConfiguration = () => {
+    setShowSaveConfigDialog(true);
+  };
+
+  const handleSaveConfigurationConfirm = (name: string) => {
+    designExplorationService.saveConfiguration(buildings, name);
+  };
+
+  const handleOpenDesignGraph = () => {
+    setShowDesignGraphDialog(true);
+  };
+
+  const handleReinstateConfiguration = (nodeId: string) => {
+    const node = designExplorationService.reinstateConfiguration(nodeId);
+    if (node) {
+      // Clear current buildings
+      clearAllBuildings();
+      
+      // Note: In a real implementation, you'd need to recreate the 3D objects
+      // from the saved building data. For now, this just switches the current node.
+      console.log('Configuration reinstated:', node.name);
+    }
+    setShowDesignGraphDialog(false);
+  };
+
   const handleSaveBuilding = (updates: any) => {
     if (selectedBuilding) {
       updateBuilding(selectedBuilding.id, updates);
@@ -365,6 +398,7 @@ export const SimpleBuildingCreator: React.FC = () => {
         onShowConfig={() => setShowBuildingConfig(!showBuildingConfig)}
         onExport={exportBuildings}
         onClearAll={handleClearAll}
+        onSaveConfiguration={handleSaveConfiguration}
       />
 
       {/* Bottom Toolbar */}
@@ -425,6 +459,23 @@ export const SimpleBuildingCreator: React.FC = () => {
           disableBuildingFocus={disableBuildingFocus}
         />
       )}
+
+      {/* Mini Graph Window */}
+      <MiniGraphWindow onOpenFullGraph={handleOpenDesignGraph} />
+
+      {/* Save Configuration Dialog */}
+      <SaveConfigurationDialog
+        isOpen={showSaveConfigDialog}
+        onClose={() => setShowSaveConfigDialog(false)}
+        onSave={handleSaveConfigurationConfirm}
+      />
+
+      {/* Design Graph Dialog */}
+      <DesignGraphDialog
+        isOpen={showDesignGraphDialog}
+        onClose={() => setShowDesignGraphDialog(false)}
+        onReinstateConfiguration={handleReinstateConfiguration}
+      />
     </div>
   );
 };

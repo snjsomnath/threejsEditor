@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Settings, Pencil, Download, Trash2, Sun, Moon } from 'lucide-react';
+import { Settings, Pencil, Download, Trash2, Sun, Moon, Save } from 'lucide-react';
 import { ToolbarButton } from './ToolbarButton';
 import { toggleTheme } from '../utils/themeColors';
 
@@ -11,6 +11,7 @@ interface LeftToolbarProps {
   onShowConfig: () => void;
   onExport: () => void;
   onClearAll: () => void;
+  onSaveConfiguration: () => void;
 }
 
 export const LeftToolbar: React.FC<LeftToolbarProps> = ({
@@ -20,7 +21,8 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
   onStartDrawing,
   onShowConfig,
   onExport,
-  onClearAll
+  onClearAll,
+  onSaveConfiguration
 }) => {
   const [isDarkTheme, setIsDarkTheme] = React.useState(
     () => document.documentElement.classList.contains('dark-theme')
@@ -76,6 +78,16 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
 
           {/* Divider */}
           <div className="h-px bg-gray-700/50 mx-2 my-1" />
+
+          {/* Save Configuration */}
+          <ToolbarButton
+            icon={Save}
+            tooltip="Save Configuration"
+            onClick={onSaveConfiguration}
+            disabled={!isInitialized}
+            variant="default"
+            keyboardShortcut="S"
+          />
 
           {/* Export */}
           <ToolbarButton
