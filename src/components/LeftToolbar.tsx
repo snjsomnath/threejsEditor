@@ -12,7 +12,8 @@ interface LeftToolbarProps {
   onExport: () => void;
   onClearAll: () => void;
   onSaveConfiguration: () => void;
-  onImportConfig: () => void;
+  onImportConfiguration: () => void;
+  onToggleSunController: () => void;
 }
 
 export const LeftToolbar: React.FC<LeftToolbarProps> = ({
@@ -24,7 +25,8 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
   onExport,
   onClearAll,
   onSaveConfiguration,
-  onImportConfig
+  onImportConfiguration,
+  onToggleSunController
 }) => {
   const [isDarkTheme, setIsDarkTheme] = React.useState(
     () => document.documentElement.classList.contains('dark-theme')
@@ -55,7 +57,7 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
   };
   
   return (
-    <div ref={toolbarRef} className="fixed left-4 top-1/2 -translate-y-1/2 z-40 transform-gpu">
+    <div ref={toolbarRef} className="fixed left-4 top-1/3 -translate-y-1/2 z-40 transform-gpu">
       <div className="bg-gray-900/90 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl p-2">
         <div className="flex flex-col space-y-2">
           {/* Building Config */}
@@ -95,7 +97,7 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
           <ToolbarButton
             icon={Upload}
             tooltip="Import Configuration"
-            onClick={onImportConfig}
+            onClick={onImportConfiguration}
             disabled={!isInitialized}
             variant="default"
             keyboardShortcut="I"
@@ -123,6 +125,20 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
             variant="danger"
             keyboardShortcut="Del"
           />
+
+          {/* Divider */}
+          <div className="h-px bg-gray-700/50 mx-2 my-1" />
+
+          {/* Sun Controller */}
+          <ToolbarButton
+            icon={Sun}
+            tooltip="Sun Controller"
+            onClick={onToggleSunController}
+            disabled={!isInitialized}
+            variant="default"
+            keyboardShortcut="U"
+          />
+
             {/* Theme Toggle */}
           <div className="h-px bg-gray-700/50 mx-2 my-1" />
           <ToolbarButton

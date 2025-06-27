@@ -125,8 +125,8 @@ export const MiniGraphWindow: React.FC<MiniGraphWindowProps> = ({ onOpenFullGrap
           isHovered ? 'bg-gray-800/90' : ''
         }`}
         style={{ 
-          width: '144px', // Fixed width (120px SVG + 24px padding)
-          height: '110px', // Reduced height to fit content better
+          width: '288px', // Fixed width (120px SVG + 24px padding)
+          height: '220px', // Reduced height to fit content better
           display: 'flex',
           flexDirection: 'column'
         }}

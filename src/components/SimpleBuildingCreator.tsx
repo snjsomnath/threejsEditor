@@ -10,7 +10,6 @@ import { FloatingInstructions } from './FloatingInstructions';
 import { BuildingConfigPanel } from './BuildingConfigPanel';
 import { BuildingEditPanel } from './BuildingEditPanel';
 import { BuildingTooltip } from './BuildingTooltip';
-import { SunController } from './SunController';
 import { MiniGraphWindow } from './MiniGraphWindow';
 import { DesignGraphDialog } from './DesignGraphDialog';
 import { SaveConfigurationDialog } from './dialogs/SaveConfigurationDialog';
@@ -18,7 +17,6 @@ import { ImportConfigDialog } from './dialogs/ImportConfigDialog';
 import { BuildingConfig } from '../types/building';
 import type { CameraType, CameraView } from '../core/ThreeJSCore';
 import { getThemeColorAsHex } from '../utils/themeColors';
-import type { SunPosition } from '../utils/sunPosition';
 import { addSampleBuilding } from '../utils/addSampleBuilding';
 import { BuildingService } from '../services/BuildingService';
 import { designExplorationService } from '../services/DesignExplorationService';
@@ -55,7 +53,6 @@ export const SimpleBuildingCreator: React.FC = () => {
     retryInitialization,
     switchCameraType,
     setCameraView,
-    updateSunPosition,
     enableBuildingFocus,
     disableBuildingFocus
   } = useThreeJS(containerRef, showGrid);
@@ -212,7 +209,7 @@ export const SimpleBuildingCreator: React.FC = () => {
     setShowSaveConfigDialog(true);
   };
 
-  const handleImportConfig = () => {
+  const handleImportConfiguration = () => {
     setShowImportConfigDialog(true);
   };
 
@@ -392,13 +389,6 @@ export const SimpleBuildingCreator: React.FC = () => {
       setCameraView(view, { duration: 1000 });    }
   };
 
-  // Handle sun position updates from SunController
-  const handleSunPositionChange = (sunPosition: SunPosition) => {
-    if (updateSunPosition) {
-      updateSunPosition(sunPosition);
-    }
-  };
-
   // Determine instruction mode
   const getInstructionMode = () => {
     if (!hasInteracted && !drawingState.isDrawing && buildings.length === 0 && isInitialized) {
@@ -516,7 +506,8 @@ export const SimpleBuildingCreator: React.FC = () => {
         onExport={exportBuildings}
         onClearAll={handleClearAll}
         onSaveConfiguration={handleSaveConfiguration}
-        onImportConfig={handleImportConfig}
+        onImportConfiguration={handleImportConfiguration}
+        onToggleSunController={() => setShowSunController(!showSunController)}
       />
 
       {/* Bottom Toolbar */}
@@ -558,13 +549,6 @@ export const SimpleBuildingCreator: React.FC = () => {
           onClose={() => setShowBuildingConfig(false)}
         />
       )}
-
-      {/* Sun Controller */}
-      <SunController
-        isOpen={showSunController}
-        onToggle={() => setShowSunController(!showSunController)}
-        onSunPositionChange={handleSunPositionChange}
-      />
 
       {/* Building Edit Panel */}
       {selectedBuilding && (
