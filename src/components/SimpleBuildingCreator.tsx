@@ -220,13 +220,55 @@ export const SimpleBuildingCreator: React.FC = () => {
 
   const handleReinstateConfiguration = (nodeId: string) => {
     const node = designExplorationService.reinstateConfiguration(nodeId);
-    if (node) {
+    if (node && scene) {
       // Clear current buildings
       clearAllBuildings();
       
-      // Note: In a real implementation, you'd need to recreate the 3D objects
-      // from the saved building data. For now, this just switches the current node.
-      console.log('Configuration reinstated:', node.name);
+      // Recreate buildings from saved data
+      const buildingService = new BuildingService(scene);
+      
+      node.buildings.forEach(buildingData => {
+        try {
+          // Create building config from saved data
+          const buildingConfig: BuildingConfig = {
+            floors: buildingData.floors,
+            floorHeight: buildingData.floorHeight,
+            color: buildingData.color || getThemeColorAsHex('--color-building-default', 0x6366f1),
+            name: buildingData.name,
+            description: buildingData.description,
+            window_to_wall_ratio: buildingData.window_to_wall_ratio,
+            window_overhang: buildingData.window_overhang,
+            window_overhang_depth: buildingData.window_overhang_depth,
+            wall_construction: buildingData.wall_construction,
+            floor_construction: buildingData.floor_construction,
+            roof_construction: buildingData.roof_construction,
+            window_construction: buildingData.window_construction,
+            structural_system: buildingData.structural_system,
+            building_program: buildingData.building_program,
+            hvac_system: buildingData.hvac_system,
+            natural_ventilation: buildingData.natural_ventilation
+          };
+
+          // Create the 3D mesh
+          const mesh = buildingService.createBuilding(buildingData.points, buildingConfig);
+          
+          // Set the original building ID to maintain consistency
+          mesh.userData = {
+            ...mesh.userData,
+            buildingId: buildingData.id,
+            name: buildingData.name,
+            description: buildingData.description
+          };
+
+          // Add the building back to the manager
+          addBuilding(mesh, buildingData.points, buildingData.floors, buildingData.floorHeight);
+          
+        } catch (error) {
+          console.error('Failed to recreate building:', buildingData.id, error);
+        }
+      });
+
+      console.log('Configuration reinstated:', node.name, `(${node.buildings.length} buildings)`);
     }
     setShowDesignGraphDialog(false);
   };
