@@ -17,7 +17,8 @@ export interface WindowPlacementConfig {
 
 export interface WindowPlacement {
   position: THREE.Vector3;
-  rotationY: number;
+  right: THREE.Vector3; // Direction along the wall (normalized)
+  normal: THREE.Vector3; // Wall surface normal (normalized)
   scaleX: number;
 }
 
@@ -29,6 +30,10 @@ export function placeWindowsOnEdge(cfg: WindowPlacementConfig): WindowPlacement[
   const verticalSpacing = windowSpacing;
   const availableVerticalSpace = floorHeight - 2 * verticalSpacing;
   const windowRows = Math.max(1, Math.floor(availableVerticalSpace / (windowHeight + verticalSpacing)));
+  // Robust right and normal in XZ
+  const right2D = new THREE.Vector2().subVectors(p2, p1).normalize();
+  const right = new THREE.Vector3(right2D.x, 0, right2D.y); // XZ direction
+  const normal3D = new THREE.Vector3(right.z, 0, -right.x); // Outward normal for CCW winding
   for (let floor = 0; floor < numFloors; floor++) {
     const baseY = floor * floorHeight;
     for (let row = 0; row < windowRows; row++) {
@@ -36,13 +41,19 @@ export function placeWindowsOnEdge(cfg: WindowPlacementConfig): WindowPlacement[
       for (let col = 0; col < parametric.numWindows; col++) {
         const edgePos = parametric.marginStart + col * (parametric.windowWidth + parametric.spacing) + parametric.windowWidth / 2;
         const edgeT = edgePos / edgeLength;
-        const pos2D = p1.clone().lerp(p2, edgeT);
-        const x = pos2D.x + normal.x * offsetDistance;
-        const z = pos2D.y + normal.y * offsetDistance;
-        const position = new THREE.Vector3(x, rowY, z);
-        const rotationY = Math.atan2(normal.y, normal.x) + Math.PI / 2;
+        // Compute base position in XZ
+        const baseXZ = new THREE.Vector3(
+          p1.x + right.x * edgeT * edgeLength,
+          0,
+          p1.y + right.z * edgeT * edgeLength
+        );
+        // Offset along normal
+        const offsetXZ = normal3D.clone().multiplyScalar(offsetDistance);
+        // Final position
+        const position = baseXZ.add(offsetXZ);
+        position.y = rowY;
         const scaleX = parametric.windowWidth / (edgeLength / parametric.numWindows); // Approximate original windowWidth
-        result.push({ position, rotationY, scaleX });
+        result.push({ position, right, normal: normal3D.clone().normalize(), scaleX });
       }
     }
   }

@@ -153,7 +153,8 @@ export class WindowService {
         // Use transform builder
         const { glassMatrix, frameMatrix } = buildWindowMatrices({
           position: placement.position,
-          rotationY: placement.rotationY,
+          right: placement.right,
+          normal: placement.normal,
           scaleX: placement.scaleX,
           windowWidth,
           windowHeight,
@@ -377,7 +378,8 @@ function calculateWindowMatrices(building: BuildingData, config: WindowConfig): 
     for (const placement of placements) {
       matrices.push(buildWindowMatrices({
         position: placement.position,
-        rotationY: placement.rotationY,
+        right: placement.right,
+        normal: placement.normal,
         scaleX: placement.scaleX,
         windowWidth,
         windowHeight,

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useThreeJS } from '../hooks/useThreeJS';
 import { useDrawing } from '../hooks/useDrawing';
 import { useClickHandler } from '../hooks/useClickHandler';
@@ -15,6 +15,8 @@ import { BuildingConfig } from '../types/building';
 import type { CameraType, CameraView } from '../core/ThreeJSCore';
 import { getThemeColorAsHex } from '../utils/themeColors';
 import type { SunPosition } from '../utils/sunPosition';
+import { addSampleBuilding } from '../utils/addSampleBuilding';
+import { BuildingService } from '../services/BuildingService';
 
 export const SimpleBuildingCreator: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);  const [hasInteracted, setHasInteracted] = useState(false);
@@ -262,6 +264,54 @@ export const SimpleBuildingCreator: React.FC = () => {
     });
   }, [drawingState]);
 
+  // Initialize with a sample pentagon building when the scene is ready
+  useEffect(() => {
+    if (isInitialized && scene && buildings.length === 0) {
+      console.log('Initializing app with sample pentagon building...');
+      
+      try {
+        // Create building service for sample building
+        const buildingService = new BuildingService(scene);
+        
+        // Create a sample pentagon building at the center
+        const sampleBuilding = addSampleBuilding(buildingService, windowService, {
+          centerX: 0,
+          centerZ: 0,
+          radius: 12,
+          floors: 5,
+          floorHeight: 3.5,
+          color: getThemeColorAsHex('--color-building-sample', 0x4A90E2),
+          name: 'Welcome Pentagon Building',
+          description: 'A sample pentagon building to get you started',
+          windowToWallRatio: 0.4
+        });
+
+        if (sampleBuilding) {
+          // Add the building to the building manager
+          const managedBuilding = addBuilding(
+            sampleBuilding.mesh,
+            sampleBuilding.points,
+            sampleBuilding.floors,
+            sampleBuilding.floorHeight
+          );
+
+          if (managedBuilding) {
+            console.log('✅ Sample pentagon building added successfully:', managedBuilding.id);
+            
+            // Set user as having interacted so welcome screen doesn't show
+            setHasInteracted(true);
+          } else {
+            console.error('❌ Failed to add sample building to building manager');
+          }
+        } else {
+          console.error('❌ Failed to create sample building');
+        }
+      } catch (error) {
+        console.error('❌ Error creating sample building:', error);
+      }
+    }
+  }, [isInitialized, scene, buildings.length, windowService, addBuilding]);
+// End of sample building initialization
   return (
     <div className="relative w-full h-screen bg-gray-950">
       <div ref={containerRef} className="w-full h-full" />

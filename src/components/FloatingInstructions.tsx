@@ -95,7 +95,7 @@ export const FloatingInstructions: React.FC<FloatingInstructionsProps> = ({
           <div className="text-4xl mb-4">🏗️</div>
           <h3 className="text-white text-xl font-bold mb-4">HEATH</h3>
           <p className="text-gray-300 mb-6 text-sm">
-            Start by configuring your building or jump right into analysis.
+            We've loaded a sample pentagon building to get you started! Click on it to edit, or start drawing your own building.
           </p>
           <div className="text-xs text-gray-400 space-y-2 text-left">
             <div className="flex items-center space-x-2">
