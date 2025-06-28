@@ -4,7 +4,7 @@ import { DrawingService } from '../services/DrawingService';
 import { BuildingService } from '../services/BuildingService';
 import { TextService } from '../services/TextService';
 import { getGroundIntersection, calculateDistance, snapToGrid } from '../utils/geometry';
-import { useBuildingManager } from './useBuildingManager';
+import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import * as THREE from 'three';
 
 const SNAP_DISTANCE = 3.5; // Increased for easier snapping
@@ -15,7 +15,7 @@ const MOUSE_MOVE_THROTTLE = 8; // Smooth preview updates
 // Direct preview state management - bypassing React state for immediate updates
 interface PreviewState {
   marker: THREE.Mesh | null;
-  line: THREE.Line | null;
+  line: (THREE.Line | Line2) | null;
   building: THREE.Mesh | null;
   lengthLabel: THREE.Sprite | null; // Add this line
   lastPosition: Point3D | null;
@@ -48,7 +48,6 @@ export const useDrawing = (
   const buildingServiceRef = useRef<BuildingService | null>(null);
   const textServiceRef = useRef<TextService | null>(null);
   const mouseRef = useRef(new THREE.Vector2());
-  const { addBuilding: buildingManagerAddBuilding } = useBuildingManager(scene);
   
   // Enhanced preview state with position tracking and timing
   const previewStateRef = useRef<PreviewState>({
@@ -69,6 +68,12 @@ export const useDrawing = (
         drawingServiceRef.current = new DrawingService(scene);
         buildingServiceRef.current = new BuildingService(scene);
         textServiceRef.current = new TextService(scene);
+        
+        // Set initial resolution for Line2 materials
+        if (drawingServiceRef.current) {
+          drawingServiceRef.current.updateResolution(window.innerWidth, window.innerHeight);
+        }
+        
         console.log('Drawing services initialized successfully');
         
         // Validate services immediately after creation
@@ -91,6 +96,18 @@ export const useDrawing = (
       console.log('Ground plane is now available for drawing');
     }
   }, [groundPlane]);
+
+  // Handle window resize for Line2 materials
+  useEffect(() => {
+    const handleResize = () => {
+      if (drawingServiceRef.current) {
+        drawingServiceRef.current.updateResolution(window.innerWidth, window.innerHeight);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Enhanced validation function with detailed logging
   const validateServices = useCallback(() => {
@@ -432,7 +449,7 @@ export const useDrawing = (
     const marker = drawingServiceRef.current.createPointMarker(intersection);
 
     // Create line to previous point if exists
-    let line: THREE.Line | null = null;
+    let line: (THREE.Line | Line2) | null = null;
     let lengthLabel: THREE.Sprite | null = null;
     if (drawingState.points.length > 0) {
       try {
@@ -763,25 +780,6 @@ export const useDrawing = (
     });
   }, [camera, groundPlane, drawingState.isDrawing, drawingState.points, drawingState.snapToStart, buildingConfig, snapToGridEnabled, clearAllPreviews, validateServices]);
 
-  // Standard throttling
-  const THROTTLE_MS = 8; // Standard performance for smooth updates
-  // Throttled update function
-  const throttledUpdatePreview = useCallback(
-    (() => {
-      let timeoutId: NodeJS.Timeout | null = null;
-      
-      return (event: MouseEvent, containerElement: HTMLElement) => {
-        if (timeoutId) return; // Skip if already scheduled
-        
-        timeoutId = setTimeout(() => {
-          updatePreview(event, containerElement);
-          timeoutId = null;
-        }, THROTTLE_MS);
-      };
-    })(),
-    [updatePreview]
-  );
-
   // Cleanup on unmount - ensure no orphaned objects
   useEffect(() => {
     return () => {
@@ -796,7 +794,7 @@ export const useDrawing = (
     stopDrawing,
     addPoint,
     finishBuilding,
-    updatePreview: updatePreview, // Use standard version always
+    updatePreview: updatePreview, // Use the direct version always
     undoLastPoint,
     clearAllDrawingElements
   };

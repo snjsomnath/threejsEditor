@@ -1,4 +1,5 @@
 import { ensureCounterClockwise } from '../utils/geometry';
+import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 
 export interface Point3D {
   x: number;
@@ -41,10 +42,10 @@ export interface DrawingState {
   isDrawing: boolean;
   points: Point3D[];
   markers: THREE.Mesh[];
-  lines: THREE.Line[];
+  lines: (THREE.Line | Line2)[];
   lengthLabels: THREE.Sprite[];
   previewMarker: THREE.Mesh | null;
-  previewLine: THREE.Line | null;
+  previewLine: (THREE.Line | Line2) | null;
   previewBuilding: THREE.Mesh | null;
   previewLengthLabel: THREE.Sprite | null;
   snapToStart: boolean;

@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { Line2 } from 'three/examples/jsm/lines/Line2.js';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
+import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { Point3D } from '../types/building';
 import { getThemeColorAsHex } from '../utils/themeColors';
 
@@ -14,8 +17,8 @@ export class DrawingService {
   private static pointMaterial: THREE.MeshLambertMaterial | null = null;
   private static previewMaterial: THREE.MeshLambertMaterial | null = null;
   private static snapMaterial: THREE.MeshBasicMaterial | null = null;
-  private static lineMaterial: THREE.LineBasicMaterial | null = null;
-  private static previewLineMaterial: THREE.LineBasicMaterial | null = null;
+  private static lineMaterial: LineMaterial | null = null;
+  private static previewLineMaterial: LineMaterial | null = null;
   
   // Add preview state tracking
   private previewState = {
@@ -27,6 +30,16 @@ export class DrawingService {
   constructor(scene: THREE.Scene) {
     this.scene = scene;
     this.initializeSharedResources();
+  }
+
+  // Method to update line material resolution when window resizes
+  public updateResolution(width: number, height: number): void {
+    if (DrawingService.lineMaterial) {
+      DrawingService.lineMaterial.resolution.set(width, height);
+    }
+    if (DrawingService.previewLineMaterial) {
+      DrawingService.previewLineMaterial.resolution.set(width, height);
+    }
   }
 
   private initializeSharedResources(): void {
@@ -54,19 +67,28 @@ export class DrawingService {
         opacity: 1.0 // Full opacity for maximum visibility
       });
       
-      DrawingService.lineMaterial = new THREE.LineBasicMaterial({ 
+      DrawingService.lineMaterial = new LineMaterial({
         color: getThemeColorAsHex('--color-drawing-line', 0x00ff88),
-        linewidth: 3, // Increase line width for better visibility
+        linewidth: 3, // Increased line width for better visibility
         transparent: true,
-        opacity: 1.0 // Make lines fully opaque
+        opacity: 1.0,
+        dashed: false
       });
+      // Set initial resolution (will be updated when canvas size is known)
+      DrawingService.lineMaterial.resolution.set(1920, 1080);
       
-      DrawingService.previewLineMaterial = new THREE.LineBasicMaterial({ 
-        color: getThemeColorAsHex('--color-drawing-preview-line', 0x88ff00), // Brighter green for preview lines
-        linewidth: 2,
+      DrawingService.previewLineMaterial = new LineMaterial({
+        color: getThemeColorAsHex('--color-drawing-preview-line', 0x88ff00),
+        linewidth: 3, // Even thicker for preview lines
         transparent: true,
-        opacity: 0.8 // Increase opacity for better visibility
+        opacity: 0.9,
+        dashed: true,
+        dashScale: 1.0,
+        dashSize: 1.0,
+        gapSize: 0.5
       });
+      // Set initial resolution (will be updated when canvas size is known)
+      DrawingService.previewLineMaterial.resolution.set(1920, 1080);
     }
   }
 
@@ -175,14 +197,17 @@ export class DrawingService {
     return marker;
   }
 
-  createLine(from: Point3D, to: Point3D): THREE.Line {
+  createLine(from: Point3D, to: Point3D): Line2 {
     const points = [
-      new THREE.Vector3(from.x, 0.1, from.z), // Lower the line slightly
-      new THREE.Vector3(to.x, 0.1, to.z)
+      from.x, 0.5, from.z, // Raise the line well above ground
+      to.x, 0.5, to.z
     ];
     
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, DrawingService.lineMaterial!);
+    const geometry = new LineGeometry();
+    geometry.setPositions(points);
+    
+    const line = new Line2(geometry, DrawingService.lineMaterial!);
+    line.computeLineDistances();
     
     // Add userData for identification and cleanup
     line.userData = {
@@ -196,14 +221,17 @@ export class DrawingService {
     return line;
   }
 
-  createPreviewLine(from: Point3D, to: Point3D): THREE.Line {
+  createPreviewLine(from: Point3D, to: Point3D): Line2 {
     const points = [
-      new THREE.Vector3(from.x, 0.2, from.z), // Higher than regular lines for visibility
-      new THREE.Vector3(to.x, 0.2, to.z)
+      from.x, 0.7, from.z, // Even higher for preview lines visibility
+      to.x, 0.7, to.z
     ];
     
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, DrawingService.previewLineMaterial!);
+    const geometry = new LineGeometry();
+    geometry.setPositions(points);
+    
+    const line = new Line2(geometry, DrawingService.previewLineMaterial!);
+    line.computeLineDistances();
     
     // Add userData for identification and cleanup
     line.userData = {
@@ -218,6 +246,25 @@ export class DrawingService {
     line.renderOrder = 50;
     line.frustumCulled = false;
     
+    // Add dash animation
+    let isActive = true;
+    const animate = () => {
+      if (!isActive || !this.scene.children.includes(line)) {
+        return;
+      }
+      
+      const time = Date.now() * 0.002; // Slow animation for smooth dash movement
+      if (line.material instanceof LineMaterial) {
+        line.material.dashOffset = -time; // Animate dash offset
+      }
+      
+      const frameId = requestAnimationFrame(animate);
+      this.animationFrameIds.set(line as any, frameId);
+    };
+    
+    (line as any).stopAnimation = () => { isActive = false; };
+    animate();
+    
     this.scene.add(line);
     return line;
   }
@@ -230,8 +277,15 @@ export class DrawingService {
     });
   }
 
-  clearLines(lines: THREE.Line[]): void {
+  clearLines(lines: (THREE.Line | Line2)[]): void {
     lines.forEach(line => {
+      // Stop any animations
+      if (this.animationFrameIds.has(line as any)) {
+        const frameId = this.animationFrameIds.get(line as any)!;
+        cancelAnimationFrame(frameId);
+        this.animationFrameIds.delete(line as any);
+      }
+      
       this.scene.remove(line);
       line.geometry.dispose();
       (line.material as THREE.Material).dispose();
@@ -269,7 +323,19 @@ export class DrawingService {
     }
   }
 
-  clearPreviewLine(line: THREE.Line): void {
+  clearPreviewLine(line: THREE.Line | Line2): void {
+    // Stop any animations
+    if (this.animationFrameIds.has(line as any)) {
+      const frameId = this.animationFrameIds.get(line as any)!;
+      cancelAnimationFrame(frameId);
+      this.animationFrameIds.delete(line as any);
+    }
+    
+    // Stop animation if it's an animated line
+    if ((line as any).stopAnimation) {
+      (line as any).stopAnimation();
+    }
+    
     this.scene.remove(line);
     line.geometry.dispose();
     (line.material as THREE.Material).dispose();
@@ -348,13 +414,26 @@ export class DrawingService {
     marker.position.set(position.x, position.y + 0.3, position.z); // Maintain consistent height
   }
 
-  updatePreviewLine(line: THREE.Line, from: Point3D, to: Point3D): void {
-    const points = [
-      new THREE.Vector3(from.x, 0.2, from.z), // Keep consistent height
-      new THREE.Vector3(to.x, 0.2, to.z)
-    ];
-    
-    line.geometry.dispose();
-    line.geometry = new THREE.BufferGeometry().setFromPoints(points);
+  updatePreviewLine(line: THREE.Line | Line2, from: Point3D, to: Point3D): void {
+    if (line instanceof Line2) {
+      // Update Line2 geometry
+      const points = [
+        from.x, 0.7, from.z, // Keep consistent height - elevated
+        to.x, 0.7, to.z
+      ];
+      
+      const geometry = line.geometry as LineGeometry;
+      geometry.setPositions(points);
+      line.computeLineDistances(); // Required for dashed lines
+    } else {
+      // Update regular THREE.Line geometry
+      const points = [
+        new THREE.Vector3(from.x, 0.7, from.z), // Keep consistent height - elevated
+        new THREE.Vector3(to.x, 0.7, to.z)
+      ];
+      
+      line.geometry.dispose();
+      line.geometry = new THREE.BufferGeometry().setFromPoints(points);
+    }
   }
 }
