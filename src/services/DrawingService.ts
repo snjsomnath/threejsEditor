@@ -13,7 +13,7 @@ export class DrawingService {
   
   private static pointMaterial: THREE.MeshLambertMaterial | null = null;
   private static previewMaterial: THREE.MeshLambertMaterial | null = null;
-  private static snapMaterial: THREE.MeshLambertMaterial | null = null;
+  private static snapMaterial: THREE.MeshBasicMaterial | null = null;
   private static lineMaterial: THREE.LineBasicMaterial | null = null;
   private static previewLineMaterial: THREE.LineBasicMaterial | null = null;
   
@@ -33,7 +33,7 @@ export class DrawingService {
     if (!DrawingService.pointGeometry) {
       DrawingService.pointGeometry = new THREE.SphereGeometry(0.25, 12, 12);
       DrawingService.previewGeometry = new THREE.SphereGeometry(0.2, 12, 12);
-      DrawingService.snapGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+      DrawingService.snapGeometry = new THREE.SphereGeometry(0.3, 16, 16); // Make it significantly larger
         DrawingService.pointMaterial = new THREE.MeshLambertMaterial({ 
         color: getThemeColorAsHex('--color-drawing-point', 0xff4444),
         emissive: getThemeColorAsHex('--color-drawing-point-emissive', 0xff0000),
@@ -48,12 +48,10 @@ export class DrawingService {
         emissiveIntensity: 0.3
       });
       
-      DrawingService.snapMaterial = new THREE.MeshLambertMaterial({ 
-        color: getThemeColorAsHex('--color-drawing-snap', 0xffff00),
+      DrawingService.snapMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xffff00, // Bright yellow
         transparent: true,
-        opacity: 0.9,
-        emissive: getThemeColorAsHex('--color-drawing-snap-emissive', 0xffff00),
-        emissiveIntensity: 0.4
+        opacity: 1.0 // Full opacity for maximum visibility
       });
       
       DrawingService.lineMaterial = new THREE.LineBasicMaterial({ 
@@ -119,16 +117,15 @@ export class DrawingService {
   }
 
   createSnapPreviewMarker(position: Point3D): THREE.Mesh {
-    // Create a new material instance for animation (can't share animated materials)
-    const material = new THREE.MeshLambertMaterial({      color: getThemeColorAsHex('--color-drawing-snap', 0xffff00),
+    // Create a new material instance for animation with enhanced visibility
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xffff00, // Bright yellow
       transparent: true,
-      opacity: 0.9,
-      emissive: getThemeColorAsHex('--color-drawing-snap-emissive', 0xffff00),
-      emissiveIntensity: 0.4
+      opacity: 1.0
     });
     
     const marker = new THREE.Mesh(DrawingService.snapGeometry!, material);
-    marker.position.set(position.x, position.y + 0.4, position.z); // Even higher for snap markers
+    marker.position.set(position.x, position.y + 0.6, position.z); // Much higher for snap markers
     
     // Add userData for identification and cleanup
     marker.userData = {
@@ -145,19 +142,29 @@ export class DrawingService {
     
     this.scene.add(marker);
     
-    // Optimized pulsing animation
+    // Enhanced pulsing animation with color and scale changes
     let isActive = true;
     const animate = () => {
       if (!isActive || !this.scene.children.includes(marker)) {
         return;
       }
       
-      const time = Date.now() * 0.008;
-      const scale = 1 + Math.sin(time) * 0.3;
+      const time = Date.now() * 0.008; // Slightly faster animation
+      
+      // More dramatic scale animation
+      const scale = 1 + Math.sin(time) * 0.4; // Larger scale variation
       marker.scale.setScalar(scale);
       
-      const intensity = 0.4 + Math.sin(time * 1.5) * 0.2;
-      (marker.material as THREE.MeshLambertMaterial).emissiveIntensity = intensity;
+      // Color pulsing between bright yellow and orange
+      const colorIntensity = 0.7 + Math.sin(time * 1.2) * 0.3;
+      const r = 1.0;
+      const g = colorIntensity;
+      const b = 0.0;
+      material.color.setRGB(r, g, b);
+      
+      // Opacity pulsing for extra visibility
+      const opacity = 0.8 + Math.sin(time * 1.8) * 0.2;
+      material.opacity = opacity;
       
       const frameId = requestAnimationFrame(animate);
       this.animationFrameIds.set(marker, frameId);
@@ -256,7 +263,8 @@ export class DrawingService {
     }
     // Only dispose material if it's not shared
     if (marker.material !== DrawingService.pointMaterial && 
-        marker.material !== DrawingService.previewMaterial) {
+        marker.material !== DrawingService.previewMaterial &&
+        marker.material !== DrawingService.snapMaterial) {
       (marker.material as THREE.Material).dispose();
     }
   }

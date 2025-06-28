@@ -7,7 +7,8 @@ import { getGroundIntersection, calculateDistance, snapToGrid } from '../utils/g
 import { useBuildingManager } from './useBuildingManager';
 import * as THREE from 'three';
 
-const SNAP_DISTANCE = 2.0;
+const SNAP_DISTANCE = 3.5; // Increased for easier snapping
+const SNAP_PREVIEW_DISTANCE = 6.0; // Show snap preview at larger distance
 const GRID_SIZE = 1.0;
 const MOUSE_MOVE_THROTTLE = 8; // Smooth preview updates
 
@@ -598,25 +599,34 @@ export const useDrawing = (
         // Apply snap to grid if enabled
         const snappedPosition = snapToGridEnabled ? snapToGrid(intersection, GRID_SIZE) : intersection;
 
-        // Check for snap to start point
+        // Check for snap to start point with preview distance
         const points = drawingState.points;
         let snapToStart = false;
         let snapActive = false;
+        let snapPreviewActive = false;
+        
         if (points.length > 2) {
           const startPoint = points[0];
           const distance = calculateDistance(snappedPosition, startPoint);
-          if (distance < SNAP_DISTANCE) {
-            snappedPosition.x = startPoint.x;
-            snappedPosition.z = startPoint.z;
-            snapToStart = true;
-            snapActive = true;
+          
+          // Show snap preview at larger distance
+          if (distance < SNAP_PREVIEW_DISTANCE) {
+            snapPreviewActive = true;
+            
+            // Actually snap at closer distance
+            if (distance < SNAP_DISTANCE) {
+              snappedPosition.x = startPoint.x;
+              snappedPosition.z = startPoint.z;
+              snapToStart = true;
+              snapActive = true;
+            }
           }
         }
 
         // Update preview marker with forced recreation if needed
         try {
-          if (snapActive && points.length > 2) {
-            // Show yellow snap marker instead of regular preview marker
+          if (snapPreviewActive && points.length > 2) {
+            // Show yellow snap marker when near the start point
             if (preview.marker && !preview.marker.userData.isSnapPoint) {
               // Replace regular preview marker with snap marker
               drawingServiceRef.current.clearPreviewMarker(preview.marker);
@@ -625,10 +635,18 @@ export const useDrawing = (
             
             // Force recreation if marker is null or invalid
             if (!preview.marker || !preview.marker.parent) {
-              preview.marker = drawingServiceRef.current.createSnapPreviewMarker(snappedPosition);
+              preview.marker = drawingServiceRef.current.createSnapPreviewMarker(snapActive ? snappedPosition : {
+                x: points[0].x,
+                y: snappedPosition.y,
+                z: points[0].z
+              });
               console.debug('Created/recreated snap preview marker');
             } else {
-              drawingServiceRef.current.updatePreviewMarker(preview.marker, snappedPosition);
+              drawingServiceRef.current.updatePreviewMarker(preview.marker, snapActive ? snappedPosition : {
+                x: points[0].x,
+                y: snappedPosition.y,
+                z: points[0].z
+              });
             }
           } else {
             // Show regular green preview marker
