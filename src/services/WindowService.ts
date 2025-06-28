@@ -18,17 +18,20 @@ interface WindowConfig {
 interface WindowMaterials {
   glass: THREE.Material;
   frame: THREE.Material;
+  overhang: THREE.Material;
 }
 
 export class WindowService {
   private scene: THREE.Scene;
   private glassGeometry: THREE.PlaneGeometry;
   private frameGeometry: THREE.BufferGeometry;
+  private overhangGeometry: THREE.BoxGeometry;
   private materials: WindowMaterials;
   private maxWindows: number;
   
   public glassInstancedMesh: THREE.InstancedMesh;
   public frameInstancedMesh: THREE.InstancedMesh;
+  public overhangInstancedMesh: THREE.InstancedMesh;
   
   private currentIndex = 0;
   private buildingWindows = new Map<string, number[]>(); // Track which indices belong to which building
@@ -46,6 +49,8 @@ export class WindowService {
       config.windowHeight,
       config.frameThickness
     );
+    // Create overhang geometry - a simple box that will be scaled and positioned
+    this.overhangGeometry = new THREE.BoxGeometry(1, 0.1, 1); // Unit box, will be scaled per instance
     
     // Create materials
     this.materials = this.createMaterials();
@@ -63,19 +68,29 @@ export class WindowService {
       this.maxWindows
     );
     
+    this.overhangInstancedMesh = new THREE.InstancedMesh(
+      this.overhangGeometry,
+      this.materials.overhang,
+      this.maxWindows
+    );
+    
     // Configure instanced meshes
     this.glassInstancedMesh.castShadow = false;
     this.glassInstancedMesh.receiveShadow = true;
     this.frameInstancedMesh.castShadow = true;
     this.frameInstancedMesh.receiveShadow = true;
+    this.overhangInstancedMesh.castShadow = true;
+    this.overhangInstancedMesh.receiveShadow = true;
     
     // Add to scene
     this.scene.add(this.glassInstancedMesh);
     this.scene.add(this.frameInstancedMesh);
+    this.scene.add(this.overhangInstancedMesh);
     
     // Initially hide all instances
     this.glassInstancedMesh.count = 0;
     this.frameInstancedMesh.count = 0;
+    this.overhangInstancedMesh.count = 0;
   }  private createMaterials(): WindowMaterials {
     const glass = new THREE.MeshPhongMaterial({
       color: 0x4A90E2, // Bright blue color
@@ -93,7 +108,11 @@ export class WindowService {
       color: getThemeColorAsHex('--color-window-frame', 0x2D2D2D) // Darker, more realistic frame color
     });
 
-    return { glass, frame };
+    const overhang = new THREE.MeshLambertMaterial({
+      color: getThemeColorAsHex('--color-window-overhang', 0x8B8B8B) // Light gray overhang
+    });
+
+    return { glass, frame, overhang };
   }
 
   addBuildingWindows(building: BuildingData, config: WindowConfig): void {
@@ -162,6 +181,17 @@ export class WindowService {
         });
         this.glassInstancedMesh.setMatrixAt(this.currentIndex, glassMatrix);
         this.frameInstancedMesh.setMatrixAt(this.currentIndex, frameMatrix);
+        
+        // Add overhang if enabled
+        if (building.window_overhang && building.window_overhang_depth && building.window_overhang_depth > 0) {
+          const overhangMatrix = this.createOverhangMatrix(placement, windowWidth, windowHeight, building.window_overhang_depth);
+          this.overhangInstancedMesh.setMatrixAt(this.currentIndex, overhangMatrix);
+        } else {
+          // Set overhang to zero scale to hide it
+          const hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
+          this.overhangInstancedMesh.setMatrixAt(this.currentIndex, hiddenMatrix);
+        }
+        
         buildingIndices.push(this.currentIndex);
         this.currentIndex++;
       }
@@ -191,6 +221,9 @@ export class WindowService {
           
           this.frameInstancedMesh.getMatrixAt(readIndex, tempMatrix);
           this.frameInstancedMesh.setMatrixAt(writeIndex, tempMatrix);
+          
+          this.overhangInstancedMesh.getMatrixAt(readIndex, tempMatrix);
+          this.overhangInstancedMesh.setMatrixAt(writeIndex, tempMatrix);
         }
         writeIndex++;
       }
@@ -227,8 +260,10 @@ export class WindowService {
   private updateInstanceCounts(): void {
     this.glassInstancedMesh.count = this.currentIndex;
     this.frameInstancedMesh.count = this.currentIndex;
+    this.overhangInstancedMesh.count = this.currentIndex;
     this.glassInstancedMesh.instanceMatrix.needsUpdate = true;
     this.frameInstancedMesh.instanceMatrix.needsUpdate = true;
+    this.overhangInstancedMesh.instanceMatrix.needsUpdate = true;
   }
   updateBuildingWindows(building: BuildingData, config: WindowConfig): void {
     // Use the efficient update method for better performance during live updates
@@ -254,17 +289,20 @@ export class WindowService {
         const index = existingIndices[i];
         this.glassInstancedMesh.setMatrixAt(index, newWindowData[i].glassMatrix);
         this.frameInstancedMesh.setMatrixAt(index, newWindowData[i].frameMatrix);
+        this.overhangInstancedMesh.setMatrixAt(index, newWindowData[i].overhangMatrix);
       }
       
       // Mark for update
       this.glassInstancedMesh.instanceMatrix.needsUpdate = true;
       this.frameInstancedMesh.instanceMatrix.needsUpdate = true;
+      this.overhangInstancedMesh.instanceMatrix.needsUpdate = true;
     } else if (newWindowData.length < existingIndices.length) {
       // Fewer windows - update existing and clear unused indices
       for (let i = 0; i < newWindowData.length; i++) {
         const index = existingIndices[i];
         this.glassInstancedMesh.setMatrixAt(index, newWindowData[i].glassMatrix);
         this.frameInstancedMesh.setMatrixAt(index, newWindowData[i].frameMatrix);
+        this.overhangInstancedMesh.setMatrixAt(index, newWindowData[i].overhangMatrix);
       }
       
       // Clear leftover matrices to prevent ghost windows
@@ -273,6 +311,7 @@ export class WindowService {
         const index = existingIndices[i];
         this.glassInstancedMesh.setMatrixAt(index, identity);
         this.frameInstancedMesh.setMatrixAt(index, identity);
+        this.overhangInstancedMesh.setMatrixAt(index, identity);
       }
       
       // Update building indices to reflect new count
@@ -281,12 +320,13 @@ export class WindowService {
       // Mark for update
       this.glassInstancedMesh.instanceMatrix.needsUpdate = true;
       this.frameInstancedMesh.instanceMatrix.needsUpdate = true;
+      this.overhangInstancedMesh.instanceMatrix.needsUpdate = true;
     } else {
       // More windows needed - use full rebuild
       this.addBuildingWindows(building, config);
     }
   }  // Method to animate window updates for smoother transitions
-  updateBuildingWindowsSmooth(building: BuildingData, config: WindowConfig, duration: number = 300): void {
+  updateBuildingWindowsSmooth(building: BuildingData, config: WindowConfig, _duration: number = 300): void {
     if (!building.points || building.points.length < 3) return;
     this.animationManager.cancelBuildingAnimation(building.id);
     const existingIndices = this.buildingWindows.get(building.id);
@@ -294,19 +334,9 @@ export class WindowService {
       this.addBuildingWindows(building, config);
       return;
     }
-    const newWindowData = calculateWindowMatrices(building, config);
-    if (newWindowData.length === existingIndices.length) {
-      this.animationManager.animateWindowTransition(
-        building.id,
-        existingIndices,
-        this.glassInstancedMesh,
-        this.frameInstancedMesh,
-        newWindowData,
-        duration
-      );
-    } else {
-      this.updateBuildingWindowsEfficient(building, config);
-    }
+    // Always use efficient update for now since animation manager doesn't support overhangs yet
+    // TODO: Update WindowAnimationManager to support overhang matrices
+    this.updateBuildingWindowsEfficient(building, config);
   }
   clearAllWindows(): void {
     this.currentIndex = 0;
@@ -316,8 +346,10 @@ export class WindowService {
     // Clear the instance matrices by setting count to 0
     this.glassInstancedMesh.count = 0;
     this.frameInstancedMesh.count = 0;
+    this.overhangInstancedMesh.count = 0;
     this.glassInstancedMesh.instanceMatrix.needsUpdate = true;
     this.frameInstancedMesh.instanceMatrix.needsUpdate = true;
+    this.overhangInstancedMesh.instanceMatrix.needsUpdate = true;
     
     console.log('Cleared all windows');
   }
@@ -326,14 +358,17 @@ export class WindowService {
     // Remove from scene
     this.scene.remove(this.glassInstancedMesh);
     this.scene.remove(this.frameInstancedMesh);
+    this.scene.remove(this.overhangInstancedMesh);
     
     // Dispose geometries
     this.glassGeometry.dispose();
     this.frameGeometry.dispose();
+    this.overhangGeometry.dispose();
     
     // Dispose materials
     this.materials.glass.dispose();
     this.materials.frame.dispose();
+    this.materials.overhang.dispose();
     
     // Clear references
     this.buildingWindows.clear();
@@ -346,10 +381,43 @@ export class WindowService {
   getTotalWindowCount(): number {
     return this.currentIndex;
   }
+
+  private createOverhangMatrix(
+    placement: { position: THREE.Vector3; right: THREE.Vector3; normal: THREE.Vector3; scaleX: number },
+    windowWidth: number,
+    windowHeight: number,
+    overhangDepth: number
+  ): THREE.Matrix4 {
+    const { position, right, normal, scaleX } = placement;
+    
+    // Ensure vectors are normalized
+    const rightNorm = right.clone().normalize();
+    const normalNorm = normal.clone().normalize();
+    const up = new THREE.Vector3(0, 1, 0);
+    
+    // Calculate overhang position - above the window and projecting outward
+    const overhangHeight = 0.1; // 10cm thick overhang
+    const overhangWidth = windowWidth * scaleX * 1.2; // 20% wider than window
+    
+    // Position the overhang at the TOP EDGE of the window (flush with the top)
+    const overhangPosition = position.clone()
+      .add(up.clone().multiplyScalar(windowHeight * 0.5 + overhangHeight * 0.5)) // Move to top edge + half overhang thickness
+      .add(normalNorm.clone().multiplyScalar(overhangDepth * 0.5)); // Project outward from wall surface
+    
+    // Build rotation matrix - overhang aligns with the wall
+    const basis = new THREE.Matrix4();
+    basis.makeBasis(rightNorm, up, normalNorm);
+    const rotation = new THREE.Quaternion().setFromRotationMatrix(basis);
+    
+    // Scale the overhang geometry
+    const overhangScale = new THREE.Vector3(overhangWidth, overhangHeight, overhangDepth);
+    
+    return new THREE.Matrix4().compose(overhangPosition, rotation, overhangScale);
+  }
 }
 
-function calculateWindowMatrices(building: BuildingData, config: WindowConfig): Array<{glassMatrix: THREE.Matrix4, frameMatrix: THREE.Matrix4}> {
-  const matrices: Array<{glassMatrix: THREE.Matrix4, frameMatrix: THREE.Matrix4}> = [];
+function calculateWindowMatrices(building: BuildingData, config: WindowConfig): Array<{glassMatrix: THREE.Matrix4, frameMatrix: THREE.Matrix4, overhangMatrix: THREE.Matrix4}> {
+  const matrices: Array<{glassMatrix: THREE.Matrix4, frameMatrix: THREE.Matrix4, overhangMatrix: THREE.Matrix4}> = [];
   const footprint: THREE.Vector2[] = building.points.map(p => new THREE.Vector2(p.x, p.z));
   const numFloors = building.floors ?? 1;
   const floorHeight = building.floorHeight ?? 3;
@@ -389,7 +457,7 @@ function calculateWindowMatrices(building: BuildingData, config: WindowConfig): 
       parametric
     });
     for (const placement of placements) {
-      matrices.push(buildWindowMatrices({
+      const { glassMatrix, frameMatrix } = buildWindowMatrices({
         position: placement.position,
         right: placement.right,
         normal: placement.normal,
@@ -397,8 +465,52 @@ function calculateWindowMatrices(building: BuildingData, config: WindowConfig): 
         windowWidth,
         windowHeight,
         glassOffset: 0.02
-      }));
+      });
+      
+      // Create overhang matrix
+      let overhangMatrix: THREE.Matrix4;
+      if (building.window_overhang && building.window_overhang_depth && building.window_overhang_depth > 0) {
+        overhangMatrix = createOverhangMatrix(placement, windowWidth, windowHeight, building.window_overhang_depth);
+      } else {
+        overhangMatrix = new THREE.Matrix4().makeScale(0, 0, 0); // Hidden
+      }
+      
+      matrices.push({ glassMatrix, frameMatrix, overhangMatrix });
     }
   }
   return matrices;
+}
+
+// Helper function to create overhang matrix (extracted from class method)
+function createOverhangMatrix(
+  placement: { position: THREE.Vector3; right: THREE.Vector3; normal: THREE.Vector3; scaleX: number },
+  windowWidth: number,
+  windowHeight: number,
+  overhangDepth: number
+): THREE.Matrix4 {
+  const { position, right, normal, scaleX } = placement;
+  
+  // Ensure vectors are normalized
+  const rightNorm = right.clone().normalize();
+  const normalNorm = normal.clone().normalize();
+  const up = new THREE.Vector3(0, 1, 0);
+  
+  // Calculate overhang position - above the window and projecting outward
+  const overhangHeight = 0.1; // 10cm thick overhang
+  const overhangWidth = windowWidth * scaleX * 1.2; // 20% wider than window
+  
+  // Position the overhang at the TOP EDGE of the window (flush with the top)
+  const overhangPosition = position.clone()
+    .add(up.clone().multiplyScalar(windowHeight * 0.5 + overhangHeight * 0.5)) // Move to top edge + half overhang thickness
+    .add(normalNorm.clone().multiplyScalar(overhangDepth * 0.5)); // Project outward from wall surface
+  
+  // Build rotation matrix - overhang aligns with the wall
+  const basis = new THREE.Matrix4();
+  basis.makeBasis(rightNorm, up, normalNorm);
+  const rotation = new THREE.Quaternion().setFromRotationMatrix(basis);
+  
+  // Scale the overhang geometry
+  const overhangScale = new THREE.Vector3(overhangWidth, overhangHeight, overhangDepth);
+  
+  return new THREE.Matrix4().compose(overhangPosition, rotation, overhangScale);
 }

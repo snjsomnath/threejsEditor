@@ -134,11 +134,11 @@ export const BottomToolbar: React.FC<BottomToolbarProps> = ({
                     <span className="text-green-400 font-medium">{buildingStats.totalArea.toFixed(0)}</span>
                     <span className="text-gray-400">m²</span>
                   </div>
-                  <div className="flex items-center space-x-1">
+                  {/* <div className="flex items-center space-x-1">
                     <div className="w-2 h-2 rounded-full bg-purple-400" />
                     <span className="text-purple-400 font-medium">{buildingStats.totalFloors}</span>
                     <span className="text-gray-400">floors</span>
-                  </div>
+                  </div> */}
                 </div>
               </>
             )}

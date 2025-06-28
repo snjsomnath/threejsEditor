@@ -251,15 +251,15 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
     // Live update for window properties and building geometry that affects windows
     if (field === 'window_to_wall_ratio' || field === 'window_overhang' || field === 'window_overhang_depth' || 
         field === 'floors' || field === 'floorHeight') {
+      // Create the updated edited state immediately for the config
+      const updatedEdited = { ...edited, [field]: value };
+      
       // Trigger window update through debounced onPreview
       const updates: Partial<BuildingData> & { config: BuildingConfig } = {
         // Update the specific field in the building data
         [field]: value,
         // Provide complete config with updated values
-        config: {
-          ...edited, // Include all current edited values
-          [field]: value // Ensure the specific field is updated
-        }
+        config: updatedEdited // Use the immediately updated state
       };
       
       // Use debounced update for smooth slider interaction
@@ -712,8 +712,9 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
 
                 {edited.window_overhang && (
                   <div>
-                    <div className="flex items-center mb-2">                      <label className="block text-xs font-medium text-gray-400">
-                        Overhang Depth (m)
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-medium text-gray-400">
+                        Overhang Depth: {(edited.window_overhang_depth ?? 0.0).toFixed(2)}m
                       </label>
                       <Tooltip content="Depth of window overhang. Typical: 0.3–1.2m.">
                         <span className="ml-2 text-blue-400 cursor-pointer">
@@ -722,14 +723,19 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
                       </Tooltip>
                     </div>
                     <input
-                      type="number"
+                      type="range"
                       min="0"
                       max="2"
                       step="0.05"
-                      value={edited.window_overhang_depth}
+                      value={edited.window_overhang_depth ?? 0.0}
                       onChange={e => updateField('window_overhang_depth', parseFloat(e.target.value))}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 transition-colors"
+                      className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer slider"
                     />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>0m</span>
+                      <span>1m</span>
+                      <span>2m</span>
+                    </div>
                     {(edited.window_overhang_depth ?? 0.0) > 1.2 && (
                       <div className="flex items-center mt-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                         <span className="text-yellow-400 mr-2">⚠️</span>
