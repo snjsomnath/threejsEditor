@@ -245,6 +245,27 @@ export const useDrawing = (
     });
   }, [clearAllPreviews]);
 
+  // Cursor management effect with different states
+  useEffect(() => {
+    if (drawingState.isDrawing) {
+      if (drawingState.snapToStart && drawingState.points.length > 2) {
+        // Special cursor when snapping to start (close polygon) - use alias cursor for "close/finish"
+        document.body.style.cursor = 'alias';
+      } else {
+        // Crosshair cursor when actively drawing
+        document.body.style.cursor = 'crosshair';
+      }
+    } else {
+      // Reset to default cursor when not drawing
+      document.body.style.cursor = 'default';
+    }
+
+    // Cleanup function to reset cursor when component unmounts
+    return () => {
+      document.body.style.cursor = 'default';
+    };
+  }, [drawingState.isDrawing, drawingState.snapToStart, drawingState.points.length]);
+
   const startDrawing = useCallback(() => {
     // If already drawing, first clean up the current drawing session
     if (drawingState.isDrawing) {
