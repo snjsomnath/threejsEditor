@@ -50,7 +50,7 @@ export class WindowService {
       config.frameThickness
     );
     // Create overhang geometry - a simple box that will be scaled and positioned
-    this.overhangGeometry = new THREE.BoxGeometry(1, 0.1, 1); // Unit box, will be scaled per instance
+    this.overhangGeometry = new THREE.BoxGeometry(1, 1, 1); // Unit box, will be scaled per instance
     
     // Create materials
     this.materials = this.createMaterials();
@@ -184,7 +184,7 @@ export class WindowService {
         
         // Add overhang if enabled
         if (building.window_overhang && building.window_overhang_depth && building.window_overhang_depth > 0) {
-          const overhangMatrix = this.createOverhangMatrix(placement, windowWidth, windowHeight, building.window_overhang_depth);
+          const overhangMatrix = createOverhangMatrix(placement, windowWidth, windowHeight, building.window_overhang_depth);
           this.overhangInstancedMesh.setMatrixAt(this.currentIndex, overhangMatrix);
         } else {
           // Set overhang to zero scale to hide it
@@ -381,39 +381,6 @@ export class WindowService {
   getTotalWindowCount(): number {
     return this.currentIndex;
   }
-
-  private createOverhangMatrix(
-    placement: { position: THREE.Vector3; right: THREE.Vector3; normal: THREE.Vector3; scaleX: number },
-    windowWidth: number,
-    windowHeight: number,
-    overhangDepth: number
-  ): THREE.Matrix4 {
-    const { position, right, normal, scaleX } = placement;
-    
-    // Ensure vectors are normalized
-    const rightNorm = right.clone().normalize();
-    const normalNorm = normal.clone().normalize();
-    const up = new THREE.Vector3(0, 1, 0);
-    
-    // Calculate overhang position - above the window and projecting outward
-    const overhangHeight = 0.1; // 10cm thick overhang
-    const overhangWidth = windowWidth * scaleX * 1.2; // 20% wider than window
-    
-    // Position the overhang at the TOP EDGE of the window (flush with the top)
-    const overhangPosition = position.clone()
-      .add(up.clone().multiplyScalar(windowHeight * 0.5 + overhangHeight * 0.5)) // Move to top edge + half overhang thickness
-      .add(normalNorm.clone().multiplyScalar(overhangDepth * 0.5)); // Project outward from wall surface
-    
-    // Build rotation matrix - overhang aligns with the wall
-    const basis = new THREE.Matrix4();
-    basis.makeBasis(rightNorm, up, normalNorm);
-    const rotation = new THREE.Quaternion().setFromRotationMatrix(basis);
-    
-    // Scale the overhang geometry
-    const overhangScale = new THREE.Vector3(overhangWidth, overhangHeight, overhangDepth);
-    
-    return new THREE.Matrix4().compose(overhangPosition, rotation, overhangScale);
-  }
 }
 
 function calculateWindowMatrices(building: BuildingData, config: WindowConfig): Array<{glassMatrix: THREE.Matrix4, frameMatrix: THREE.Matrix4, overhangMatrix: THREE.Matrix4}> {
@@ -501,7 +468,8 @@ function createOverhangMatrix(
   
   // Position the overhang at the TOP EDGE of the window (flush with the top)
   const overhangPosition = position.clone()
-    .add(up.clone().multiplyScalar(windowHeight * 0.5 + overhangHeight * 0.5)) // Move to top edge + half overhang thickness
+  // Magic number 0.8! Dont know why
+    .add(up.clone().multiplyScalar(windowHeight * 0.8 )) 
     .add(normalNorm.clone().multiplyScalar(overhangDepth * 0.5)); // Project outward from wall surface
   
   // Build rotation matrix - overhang aligns with the wall
