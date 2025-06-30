@@ -625,31 +625,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
                 )}
               </div>
 
-              <div>                <div className="flex items-center mb-2">
-                  <label className="block text-xs font-medium text-gray-400">
-                    Building Color
-                  </label>
-                  <Tooltip content="Affects solar absorption. Darker colors may increase cooling loads.">
-                    <span className="ml-2 text-blue-400 cursor-pointer">
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </Tooltip>
-                </div>                <div className="grid grid-cols-4 gap-2">
-                  {getColorOptions().map(color => (
-                    <button
-                      key={`${color.value}-${themeVersion}`}
-                      onClick={() => updateField('color', color.value)}
-                      className={`w-full h-10 rounded-lg border-2 transition-all duration-200 ${
-                        edited.color === color.value 
-                          ? 'border-white scale-105 shadow-lg' 
-                          : 'border-gray-600 hover:border-gray-400 hover:scale-102'
-                      }`}
-                      style={{ backgroundColor: `#${color.value.toString(16).padStart(6, '0')}` }}
-                      title={color.name}
-                    />
-                  ))}
-                </div>
-              </div>
+
 
               <div>
                 <div className="flex items-center justify-between mb-2">                  <div className="flex items-center">
@@ -745,7 +721,33 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
                   </div>
                 )}
               </div>
+                            <div>                <div className="flex items-center mb-2">
+                  <label className="block text-xs font-medium text-gray-400">
+                    Building Color
+                  </label>
+                  <Tooltip content="Affects solar absorption. Darker colors may increase cooling loads.">
+                    <span className="ml-2 text-blue-400 cursor-pointer">
+                      <Info className="w-3 h-3" />
+                    </span>
+                  </Tooltip>
+                </div>                <div className="grid grid-cols-4 gap-2">
+                  {getColorOptions().map(color => (
+                    <button
+                      key={`${color.value}-${themeVersion}`}
+                      onClick={() => updateField('color', color.value)}
+                      className={`w-full h-10 rounded-lg border-2 transition-all duration-200 ${
+                        edited.color === color.value 
+                          ? 'border-white scale-105 shadow-lg' 
+                          : 'border-gray-600 hover:border-gray-400 hover:scale-102'
+                      }`}
+                      style={{ backgroundColor: `#${color.value.toString(16).padStart(6, '0')}` }}
+                      title={color.name}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
+            
           </Section>
 
           {/* ENVELOPE & MATERIALS */}
