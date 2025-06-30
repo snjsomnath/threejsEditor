@@ -2,20 +2,21 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { initializeTheme, waitForThemeColors, debugThemeColors } from './utils/themeColors';
+import { logger } from './utils/logger';
 import './theme-colors.css';
 
 // Initialize theme system and wait for CSS to load
 async function startApp() {
   const initialTheme = initializeTheme();
-  console.log(`Application starting with ${initialTheme} theme`);
+  logger.info('Application starting', { theme: initialTheme });
   
   // Wait for theme colors to be available
   const colorsLoaded = await waitForThemeColors();
   
   if (colorsLoaded) {
-    console.log('Theme colors loaded successfully');
+    logger.debug('Theme colors loaded successfully');
   } else {
-    console.warn('Theme colors may not be fully loaded');
+    logger.warn('Theme colors may not be fully loaded');
   }
   
   // Debug theme colors in development
@@ -30,4 +31,6 @@ async function startApp() {
 }
 
 // Start the application
-startApp().catch(console.error);
+startApp().catch((error) => {
+  logger.error('Failed to start application', { error: error.message, stack: error.stack });
+});

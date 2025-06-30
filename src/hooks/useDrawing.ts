@@ -4,6 +4,7 @@ import { DrawingService } from '../services/DrawingService';
 import { BuildingService } from '../services/BuildingService';
 import { TextService } from '../services/TextService';
 import { getGroundIntersection, calculateDistance, snapToGrid } from '../utils/geometry';
+import { logger } from '../utils/logger';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import * as THREE from 'three';
 
@@ -63,7 +64,7 @@ export const useDrawing = (
   // Initialize services when scene is available - use useEffect for proper timing
   useEffect(() => {
     if (scene && !drawingServiceRef.current) {
-      console.log('Initializing drawing services...');
+      logger.debug('Initializing drawing services', {}, 'DrawingHook');
       try {
         drawingServiceRef.current = new DrawingService(scene);
         buildingServiceRef.current = new BuildingService(scene);
@@ -74,14 +75,14 @@ export const useDrawing = (
           drawingServiceRef.current.updateResolution(window.innerWidth, window.innerHeight);
         }
         
-        console.log('Drawing services initialized successfully');
+        logger.debug('Drawing services initialized successfully', {}, 'DrawingHook');
         
         // Validate services immediately after creation
         if (!drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current) {
           throw new Error('Service initialization failed - one or more services are null');
         }
       } catch (error) {
-        console.error('Failed to initialize drawing services:', error);
+        logger.error('Failed to initialize drawing services', { error: error.message }, 'DrawingHook');
         // Clear refs if initialization failed
         drawingServiceRef.current = null;
         buildingServiceRef.current = null;
@@ -93,7 +94,7 @@ export const useDrawing = (
   // Add a separate effect to handle groundPlane availability
   useEffect(() => {
     if (groundPlane) {
-      console.log('Ground plane is now available for drawing');
+      logger.info('Ground plane is now available for drawing', {}, 'DrawingHook');
     }
   }, [groundPlane]);
 
@@ -112,27 +113,27 @@ export const useDrawing = (
   // Enhanced validation function with detailed logging
   const validateServices = useCallback(() => {
     if (!scene) {
-      console.warn('Scene not available for drawing');
+      logger.warn('Scene not available for drawing', {}, 'DrawingHook');
       return false;
     }
     if (!camera) {
-      console.warn('Camera not available for drawing');
+      logger.warn('Camera not available for drawing', {}, 'DrawingHook');
       return false;
     }
     if (!groundPlane) {
-      console.warn('Ground plane not available for drawing');
+      logger.warn('Ground plane not available for drawing', {}, 'DrawingHook');
       return false;
     }
     if (!drawingServiceRef.current) {
-      console.warn('DrawingService not initialized');
+      logger.warn('DrawingService not initialized', {}, 'DrawingHook');
       return false;
     }
     if (!buildingServiceRef.current) {
-      console.warn('BuildingService not initialized');
+      logger.warn('BuildingService not initialized', {}, 'DrawingHook');
       return false;
     }
     if (!textServiceRef.current) {
-      console.warn('TextService not initialized');
+      logger.warn('TextService not initialized', {}, 'DrawingHook');
       return false;
     }
     return true;
@@ -150,7 +151,7 @@ export const useDrawing = (
       try {
         buildingServiceRef.current.clearPreviewBuilding(preview.building);
       } catch (error) {
-        console.warn('Error clearing preview building:', error);
+        logger.warn('Error clearing preview building', { error: error instanceof Error ? error.message : String(error) }, 'DrawingHook');
         // Force remove from scene even if disposal fails
         scene.remove(preview.building);
       }
@@ -315,14 +316,15 @@ export const useDrawing = (
       snapToStart: false
     });
 
-    console.log('Drawing started with fresh service states');
+    // Remove frequent debug log - too noisy for production
+    // logger.debug('Drawing started with fresh service states', {}, 'DrawingHook');
   }, [clearAllPreviews, clearAllDrawingElements]);
 
   // Declare finishBuilding BEFORE addPoint to avoid circular dependency
   const finishBuilding = useCallback(() => {
     if (!drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current || !scene) return;
 
-    console.log('finishBuilding called with points:', drawingState.points.length);
+    logger.info('Building creation started', { pointsCount: drawingState.points.length }, 'DrawingHook');
 
     // Clear all previews FIRST before any other operations
     clearAllPreviews();
@@ -355,11 +357,11 @@ export const useDrawing = (
         );
 
         if (!building) {
-          console.error('Failed to add building to building manager');
+          logger.error('Failed to add building to building manager', {}, 'DrawingHook');
           return;
         }
 
-        console.log('Building created and added:', building.id);
+        logger.info('Building created and added', { buildingId: building.id }, 'DrawingHook');
 
         // IMPORTANT: Associate all current drawing elements with this building ID
         const drawingElements = [...drawingState.markers, ...drawingState.lines, ...drawingState.lengthLabels];
@@ -371,7 +373,7 @@ export const useDrawing = (
         });
 
       } catch (error) {
-        console.error('Error creating building:', error);
+        logger.error('Error creating building', { error: error instanceof Error ? error.message : String(error) }, 'DrawingHook');
       }
     }
 
@@ -582,13 +584,13 @@ export const useDrawing = (
   const updatePreview = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
     // Early validation with detailed logging
     if (!validateServices()) {
-      console.debug('updatePreview: Services not ready, skipping preview update');
+      // Remove frequent debug logs - too noisy for production
       return;
     }
 
     // Additional check for drawing state
     if (!drawingState.isDrawing) {
-      console.debug('updatePreview: Not in drawing mode, skipping');
+      // Remove frequent debug logs
       return;
     }
 

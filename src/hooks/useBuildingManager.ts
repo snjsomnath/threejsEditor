@@ -7,6 +7,7 @@ import { Point3D, BuildingData, BuildingConfig, BuildingTooltipData } from '../t
 import { createShapeFromPoints, calculateCentroid, ensureCounterClockwise } from '../utils/geometry';
 import { getThemeColorAsHex } from '../utils/themeColors';
 import { WindowService } from '../services/WindowService';
+import { logger } from '../utils/logger';
 
 interface BuildingStats {
   count: number;
@@ -30,7 +31,7 @@ export const useBuildingManager = (
   // Keep buildingsRef in sync with buildings state
   useEffect(() => {
     buildingsRef.current = buildings;
-    console.log('Buildings updated:', buildings.map(b => b.id));
+    logger.debug('Buildings collection updated', { count: buildings.length, ids: buildings.map(b => b.id) }, 'BuildingManager');
   }, [buildings]);
 
   // Handle window resize for Line2 materials
@@ -230,9 +231,9 @@ export const useBuildingManager = (
     }    // Add windows to the building using WindowService (only if not already added)
     if (windowService && !windowService.getBuildingWindowCount(buildingId)) {
       windowService.addBuildingWindows(building, getWindowConfig(building));
-      console.log('Added windows to building:', building.id, 'Window count:', windowService.getBuildingWindowCount(building.id));
+      logger.debug('Added windows to building', { buildingId: building.id, windowCount: windowService.getBuildingWindowCount(building.id) }, 'BuildingManager');
     } else if (windowService && windowService.getBuildingWindowCount(buildingId) > 0) {
-      console.log('Building already has windows:', building.id, 'Window count:', windowService.getBuildingWindowCount(buildingId));
+      logger.debug('Building already has windows', { buildingId: building.id, windowCount: windowService.getBuildingWindowCount(buildingId) }, 'BuildingManager');
     }
 
     // Ensure mesh is added to the scene and properly positioned
@@ -244,7 +245,7 @@ export const useBuildingManager = (
     scene.updateMatrixWorld(true);
 
     // Debug: confirm mesh is in scene with proper configuration
-    console.log('Adding building to scene:', {
+    logger.debug('Adding building to scene', {
       id: building.id,
       meshUuid: mesh.uuid,
       meshVisible: mesh.visible,
@@ -257,7 +258,7 @@ export const useBuildingManager = (
       sceneChildren: scene.children.length,
       meshInScene: scene.children.includes(mesh),
       footprintInScene: scene.children.includes(building.footprintOutline)
-    });
+    }, 'BuildingManager');
 
     // Update both state and ref synchronously
     const newBuildings = [...buildingsRef.current, building];
@@ -265,11 +266,11 @@ export const useBuildingManager = (
     setBuildings(newBuildings);
 
     // Verify building was added
-    console.log('Building added successfully:', {
+    logger.info('Building added successfully', {
       id: building.id,
       totalBuildings: newBuildings.length,
       buildingIds: newBuildings.map(b => b.id)
-    });
+    }, 'BuildingManager');
 
     return building;
   }, [scene]);
@@ -349,7 +350,10 @@ export const useBuildingManager = (
         // Update window properties from config
         if (config.window_to_wall_ratio !== undefined) {
           updatedBuilding.window_to_wall_ratio = config.window_to_wall_ratio;
-          console.log(`Updated building WWR to: ${(config.window_to_wall_ratio * 100).toFixed(1)}%`);
+          logger.debug('Updated building WWR', { 
+            buildingId: updatedBuilding.id, 
+            wwrPercent: (config.window_to_wall_ratio * 100).toFixed(1) 
+          }, 'BuildingManager');
         }
         if (config.window_overhang !== undefined) {
           updatedBuilding.window_overhang = config.window_overhang;
@@ -370,7 +374,10 @@ export const useBuildingManager = (
             // Use regular update for buildings without windows
             windowService.updateBuildingWindows(updatedBuilding, windowConfig);
           }
-          console.log('Updated windows for building:', updatedBuilding.id, 'Window count:', windowService.getBuildingWindowCount(updatedBuilding.id));
+          logger.debug('Updated windows for building', { 
+            buildingId: updatedBuilding.id, 
+            windowCount: windowService.getBuildingWindowCount(updatedBuilding.id) 
+          }, 'BuildingManager');
         }
       }
 
@@ -430,7 +437,7 @@ export const useBuildingManager = (
     if (building && building !== selectedBuilding && !building.mesh.userData.isPreview) {
       const material = building.mesh.material as THREE.MeshLambertMaterial;
       material.emissive.setHex(getThemeColorAsHex('--color-building-hover-emissive', 0x444444)); // Use CSS variable
-      console.log('Hovering building:', building.id, building.name);
+      logger.debug('Hovering building', { buildingId: building.id, buildingName: building.name }, 'BuildingManager');
     }
 
     setHoveredBuilding(building);
@@ -541,12 +548,15 @@ export const useBuildingManager = (
                  isPreviewMesh;
         });
 
-        console.log(`Removing ${objectsToRemove.length} associated objects for building ${id}:`, 
-                   objectsToRemove.map(obj => ({ 
-                     type: obj.constructor.name, 
-                     userData: obj.userData,
-                     uuid: obj.uuid 
-                   })));
+        logger.debug('Removing building objects', { 
+          buildingId: id, 
+          objectsCount: objectsToRemove.length,
+          objects: objectsToRemove.map(obj => ({ 
+            type: obj.constructor.name, 
+            userData: obj.userData,
+            uuid: obj.uuid 
+          }))
+        }, 'BuildingManager');
 
         objectsToRemove.forEach(obj => {
           scene.remove(obj);
@@ -579,7 +589,9 @@ export const useBuildingManager = (
         );
 
         if (remainingDrawingObjects.length > 0) {
-          console.log(`Removing ${remainingDrawingObjects.length} orphaned drawing objects`);
+          logger.debug('Removing orphaned drawing objects', { 
+            objectsCount: remainingDrawingObjects.length 
+          }, 'BuildingManager');
           remainingDrawingObjects.forEach(obj => {
             scene.remove(obj);
             if (obj.geometry) obj.geometry.dispose();
@@ -602,7 +614,9 @@ export const useBuildingManager = (
           child.userData?.type !== 'grid' &&
           child.userData?.type !== 'helper'
         );
-        console.log(`Found ${allPoints.length} Points objects to remove (preserving grid/helpers)`);
+        logger.debug('Removing Points objects', { 
+          pointsCount: allPoints.length 
+        }, 'BuildingManager');
         allPoints.forEach(pointsObj => {
           scene.remove(pointsObj);
           if (pointsObj.geometry) pointsObj.geometry.dispose();
@@ -754,10 +768,10 @@ export const useBuildingManager = (
   // Handle building and footprint interaction via mouse events
   const handleBuildingInteraction = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
     if (!scene || !camera) {
-      console.warn('Scene or camera not available for building interaction');
+      logger.warn('Scene or camera not available for building interaction', {}, 'BuildingManager');
       return null;
     }
-
+    // Too frequent
     console.log('Building interaction called', { 
       eventType: event.type, 
       buildingsCount: buildingsRef.current.length,
@@ -769,6 +783,7 @@ export const useBuildingManager = (
     mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
+    // Too frequent
     console.log('Mouse position:', { x: mouse.current.x, y: mouse.current.y });
 
     // Update raycaster
@@ -789,13 +804,15 @@ export const useBuildingManager = (
       }
     });
     
-    console.log('Interactive meshes found:', interactiveMeshes.length, 
-      interactiveMeshes.map(m => ({ 
+    logger.debug('Interactive meshes found', { 
+      meshesCount: interactiveMeshes.length,
+      meshes: interactiveMeshes.map(m => ({ 
         uuid: m.uuid, 
         userData: m.userData,
         visible: m.visible,
         position: m.position
-      })));
+      }))
+    }, 'BuildingManager');
 
     // Get intersections with ALL interactive meshes
     const intersects = raycaster.current.intersectObjects(interactiveMeshes, false);
