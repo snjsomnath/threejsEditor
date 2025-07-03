@@ -945,6 +945,13 @@ export const WeatherAndLocationTab: React.FC = () => {
                     windRoseData={windRoseData}
                     avgWindSpeed={weatherData.annualStats.avgWindSpeed}
                     predominantDirection={weatherData.annualStats.predominantWindDirection}
+                    hourlyWindData={weatherData.hourlyData.map(point => ({
+                      windSpeed: point.windSpeed,
+                      windDirection: point.windDirection,
+                      hour: point.hour,
+                      day: point.day,
+                      month: point.month
+                    }))}
                   />
                 </div>
               )}

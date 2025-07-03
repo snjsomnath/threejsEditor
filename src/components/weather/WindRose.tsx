@@ -14,6 +14,9 @@ interface WindRoseProps {
   avgWindSpeed: number;
   predominantDirection: number;
   hourlyWindData?: HourlyWindData[];
+  // ✅ FIXED: Now receiving actual EPW hourly data for true seasonal wind roses
+  // Seasonal wind roses are calculated directly from the raw EPW data points
+  // No more artificial scaling or approximations!
 }
 
 // Helper function to format percentages
@@ -164,18 +167,20 @@ export const WindRose: React.FC<WindRoseProps> = ({
 
   // Create seasonal wind roses data
   const seasonalWindRoses = useMemo(() => {
+    // Now we always have access to the actual EPW hourly data!
+    // No more artificial scaling - we calculate true seasonal wind roses from real data
+    
     if (!hourlyWindData || hourlyWindData.length === 0) {
-      // Return simplified seasonal data based on main wind rose
+      // Fallback: if somehow no data is provided, return empty patterns
       return seasons.map(season => ({
         season,
         directions,
-        frequencies: frequencies.map(dirFreqs => 
-          dirFreqs.map(freq => freq * (0.8 + 0.4 * Math.random())) // Add some variation
-        )
+        frequencies: directions.map(() => Array(7).fill(0))
       }));
     }
-    
-    return seasons.map((season, seasonIndex) => {
+
+    // Calculate true seasonal wind roses from actual EPW data
+    const allSeasonalData = seasons.map((season, seasonIndex) => {
       const monthsInSeason = seasonalMonths[seasonIndex];
       const seasonalData = hourlyWindData.filter(point => 
         monthsInSeason.includes(point.month - 1)
@@ -206,7 +211,18 @@ export const WindRose: React.FC<WindRoseProps> = ({
         frequencies: normalizedFrequencies
       };
     });
+    
+    return allSeasonalData;
   }, [hourlyWindData, seasons, seasonalMonths, directions, frequencies]);
+
+  // Calculate global maximum frequency across all seasons for consistent scaling
+  const globalMaxFrequency = useMemo(() => {
+    const maxFreq = Math.max(...seasonalWindRoses.map(seasonData => 
+      Math.max(...seasonData.frequencies.flat())
+    ));
+    // Ensure we have a reasonable maximum to prevent overflow
+    return Math.max(maxFreq, 1);
+  }, [seasonalWindRoses]);
 
   return (
     <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-6 border border-gray-600/30 shadow-xl">
@@ -280,63 +296,75 @@ export const WindRose: React.FC<WindRoseProps> = ({
 
       {/* Conditional Content Based on View Mode */}
       {viewMode === 'windRose' ? (
-        // Seasonal Wind Rose Grid - 2x2 layout for bigger charts
+        // Seasonal Wind Rose Grid - 4 in a row for cleaner layout
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-4 gap-4">
             {seasonalWindRoses.map((seasonData, seasonIndex) => (
-              <div key={seasonData.season} className="bg-gray-900/50 rounded-lg border border-gray-600/30 p-6">
-                <h4 className="text-xl font-semibold text-white mb-4 text-center">
+              <div key={seasonData.season} className="bg-gray-900/50 rounded-lg border border-gray-600/30 p-4">
+                <h4 className={`text-lg font-semibold mb-3 text-center ${
+                  seasonIndex === 0 ? 'text-blue-300' :
+                  seasonIndex === 1 ? 'text-green-300' :
+                  seasonIndex === 2 ? 'text-yellow-300' :
+                  'text-orange-300'
+                }`}>
                   {seasonData.season}
                 </h4>
                 <div className="relative w-full">
-                  <div className="aspect-square bg-gray-900/60 rounded-lg border border-gray-600/40 p-6">
-                    <svg viewBox="0 0 320 320" className="w-full h-full">
-                      {/* Background circles */}
-                      <g className="stroke-gray-500 fill-none stroke-width-1 opacity-60">
-                        <circle cx="160" cy="160" r="30" strokeDasharray="3,3" />
-                        <circle cx="160" cy="160" r="60" strokeDasharray="4,3" />
-                        <circle cx="160" cy="160" r="90" strokeDasharray="5,3" />
-                        <circle cx="160" cy="160" r="120" strokeWidth="1.5" />
+                  <div className="aspect-square bg-gray-900/60 rounded-lg border border-gray-600/40 p-3">
+                    <svg viewBox="0 0 280 280" className="w-full h-full">
+                      {/* Background circles - simplified */}
+                      <g className="stroke-gray-500 fill-none stroke-width-1 opacity-50">
+                        <circle cx="140" cy="140" r="25" strokeDasharray="2,2" />
+                        <circle cx="140" cy="140" r="50" strokeDasharray="3,2" />
+                        <circle cx="140" cy="140" r="75" strokeDasharray="4,2" />
+                        <circle cx="140" cy="140" r="100" strokeWidth="1.5" />
                       </g>
                       
-                      {/* Scale labels */}
-                      <g className="fill-gray-300 text-sm font-medium">
-                        <text x="165" y="135" className="text-sm" textAnchor="start">25%</text>
-                        <text x="165" y="105" className="text-sm" textAnchor="start">50%</text>
-                        <text x="165" y="75" className="text-sm" textAnchor="start">75%</text>
-                        <text x="165" y="45" className="text-sm font-bold" textAnchor="start">100%</text>
+                      {/* Scale labels - simplified */}
+                      <g className="fill-gray-400 text-xs font-medium">
+                        <text x="145" y="120" className="text-xs" textAnchor="start">{(globalMaxFrequency * 0.25).toFixed(1)}%</text>
+                        <text x="145" y="95" className="text-xs" textAnchor="start">{(globalMaxFrequency * 0.5).toFixed(1)}%</text>
+                        <text x="145" y="70" className="text-xs" textAnchor="start">{(globalMaxFrequency * 0.75).toFixed(1)}%</text>
+                        <text x="145" y="45" className="text-xs font-bold" textAnchor="start">{globalMaxFrequency.toFixed(1)}%</text>
                       </g>
                       
                       {/* Wind frequency sectors */}
                       {seasonData.directions.map((direction, dirIndex) => {
                         const angle = (dirIndex * 22.5 - 90) * (Math.PI / 180);
                         let cumulativeLength = 0;
-                        const maxSeasonalFreq = Math.max(...seasonData.frequencies.flat());
+                        // Use global maximum frequency for consistent scaling across all seasons
+                        const maxFreqForScaling = globalMaxFrequency;
+                        const maxRadiusAvailable = 75; // Maximum radius available for wind data
                         
                         return (
                           <g key={direction}>
                             {seasonData.frequencies[dirIndex].map((freq, speedIndex) => {
                               if (freq === 0) return null;
                               
-                              const normalizedFreq = maxSeasonalFreq > 0 ? (freq / maxSeasonalFreq) * 90 : 0;
-                              const startRadius = cumulativeLength + 25;
-                              const endRadius = startRadius + normalizedFreq;
+                              // Calculate normalized frequency with proper bounds
+                              const normalizedFreq = Math.min((freq / maxFreqForScaling) * maxRadiusAvailable, maxRadiusAvailable);
+                              const startRadius = cumulativeLength + 20;
                               
-                              const sectorWidth = 18 * (Math.PI / 180);
+                              // Ensure we don't exceed the outer circle (radius 100)
+                              const availableRadius = Math.max(0, 100 - startRadius);
+                              const endRadius = startRadius + Math.min(normalizedFreq, availableRadius);
+                              
+                              const sectorWidth = 20 * (Math.PI / 180);
                               const startAngle = angle - sectorWidth / 2;
                               const endAngle = angle + sectorWidth / 2;
                               
-                              const x1Start = 160 + startRadius * Math.cos(startAngle);
-                              const y1Start = 160 + startRadius * Math.sin(startAngle);
-                              const x1End = 160 + endRadius * Math.cos(startAngle);
-                              const y1End = 160 + endRadius * Math.sin(startAngle);
+                              const x1Start = 140 + startRadius * Math.cos(startAngle);
+                              const y1Start = 140 + startRadius * Math.sin(startAngle);
+                              const x1End = 140 + endRadius * Math.cos(startAngle);
+                              const y1End = 140 + endRadius * Math.sin(startAngle);
                               
-                              const x2Start = 160 + startRadius * Math.cos(endAngle);
-                              const y2Start = 160 + startRadius * Math.sin(endAngle);
-                              const x2End = 160 + endRadius * Math.cos(endAngle);
-                              const y2End = 160 + endRadius * Math.sin(endAngle);
+                              const x2Start = 140 + startRadius * Math.cos(endAngle);
+                              const y2Start = 140 + startRadius * Math.sin(endAngle);
+                              const x2End = 140 + endRadius * Math.cos(endAngle);
+                              const y2End = 140 + endRadius * Math.sin(endAngle);
                               
-                              cumulativeLength += normalizedFreq;
+                              const actualLength = endRadius - startRadius;
+                              cumulativeLength += actualLength;
                               
                               const pathData = [
                                 `M ${x1Start} ${y1Start}`,
@@ -352,8 +380,8 @@ export const WindRose: React.FC<WindRoseProps> = ({
                                   key={`${dirIndex}-${speedIndex}`}
                                   d={pathData}
                                   fill={speedColors[speedIndex]}
-                                  stroke="rgba(255,255,255,0.3)"
-                                  strokeWidth="1"
+                                  stroke="rgba(255,255,255,0.2)"
+                                  strokeWidth="0.5"
                                   opacity="0.85"
                                   className="hover:opacity-100 transition-opacity duration-200"
                                 />
@@ -363,37 +391,33 @@ export const WindRose: React.FC<WindRoseProps> = ({
                         );
                       })}
 
-                      {/* Cardinal directions */}
+                      {/* Cardinal directions - simplified */}
                       {[
                         { dir: 'N', angle: 0 },
-                        { dir: 'NE', angle: 45 },
                         { dir: 'E', angle: 90 },
-                        { dir: 'SE', angle: 135 },
                         { dir: 'S', angle: 180 },
-                        { dir: 'SW', angle: 225 },
-                        { dir: 'W', angle: 270 },
-                        { dir: 'NW', angle: 315 }
+                        { dir: 'W', angle: 270 }
                       ].map(({ dir, angle }) => {
                         const radian = (angle - 90) * (Math.PI / 180);
-                        const x = 160 + 145 * Math.cos(radian);
-                        const y = 160 + 145 * Math.sin(radian);
+                        const x = 140 + 120 * Math.cos(radian);
+                        const y = 140 + 120 * Math.sin(radian);
                         
                         return (
                           <g key={dir}>
                             <circle
                               cx={x}
                               cy={y}
-                              r="14"
+                              r="10"
                               fill="rgba(75, 85, 99, 0.8)"
                               stroke="rgb(156, 163, 175)"
-                              strokeWidth="1.5"
+                              strokeWidth="1"
                             />
                             <text
                               x={x}
                               y={y}
                               textAnchor="middle"
                               dominantBaseline="central"
-                              className="text-base font-bold fill-white"
+                              className="text-xs font-bold fill-white"
                             >
                               {dir}
                             </text>
@@ -401,9 +425,9 @@ export const WindRose: React.FC<WindRoseProps> = ({
                         );
                       })}
 
-                      {/* Center */}
-                      <circle cx="160" cy="160" r="14" fill="rgba(75, 85, 99, 0.9)" stroke="rgb(156, 163, 175)" strokeWidth="1.5" />
-                      <text x="160" y="180" textAnchor="middle" className="fill-gray-300 text-sm font-medium">
+                      {/* Center - simplified */}
+                      <circle cx="140" cy="140" r="10" fill="rgba(75, 85, 99, 0.9)" stroke="rgb(156, 163, 175)" strokeWidth="1" />
+                      <text x="140" y="160" textAnchor="middle" className="fill-gray-400 text-xs font-medium">
                         Calm
                       </text>
                     </svg>
