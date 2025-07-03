@@ -411,6 +411,12 @@ export const WeatherAndLocationTab: React.FC = () => {
               <HumidityChart
                 monthlyHumidity={weatherData.monthlyAverages.humidity}
                 avgHumidity={weatherData.annualStats.avgHumidity}
+                hourlyData={weatherData.hourlyData?.map((point) => ({
+                  relativeHumidity: point.relativeHumidity,
+                  hour: point.hour,
+                  day: point.day,
+                  month: point.month
+                }))}
               />
 
               {/* Degree Days Chart - Full Width */}
