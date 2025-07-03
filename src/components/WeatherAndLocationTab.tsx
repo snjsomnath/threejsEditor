@@ -420,11 +420,15 @@ export const WeatherAndLocationTab: React.FC = () => {
               />
 
               {/* Degree Days Chart - Full Width */}
-              {weatherData.dailyAverages && comfortAnalysis && (
+              {weatherData.hourlyData && comfortAnalysis && (
                 <DegreeDaysChart
-                  dailyTemperatures={weatherData.dailyAverages.temperature}
+                  hourlyTemperatures={weatherData.hourlyData.map(point => ({
+                    temperature: point.dryBulbTemperature,
+                    month: point.month,
+                    day: point.day,
+                    hour: point.hour
+                  }))}
                   comfortTemp={comfortTemp}
-                  comfortBuffer={1}
                   heatingDegreeDays={comfortAnalysis.heatingDegreeDays}
                   coolingDegreeDays={comfortAnalysis.coolingDegreeDays}
                   onComfortTempChange={handleComfortTempChange}
