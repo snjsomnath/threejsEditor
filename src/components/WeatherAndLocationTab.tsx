@@ -283,49 +283,45 @@ export const WeatherAndLocationTab: React.FC = () => {
           })()}
 
           {/* Current Location & File Upload */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Current Selection */}
-            <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-6 border border-gray-600/30 shadow-xl">
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                <span className="text-2xl">📍</span>
-                Current Location
-              </h2>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-700/50 rounded-lg p-4">
-                    <div className="text-gray-400 text-sm mb-1">City</div>
-                    <div className="text-white font-semibold text-lg">{selectedLocation.city}</div>
+          <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-4 border border-gray-600/30 shadow-xl">
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* Current Selection */}
+              <div className="flex-1">
+                <h2 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                  <span className="text-xl">📍</span>
+                  Current Location
+                </h2>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <div className="text-gray-400 text-xs mb-1">City</div>
+                    <div className="text-white font-semibold">{selectedLocation.city}</div>
                   </div>
-                  <div className="bg-gray-700/50 rounded-lg p-4">
-                    <div className="text-gray-400 text-sm mb-1">Region</div>
-                    <div className="text-white font-semibold text-lg">{selectedLocation.region}</div>
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <div className="text-gray-400 text-xs mb-1">Region</div>
+                    <div className="text-white font-semibold">{selectedLocation.region}</div>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-700/50 rounded-lg p-4">
-                    <div className="text-gray-400 text-sm mb-1">Coordinates</div>
-                    <div className="text-cyan-400 font-mono">
-                      {selectedLocation.latitude.toFixed(4)}°N, {Math.abs(selectedLocation.longitude).toFixed(4)}°E
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <div className="text-gray-400 text-xs mb-1">Coordinates</div>
+                    <div className="text-cyan-400 font-mono text-sm">
+                      {selectedLocation.latitude.toFixed(2)}°N, {Math.abs(selectedLocation.longitude).toFixed(2)}°E
                     </div>
                   </div>
-                  <div className="bg-gray-700/50 rounded-lg p-4">
-                    <div className="text-gray-400 text-sm mb-1">Data Source</div>
-                    <div className="text-green-400 font-mono text-sm">
-                      Climate.OneBuilding.org
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <div className="text-gray-400 text-xs mb-1">Data Source</div>
+                    <div className="text-green-400 font-mono text-xs">
+                      Climate.OneBuilding
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* File Upload */}
-            <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-6 border border-gray-600/30 shadow-xl">
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-                <span className="text-2xl">📂</span>
-                Custom EPW File
-              </h2>
-              <div className="space-y-4">
-                <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-blue-500 transition-colors duration-200">
+              {/* File Upload */}
+              <div className="flex-1">
+                <h2 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                  <span className="text-xl">📂</span>
+                  Custom EPW File
+                </h2>
+                <div className="border-2 border-dashed border-gray-600 rounded-lg p-4 text-center hover:border-blue-500 transition-colors duration-200">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -334,20 +330,18 @@ export const WeatherAndLocationTab: React.FC = () => {
                     disabled={isLoading}
                     className="hidden"
                   />
-                  <div className="text-4xl mb-3">☁️</div>
+                  <div className="text-2xl mb-2">☁️</div>
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isLoading}
-                    className={`px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 
+                    className={`px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 
                              text-white rounded-lg transition-all duration-200 font-medium shadow-lg
-                             transform hover:scale-105 ${
-                               isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                             }`}
+                             ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     Upload EPW File
                   </button>
-                  <p className="text-gray-400 text-sm mt-3">
-                    Select a custom .epw weather file for analysis
+                  <p className="text-gray-400 text-xs mt-2">
+                    Select a custom .epw weather file
                   </p>
                 </div>
               </div>
@@ -355,42 +349,41 @@ export const WeatherAndLocationTab: React.FC = () => {
           </div>
 
           {/* Swedish Cities Grid */}
-          <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-6 border border-gray-600/30 shadow-xl">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-              <span className="text-2xl">🇸🇪</span>
+          <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-4 border border-gray-600/30 shadow-xl">
+            <h2 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+              <span className="text-xl">🇸🇪</span>
               Swedish Cities
             </h2>
             
             {/* CORS Notice */}
-            <div className="bg-green-900/30 border border-green-600/30 rounded-lg p-4 mb-4">
-              <div className="flex items-start gap-3">
-                <span className="text-green-400 text-lg">✅</span>
+            <div className="bg-green-900/30 border border-green-600/30 rounded-lg p-3 mb-3">
+              <div className="flex items-start gap-2">
+                <span className="text-green-400">✅</span>
                 <div>
-                  <h4 className="text-green-200 font-semibold mb-1">Proxy Configuration Active</h4>
-                  <p className="text-green-100 text-sm">
-                    Development server is configured with CORS proxy. City data should load automatically. 
-                    If issues persist, use the "Upload EPW File" feature as an alternative.
+                  <h4 className="text-green-200 font-medium text-sm mb-1">Proxy Configuration Active</h4>
+                  <p className="text-green-100 text-xs">
+                    Development server is configured with CORS proxy. City data should load automatically.
                   </p>
                 </div>
               </div>
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-80 overflow-y-auto pr-2">
+            <div className="grid grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2">
               {swedishCities.map((city) => (
                 <button
                   key={`${city.city}-${city.region}`}
                   onClick={() => handleLocationSelect(city)}
                   disabled={isLoading}
-                  className={`p-4 rounded-lg text-left transition-all duration-200 border transform hover:scale-105 ${
+                  className={`p-2 rounded-lg text-left transition-all duration-200 border ${
                     selectedLocation.city === city.city && selectedLocation.region === city.region
                       ? 'bg-gradient-to-br from-blue-600/30 to-cyan-600/30 border-blue-500/60 text-blue-300 shadow-lg shadow-blue-500/20'
                       : 'bg-gray-700/40 border-gray-600/40 text-gray-300 hover:bg-gray-600/40 hover:border-gray-500/60'
                   } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
-                  <div className="font-semibold text-lg mb-1">{city.city}</div>
-                  <div className="text-sm opacity-75 mb-2">{city.region}</div>
+                  <div className="font-medium text-sm mb-1">{city.city}</div>
+                  <div className="text-xs opacity-75 mb-1">{city.region}</div>
                   <div className="text-xs font-mono opacity-60">
-                    {city.latitude.toFixed(2)}°N, {Math.abs(city.longitude).toFixed(2)}°E
+                    {city.latitude.toFixed(1)}°N
                   </div>
                 </button>
               ))}
