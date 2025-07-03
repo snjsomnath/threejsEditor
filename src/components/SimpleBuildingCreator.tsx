@@ -108,6 +108,9 @@ export const SimpleBuildingCreator: React.FC = () => {
   useClickHandler(
     containerRef,
     (event, container) => {
+      // Only handle clicks when model tab is active
+      if (activeTab !== 'model') return;
+      
       if (!hasInteracted) setHasInteracted(true);
       
       if (drawingState.isDrawing) {
@@ -129,11 +132,17 @@ export const SimpleBuildingCreator: React.FC = () => {
     }, 
     () => finishBuilding(), 
     (event, container) => {
+      // Only handle mouse move when model tab is active
+      if (activeTab !== 'model') return;
+      
       if (drawingState.isDrawing) {
         updatePreview(event, container);
       }
     },
     (event, container) => {
+      // Only handle hover when model tab is active
+      if (activeTab !== 'model') return;
+      
       if (!drawingState.isDrawing && isInitialized && camera && scene) {
         handleBuildingInteraction(event, container);
       }
@@ -396,24 +405,40 @@ export const SimpleBuildingCreator: React.FC = () => {
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onDrawBuilding: () => {
+      if (activeTab !== 'model') return;
       if (!hasInteracted) setHasInteracted(true);
       selectBuilding(null);
       startDrawing();
     },
     onToggleGrid: () => {
+      if (activeTab !== 'model') return;
       setShowGrid(!showGrid);
       toggleGrid();
     },
-    onToggleSnap: () => setSnapToGrid(!snapToGrid),
-    onToggleFPS: toggleFPSCounter,
-    onShowConfig: () => setShowBuildingConfig(!showBuildingConfig),
-    onExport: exportBuildings,
+    onToggleSnap: () => {
+      if (activeTab !== 'model') return;
+      setSnapToGrid(!snapToGrid);
+    },
+    onToggleFPS: () => {
+      if (activeTab !== 'model') return;
+      toggleFPSCounter();
+    },
+    onShowConfig: () => {
+      if (activeTab !== 'model') return;
+      setShowBuildingConfig(!showBuildingConfig);
+    },
+    onExport: () => {
+      if (activeTab !== 'model') return;
+      exportBuildings();
+    },
     onClearAll: () => {
+      if (activeTab !== 'model') return;
       clearAllBuildings();
       if (clearAllDrawingElements) clearAllDrawingElements();
       selectBuilding(null);
     },
     onEscape: () => {
+      if (activeTab !== 'model') return;
       if (drawingState.isDrawing) {
         stopDrawing();
       } else if (selectedBuilding) {
@@ -422,11 +447,23 @@ export const SimpleBuildingCreator: React.FC = () => {
         setShowBuildingConfig(false);
       }
     },
-    onUndoLastPoint: undoLastPoint,
-    onSaveConfiguration: handleSaveConfiguration,
-    onImportConfiguration: handleImportConfiguration,
-    onToggleSunController: () => setShowSunController(!showSunController),
-    onToggleTheme: handleToggleTheme,
+    onUndoLastPoint: () => {
+      if (activeTab !== 'model') return;
+      undoLastPoint();
+    },
+    onSaveConfiguration: () => {
+      if (activeTab !== 'model') return;
+      handleSaveConfiguration();
+    },
+    onImportConfiguration: () => {
+      if (activeTab !== 'model') return;
+      handleImportConfiguration();
+    },
+    onToggleSunController: () => {
+      if (activeTab !== 'model') return;
+      setShowSunController(!showSunController);
+    },
+    onToggleTheme: handleToggleTheme, // Theme toggle should work on both tabs
     isDrawing: drawingState.isDrawing,
     isInitialized
   });
@@ -509,6 +546,19 @@ export const SimpleBuildingCreator: React.FC = () => {
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId as 'weather' | 'model');
+    
+    // When switching to model tab, ensure the Three.js canvas is properly sized and visible
+    if (tabId === 'model' && containerRef.current) {
+      // Force a resize event to ensure the renderer matches the container size
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+        // Also ensure the canvas is properly visible
+        const canvas = containerRef.current?.querySelector('canvas');
+        if (canvas) {
+          canvas.style.display = 'block';
+        }
+      }, 100);
+    }
   };
 
   return (
@@ -522,14 +572,22 @@ export const SimpleBuildingCreator: React.FC = () => {
       />
       
       <TabContent className="flex-1 relative">
+        {/* Three.js Container - Always mounted but conditionally visible */}
+        <div 
+          ref={containerRef} 
+          className={`w-full h-full ${activeTab === 'model' ? 'block' : 'hidden'}`}
+        />
+        
+        {/* Weather Tab Content */}
         {activeTab === 'weather' && (
-          <WeatherAndLocationTab />
+          <div className="absolute inset-0 z-10">
+            <WeatherAndLocationTab />
+          </div>
         )}
         
+        {/* Model Tab UI Elements - Only shown when model tab is active */}
         {activeTab === 'model' && (
           <>
-            <div ref={containerRef} className="w-full h-full" />
-            
             {/* Left Toolbar */}
             <LeftToolbar
               isDrawing={drawingState.isDrawing}
