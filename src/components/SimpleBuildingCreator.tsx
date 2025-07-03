@@ -118,13 +118,9 @@ export const SimpleBuildingCreator: React.FC = () => {
       } else if (isInitialized && camera && scene) {
         const result = handleBuildingInteraction(event, container);
         
-        if (result?.type === 'footprint' && result.building && !result.building.mesh.userData.isPreview) {
-          setBuildingConfig({
-            floors: result.building.floors,
-            floorHeight: result.building.floorHeight,
-            color: result.building.color || getThemeColorAsHex('--color-building-default', 0x63666f1)
-          });
-          setShowBuildingConfig(true);
+        if (result?.building && !result.building.mesh.userData.isPreview) {
+          // Select the building to show the comprehensive BuildingEditPanel
+          selectBuilding(result.building);
         } else if (!result) {
           selectBuilding(null);
         }
@@ -618,7 +614,6 @@ export const SimpleBuildingCreator: React.FC = () => {
         tabs={tabs} 
         activeTab={activeTab} 
         onTabChange={handleTabChange}
-        className="flex-shrink-0 z-30"
       />
       
       <TabContent className="flex-1 relative">
@@ -635,7 +630,7 @@ export const SimpleBuildingCreator: React.FC = () => {
         
         {/* Weather Tab Content */}
         {activeTab === 'weather' && (
-          <div className="absolute inset-0 z-10">
+          <div className="absolute inset-0 z-10 pt-16">
             <WeatherAndLocationTab />
           </div>
         )}

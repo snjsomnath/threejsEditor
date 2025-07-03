@@ -406,7 +406,7 @@ export const WeatherAndLocationTab: React.FC = () => {
   }, []);
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-gray-900 to-gray-800 relative">
+    <div className="min-h-full flex flex-col bg-gradient-to-br from-gray-900 to-gray-800 relative">
       {/* Tour Welcome Dialog */}
       {!tourStarted && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
@@ -628,8 +628,8 @@ export const WeatherAndLocationTab: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-6 space-y-8 max-w-7xl mx-auto">
+        <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-900 to-gray-800">
+          <div className="p-6 space-y-8 max-w-7xl mx-auto min-h-full">
             {/* Loading State */}
             {isLoading && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
