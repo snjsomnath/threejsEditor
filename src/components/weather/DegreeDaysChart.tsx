@@ -195,24 +195,24 @@ export const DegreeDaysChart: React.FC<DegreeDaysChartProps> = ({
       </div>
 
       {/* Enhanced Summary Statistics */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="text-center p-4 bg-gradient-to-br from-red-900/50 to-red-800/30 rounded-lg border border-red-700/50 hover:from-red-900/60 hover:to-red-800/40 transition-all duration-200">
-          <div className="text-red-400 font-bold text-2xl">
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="text-center p-3 bg-gradient-to-br from-red-900/50 to-red-800/30 rounded-lg border border-red-700/50 hover:from-red-900/60 hover:to-red-800/40 transition-all duration-200">
+          <div className="text-red-400 font-bold text-lg">
             {showDegreeHours ? totalHeatingDegreeHours.toFixed(0) : totalHeatingHours}
           </div>
-          <div className="text-red-300 text-sm font-medium">
+          <div className="text-red-300 text-xs font-medium">
             {showDegreeHours ? 'Heating Degree Hours' : 'Heating Hours'}
           </div>
         </div>
-        <div className="text-center p-4 bg-gradient-to-br from-green-900/50 to-green-800/30 rounded-lg border border-green-700/50 hover:from-green-900/60 hover:to-green-800/40 transition-all duration-200">
-          <div className="text-green-400 font-bold text-2xl">{comfortTemp}°C</div>
-          <div className="text-green-300 text-sm font-medium">Comfort Temperature</div>
+        <div className="text-center p-3 bg-gradient-to-br from-green-900/50 to-green-800/30 rounded-lg border border-green-700/50 hover:from-green-900/60 hover:to-green-800/40 transition-all duration-200">
+          <div className="text-green-400 font-bold text-lg">{comfortTemp}°C</div>
+          <div className="text-green-300 text-xs font-medium">Comfort Temperature</div>
         </div>
-        <div className="text-center p-4 bg-gradient-to-br from-blue-900/50 to-blue-800/30 rounded-lg border border-blue-700/50 hover:from-blue-900/60 hover:to-blue-800/40 transition-all duration-200">
-          <div className="text-blue-400 font-bold text-2xl">
+        <div className="text-center p-3 bg-gradient-to-br from-blue-900/50 to-blue-800/30 rounded-lg border border-blue-700/50 hover:from-blue-900/60 hover:to-blue-800/40 transition-all duration-200">
+          <div className="text-blue-400 font-bold text-lg">
             {showDegreeHours ? totalCoolingDegreeHours.toFixed(0) : totalCoolingHours}
           </div>
-          <div className="text-blue-300 text-sm font-medium">
+          <div className="text-blue-300 text-xs font-medium">
             {showDegreeHours ? 'Cooling Degree Hours' : 'Cooling Hours'}
           </div>
         </div>
