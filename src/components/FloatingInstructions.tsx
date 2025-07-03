@@ -15,7 +15,7 @@ export const FloatingInstructions: React.FC<FloatingInstructionsProps> = ({
 }) => {
   if (mode === 'drawing') {
     return (
-      <div className="fixed top-6 right-6 bg-blue-900/90 backdrop-blur-sm rounded-xl p-4 shadow-2xl border border-blue-700/50 max-w-xs">
+      <div className="fixed top-24 right-6 bg-blue-900/90 backdrop-blur-sm rounded-xl p-4 shadow-2xl border border-blue-700/50 max-w-xs">
         <div className="text-blue-100">
           <h3 className="font-bold mb-3 text-blue-200 text-sm">Drawing Mode</h3>
           <div className="text-xs space-y-2">
@@ -58,7 +58,7 @@ export const FloatingInstructions: React.FC<FloatingInstructionsProps> = ({
 
   if (mode === 'selection' && buildingCount > 0) {
     return (
-      <div className="fixed top-6 right-6 bg-cyan-900/90 backdrop-blur-sm rounded-xl p-4 shadow-2xl border border-cyan-700/50 max-w-xs">
+      <div className="fixed top-24 right-6 bg-cyan-900/90 backdrop-blur-sm rounded-xl p-4 shadow-2xl border border-cyan-700/50 max-w-xs">
         <div className="text-cyan-100">
           <h3 className="font-bold mb-2 text-cyan-200 text-sm">Selection Mode</h3>
           <div className="text-xs space-y-1">
