@@ -42,7 +42,7 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
     floors: 3,
     floorHeight: 3.5,
-    color: getThemeColorAsHex('--color-building-default', 0x6366f1)
+    color: getThemeColorAsHex('--color-building-default', 0x63666f1)
   });
   const [currentCameraType, setCurrentCameraType] = useState<CameraType>('perspective');
   // Initialize Three.js scene
@@ -122,7 +122,7 @@ export const SimpleBuildingCreator: React.FC = () => {
           setBuildingConfig({
             floors: result.building.floors,
             floorHeight: result.building.floorHeight,
-            color: result.building.color || getThemeColorAsHex('--color-building-default', 0x6366f1)
+            color: result.building.color || getThemeColorAsHex('--color-building-default', 0x63666f1)
           });
           setShowBuildingConfig(true);
         } else if (!result) {
@@ -231,7 +231,7 @@ export const SimpleBuildingCreator: React.FC = () => {
           const buildingConfig: BuildingConfig = {
             floors: buildingData.floors || 3,
             floorHeight: buildingData.floorHeight || 3.5,
-            color: buildingData.color || getThemeColorAsHex('--color-building-default', 0x6366f1),
+            color: buildingData.color || getThemeColorAsHex('--color-building-default', 0x63666f1),
             name: buildingData.name || `Imported Building ${index + 1}`,
             description: buildingData.description || '',
             window_to_wall_ratio: buildingData.window_to_wall_ratio || 0.3,
@@ -297,7 +297,7 @@ export const SimpleBuildingCreator: React.FC = () => {
           const buildingConfig: BuildingConfig = {
             floors: buildingData.floors,
             floorHeight: buildingData.floorHeight,
-            color: buildingData.color || getThemeColorAsHex('--color-building-default', 0x6366f1),
+            color: buildingData.color || getThemeColorAsHex('--color-building-default', 0x63666f1),
             name: buildingData.name,
             description: buildingData.description,
             window_to_wall_ratio: buildingData.window_to_wall_ratio,
@@ -468,6 +468,17 @@ export const SimpleBuildingCreator: React.FC = () => {
     isInitialized
   });
 
+  // Add debugging for building state changes
+  React.useEffect(() => {
+    console.log('Buildings state changed:', {
+      count: buildings.length,
+      activeTab,
+      isInitialized,
+      hasInitializedWithSample,
+      buildingIds: buildings.map(b => ({ id: b.id, name: b.name }))
+    });
+  }, [buildings, activeTab, isInitialized, hasInitializedWithSample]);
+
   // Add debugging for drawing state changes
   React.useEffect(() => {
     console.log('Drawing state changed:', {
@@ -528,6 +539,16 @@ export const SimpleBuildingCreator: React.FC = () => {
       }
     }
   }, [isInitialized, scene, buildings.length, windowService, addBuilding, hasInitializedWithSample]);
+
+  // Safeguard: Re-ensure sample building exists when switching to model tab
+  useEffect(() => {
+    if (activeTab === 'model' && isInitialized && scene && buildings.length === 0 && hasInitializedWithSample) {
+      console.log('🔄 Sample building missing when switching to model tab, recreating...');
+      
+      // Reset the initialization flag to allow recreation
+      setHasInitializedWithSample(false);
+    }
+  }, [activeTab, isInitialized, scene, buildings.length, hasInitializedWithSample]);
 // End of sample building initialization
 
   // Define tabs
@@ -557,6 +578,25 @@ export const SimpleBuildingCreator: React.FC = () => {
         if (canvas) {
           canvas.style.display = 'block';
         }
+        
+        // Debug: Check if buildings are still in the scene
+        if (scene && buildings.length > 0) {
+          console.log('Tab switch to model - Buildings status:', {
+            buildingsCount: buildings.length,
+            sceneChildren: scene.children.length,
+            buildingIds: buildings.map(b => b.id)
+          });
+          
+          // Ensure buildings are still visible in the scene
+          buildings.forEach(building => {
+            if (building.mesh.parent !== scene) {
+              console.warn('Building mesh not in scene, re-adding:', building.id);
+              scene.add(building.mesh);
+              if (building.footprintOutline) scene.add(building.footprintOutline);
+              if (building.floorLines) scene.add(building.floorLines);
+            }
+          });
+        }
       }, 100);
     }
   };
@@ -575,7 +615,12 @@ export const SimpleBuildingCreator: React.FC = () => {
         {/* Three.js Container - Always mounted but conditionally visible */}
         <div 
           ref={containerRef} 
-          className={`w-full h-full ${activeTab === 'model' ? 'block' : 'hidden'}`}
+          className={`w-full h-full ${activeTab === 'model' ? 'visible' : 'invisible'}`}
+          style={{
+            position: activeTab === 'model' ? 'relative' : 'absolute',
+            zIndex: activeTab === 'model' ? 1 : -1,
+            pointerEvents: activeTab === 'model' ? 'auto' : 'none'
+          }}
         />
         
         {/* Weather Tab Content */}
@@ -618,12 +663,14 @@ export const SimpleBuildingCreator: React.FC = () => {
             />
 
             {/* Floating Instructions */}
-            <FloatingInstructions
-              mode={getInstructionMode()}
-              drawingPoints={drawingState.points.length}
-              buildingCount={buildings.length}
-              onDismissWelcome={() => setHasInteracted(true)}
-            />
+            <div className="absolute inset-0 pointer-events-none z-20">
+              <FloatingInstructions
+                mode={getInstructionMode()}
+                drawingPoints={drawingState.points.length}
+                buildingCount={buildings.length}
+                onDismissWelcome={() => setHasInteracted(true)}
+              />
+            </div>
 
             {/* Building Tooltip */}
             {buildingTooltip && (
