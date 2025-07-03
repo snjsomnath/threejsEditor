@@ -28,6 +28,7 @@ export const DegreeDaysChart: React.FC<DegreeDaysChartProps> = ({
   const [expandedMonth, setExpandedMonth] = useState<number | null>(null);
   const [showInsights, setShowInsights] = useState(false);
   const [tooltipVisible, setTooltipVisible] = useState(false);
+  const [monthlyHoursCollapsed, setMonthlyHoursCollapsed] = useState(true);
 
   const handleTempChange = (value: string) => {
     setInputTemp(value);
@@ -334,22 +335,36 @@ export const DegreeDaysChart: React.FC<DegreeDaysChartProps> = ({
 
       {/* Monthly Breakdown */}
       <div className="space-y-4">
-        <div className="text-sm font-medium text-gray-200 mb-3 flex items-center gap-2">
-          <span className="text-lg">📅</span>
-          {showDegreeHours ? 'Monthly Degree Hours' : 'Monthly Hours'}
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm font-medium text-gray-200 flex items-center gap-2">
+            <span className="text-lg">📅</span>
+            {showDegreeHours ? 'Monthly Degree Hours' : 'Monthly Hours'}
+          </div>
+          <button
+            onClick={() => setMonthlyHoursCollapsed(!monthlyHoursCollapsed)}
+            className="flex items-center gap-2 px-3 py-1 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg transition-colors duration-200 text-sm font-medium text-gray-300"
+          >
+            <span>{monthlyHoursCollapsed ? 'Show' : 'Hide'} Details</span>
+            <span className={`transform transition-transform duration-200 ${monthlyHoursCollapsed ? 'rotate-180' : ''}`}>
+              ▼
+            </span>
+          </button>
         </div>
-        <div className="grid grid-cols-4 gap-3">
-          {monthlyHours.map((monthly, index) => {
-            const heatingValue = showDegreeHours ? monthly.heatingDegreeHours : monthly.heatingHours;
-            const coolingValue = showDegreeHours ? monthly.coolingDegreeHours : monthly.coolingHours;
-            const maxMonthlyValue = Math.max(
-              ...monthlyHours.map(m => Math.max(
-                showDegreeHours ? m.heatingDegreeHours : m.heatingHours,
-                showDegreeHours ? m.coolingDegreeHours : m.coolingHours
-              ))
-            );
-            const heatingWidth = (heatingValue / maxMonthlyValue) * 100;
-            const coolingWidth = (coolingValue / maxMonthlyValue) * 100;
+        
+        {!monthlyHoursCollapsed && (
+          <>
+            <div className="grid grid-cols-4 gap-3">
+              {monthlyHours.map((monthly, index) => {
+                const heatingValue = showDegreeHours ? monthly.heatingDegreeHours : monthly.heatingHours;
+                const coolingValue = showDegreeHours ? monthly.coolingDegreeHours : monthly.coolingHours;
+                const maxMonthlyValue = Math.max(
+                  ...monthlyHours.map(m => Math.max(
+                    showDegreeHours ? m.heatingDegreeHours : m.heatingHours,
+                    showDegreeHours ? m.coolingDegreeHours : m.coolingHours
+                  ))
+                );
+                const heatingWidth = (heatingValue / maxMonthlyValue) * 100;
+                const coolingWidth = (coolingValue / maxMonthlyValue) * 100;
             
             return (
               <div key={index} className="p-3 bg-gray-700/40 rounded-lg border border-gray-600/40">
@@ -426,6 +441,8 @@ export const DegreeDaysChart: React.FC<DegreeDaysChartProps> = ({
             <div>Current Mode: {showDegreeHours ? 'Degree Hours (energy intensity)' : 'Hour Counts (time duration)'}</div>
           </div>
         </div>
+          </>
+        )}
 
         {/* Pedagogical Information */}
         <div className="mt-4 bg-orange-900/20 border border-orange-700/30 rounded-lg p-4">
