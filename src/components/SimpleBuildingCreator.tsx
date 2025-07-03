@@ -16,6 +16,8 @@ import { MiniGraphWindow } from './MiniGraphWindow';
 import { DesignGraphDialog } from './DesignGraphDialog';
 import { SaveConfigurationDialog } from './dialogs/SaveConfigurationDialog';
 import { ImportConfigDialog } from './dialogs/ImportConfigDialog';
+import { Tabs, TabContent } from './ui/Tabs';
+import { WeatherAndLocationTab } from './WeatherAndLocationTab';
 import { BuildingConfig } from '../types/building';
 import type { CameraType, CameraView } from '../core/ThreeJSCore';
 import { getThemeColorAsHex } from '../utils/themeColors';
@@ -25,7 +27,9 @@ import { BuildingService } from '../services/BuildingService';
 import { designExplorationService } from '../services/DesignExplorationService';
 
 export const SimpleBuildingCreator: React.FC = () => {
-  const containerRef = useRef<HTMLDivElement>(null);  const [hasInteracted, setHasInteracted] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<'weather' | 'model'>('model');
+  const [hasInteracted, setHasInteracted] = useState(false);
   const [hasInitializedWithSample, setHasInitializedWithSample] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
@@ -488,10 +492,127 @@ export const SimpleBuildingCreator: React.FC = () => {
     }
   }, [isInitialized, scene, buildings.length, windowService, addBuilding, hasInitializedWithSample]);
 // End of sample building initialization
+
+  // Define tabs
+  const tabs = [
+    { 
+      id: 'weather', 
+      label: 'Weather & Location',
+      icon: '🌤️'
+    },
+    { 
+      id: 'model', 
+      label: 'Model',
+      icon: '🏗️'
+    }
+  ];
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId as 'weather' | 'model');
+  };
+
   return (
-    <div className="relative w-full h-screen bg-gray-950">
-      <div ref={containerRef} className="w-full h-full" />
+    <div className="relative w-full h-screen bg-gray-950 flex flex-col">
+      {/* Tab Navigation */}
+      <Tabs 
+        tabs={tabs} 
+        activeTab={activeTab} 
+        onTabChange={handleTabChange}
+        className="flex-shrink-0 z-30"
+      />
       
+      <TabContent className="flex-1 relative">
+        {activeTab === 'weather' && (
+          <WeatherAndLocationTab />
+        )}
+        
+        {activeTab === 'model' && (
+          <>
+            <div ref={containerRef} className="w-full h-full" />
+            
+            {/* Left Toolbar */}
+            <LeftToolbar
+              isDrawing={drawingState.isDrawing}
+              isInitialized={isInitialized}
+              hasBuildings={buildings.length > 0}
+              onStartDrawing={handleStartDrawing}
+              onShowConfig={() => setShowBuildingConfig(!showBuildingConfig)}
+              onExport={exportBuildings}
+              onClearAll={handleClearAll}
+              onSaveConfiguration={handleSaveConfiguration}
+              onImportConfiguration={handleImportConfiguration}
+              onToggleSunController={() => setShowSunController(!showSunController)}
+              onToggleTheme={handleToggleTheme}
+            />
+
+            {/* Bottom Toolbar */}
+            <BottomToolbar
+              showGrid={showGrid}
+              snapToGrid={snapToGrid}
+              showFPS={showFPS}
+              buildingStats={buildingStats}
+              currentCameraType={currentCameraType}
+              onToggleGrid={handleToggleGrid}
+              onToggleSnap={() => setSnapToGrid(!snapToGrid)}
+              onToggleFPS={toggleFPSCounter}
+              onSwitchCameraType={handleSwitchCameraType}
+              onSetCameraView={handleSetCameraView}
+            />
+
+            {/* Floating Instructions */}
+            <FloatingInstructions
+              mode={getInstructionMode()}
+              drawingPoints={drawingState.points.length}
+              buildingCount={buildings.length}
+              onDismissWelcome={() => setHasInteracted(true)}
+            />
+
+            {/* Building Tooltip */}
+            {buildingTooltip && (
+              <BuildingTooltip
+                building={buildingTooltip.building}
+                position={buildingTooltip.position}
+                onEdit={handleEditBuilding}
+                onDelete={deleteBuilding}
+                onClose={hideBuildingTooltip}
+              />
+            )}
+
+            {/* Building Configuration Panel */}
+            {showBuildingConfig && (
+              <BuildingConfigPanel
+                config={buildingConfig}
+                onConfigChange={setBuildingConfig}
+                onClose={() => setShowBuildingConfig(false)}
+              />
+            )}
+
+            {/* Sun Controller */}
+            <SunController
+              isOpen={showSunController}
+              onToggle={() => setShowSunController(!showSunController)}
+              onSunPositionChange={handleSunPositionChange}
+            />
+
+            {/* Building Edit Panel */}
+            {selectedBuilding && (
+              <BuildingEditPanel
+                building={selectedBuilding}
+                onClose={() => selectBuilding(null)}
+                onSave={handleSaveBuilding}
+                onPreview={handlePreviewBuilding}
+                enableBuildingFocus={enableBuildingFocus}
+                disableBuildingFocus={disableBuildingFocus}
+              />
+            )}
+
+            {/* Mini Graph Window */}
+            <MiniGraphWindow onOpenFullGraph={handleOpenDesignGraph} />
+          </>
+        )}
+      </TabContent>
+      
+      {/* Global Overlays and Dialogs */}
       {/* Loading Overlay */}
       {isInitializing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
@@ -520,82 +641,6 @@ export const SimpleBuildingCreator: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Left Toolbar */}
-      <LeftToolbar
-        isDrawing={drawingState.isDrawing}        isInitialized={isInitialized}
-        hasBuildings={buildings.length > 0}
-        onStartDrawing={handleStartDrawing}
-        onShowConfig={() => setShowBuildingConfig(!showBuildingConfig)}
-        onExport={exportBuildings}
-        onClearAll={handleClearAll}
-        onSaveConfiguration={handleSaveConfiguration}
-        onImportConfiguration={handleImportConfiguration}
-        onToggleSunController={() => setShowSunController(!showSunController)}
-        onToggleTheme={handleToggleTheme}
-      />
-
-      {/* Bottom Toolbar */}
-      <BottomToolbar
-        showGrid={showGrid}
-        snapToGrid={snapToGrid}
-        showFPS={showFPS}
-        buildingStats={buildingStats}
-        currentCameraType={currentCameraType}
-        onToggleGrid={handleToggleGrid}
-        onToggleSnap={() => setSnapToGrid(!snapToGrid)}
-        onToggleFPS={toggleFPSCounter}
-        onSwitchCameraType={handleSwitchCameraType}
-        onSetCameraView={handleSetCameraView}
-      />
-
-      {/* Floating Instructions */}
-      <FloatingInstructions
-        mode={getInstructionMode()}
-        drawingPoints={drawingState.points.length}
-        buildingCount={buildings.length}
-        onDismissWelcome={() => setHasInteracted(true)}
-      />
-
-      {/* Building Tooltip */}
-      {buildingTooltip && (
-        <BuildingTooltip
-          building={buildingTooltip.building}
-          position={buildingTooltip.position}
-          onEdit={handleEditBuilding}
-          onDelete={deleteBuilding}
-          onClose={hideBuildingTooltip}
-        />
-      )}      {/* Building Configuration Panel */}
-      {showBuildingConfig && (
-        <BuildingConfigPanel
-          config={buildingConfig}
-          onConfigChange={setBuildingConfig}
-          onClose={() => setShowBuildingConfig(false)}
-        />
-      )}
-
-      {/* Sun Controller */}
-      <SunController
-        isOpen={showSunController}
-        onToggle={() => setShowSunController(!showSunController)}
-        onSunPositionChange={handleSunPositionChange}
-      />
-
-      {/* Building Edit Panel */}
-      {selectedBuilding && (
-        <BuildingEditPanel
-          building={selectedBuilding}
-          onClose={() => selectBuilding(null)}
-          onSave={handleSaveBuilding}
-          onPreview={handlePreviewBuilding}
-          enableBuildingFocus={enableBuildingFocus}
-          disableBuildingFocus={disableBuildingFocus}
-        />
-      )}
-
-      {/* Mini Graph Window */}
-      <MiniGraphWindow onOpenFullGraph={handleOpenDesignGraph} />
 
       {/* Save Configuration Dialog */}
       <SaveConfigurationDialog
