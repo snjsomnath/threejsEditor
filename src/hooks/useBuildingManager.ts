@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
@@ -888,11 +888,17 @@ export const useBuildingManager = (
     return null;
   }, [scene, camera, hoveredBuilding, hoverBuilding, showBuildingTooltip, worldToScreen]);
 
-  const buildingStats: BuildingStats = {
-    count: buildings.length,
-    totalArea: buildings.reduce((sum, building) => sum + building.area, 0),
-    totalFloors: buildings.reduce((sum, building) => sum + building.floors, 0)
-  };
+  const buildingStats: BuildingStats = useMemo(() => {
+    const stats = {
+      count: buildings.length,
+      totalArea: buildings.reduce((sum, building) => sum + building.area, 0),
+      totalFloors: buildings.reduce((sum, building) => sum + building.floors, 0)
+    };
+    
+    logger.debug('Building stats recalculated', stats, 'BuildingManager');
+    return stats;
+  }, [buildings]);
+  
   // Helper function to get window configuration from building data
   const getWindowConfig = (building: BuildingData) => ({
     windowWidth: 1.2,

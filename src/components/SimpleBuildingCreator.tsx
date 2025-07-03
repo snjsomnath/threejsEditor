@@ -468,6 +468,16 @@ export const SimpleBuildingCreator: React.FC = () => {
     isInitialized
   });
 
+  // Add debugging for building stats changes
+  React.useEffect(() => {
+    console.log('Building stats updated:', {
+      count: buildingStats.count,
+      totalArea: buildingStats.totalArea,
+      totalFloors: buildingStats.totalFloors,
+      buildingIds: buildings.map(b => b.id)
+    });
+  }, [buildingStats, buildings]);
+
   // Add debugging for building state changes
   React.useEffect(() => {
     console.log('Buildings state changed:', {
