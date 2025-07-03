@@ -393,19 +393,25 @@ export const WeatherAndLocationTab: React.FC = () => {
           {/* Weather Data Visualizations */}
           {weatherData && (
             <div className="space-y-8">
-              {/* Top Row - Temperature and Humidity */}
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                <TemperatureChart
-                  monthlyTemperatures={weatherData.monthlyAverages.temperature}
-                  minTemp={weatherData.annualStats.minTemperature}
-                  maxTemp={weatherData.annualStats.maxTemperature}
-                  avgTemp={weatherData.annualStats.avgTemperature}
-                />
-                <HumidityChart
-                  monthlyHumidity={weatherData.monthlyAverages.humidity}
-                  avgHumidity={weatherData.annualStats.avgHumidity}
-                />
-              </div>
+              {/* Temperature Chart - Full Width */}
+              <TemperatureChart
+                monthlyTemperatures={weatherData.monthlyAverages.temperature}
+                minTemp={weatherData.annualStats.minTemperature}
+                maxTemp={weatherData.annualStats.maxTemperature}
+                avgTemp={weatherData.annualStats.avgTemperature}
+                hourlyData={weatherData.hourlyData?.map((point) => ({
+                  dryBulbTemp: point.dryBulbTemperature,
+                  hour: point.hour,
+                  day: point.day,
+                  month: point.month
+                }))}
+              />
+
+              {/* Humidity Chart */}
+              <HumidityChart
+                monthlyHumidity={weatherData.monthlyAverages.humidity}
+                avgHumidity={weatherData.annualStats.avgHumidity}
+              />
 
               {/* Degree Days Chart - Full Width */}
               {weatherData.dailyAverages && comfortAnalysis && (
